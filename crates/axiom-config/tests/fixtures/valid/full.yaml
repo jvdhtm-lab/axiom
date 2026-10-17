@@ -1,0 +1,32 @@
+version: 1
+
+providers:
+  claude:
+    adapter: anthropic_messages
+    base_url: "${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
+    api_key: "${ANTHROPIC_API_KEY}"
+    request_timeout_seconds: 90
+
+  local:
+    adapter: openai_compatible
+    base_url: "${AXIOM_LOCAL_BASE_URL:-http://localhost:11434/v1}"
+    api_key: "${AXIOM_LOCAL_API_KEY}"
+    api_key_optional: true
+    headers:
+      x-fixture: "${FIXTURE_HEADER:-none}"
+
+models:
+  reasoning:
+    provider: claude
+    model: "${CLAUDE_MODEL:-claude-model-id}"
+    capabilities: [chat, structured_output, tool_calling]
+  local_coding:
+    provider: local
+    model: "${LOCAL_MODEL:-qwen3-coder:30b}"
+    capabilities: [chat]
+
+runtime:
+  default_model: reasoning
+  max_parallel_agents: 4
+  max_retries: 2
+  request_timeout_seconds: 120

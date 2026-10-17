@@ -1,0 +1,55 @@
+# Axiom project configuration for the bundled examples.
+# Environment references use explicit ${...} expansion: ${NAME} is required,
+# ${NAME:-default} falls back when the variable is unset or empty. Secrets are
+# resolved at runtime and never written into compiled plans or logs.
+
+version: 1
+
+providers:
+  claude:
+    adapter: anthropic_messages
+    base_url: "${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
+    api_key: "${ANTHROPIC_API_KEY}"
+
+  deepseek:
+    adapter: openai_compatible
+    base_url: "${DEEPSEEK_BASE_URL:-https://api.deepseek.com}"
+    api_key: "${DEEPSEEK_API_KEY}"
+
+  kimi:
+    adapter: openai_compatible
+    base_url: "${KIMI_BASE_URL:-https://api.moonshot.ai/v1}"
+    api_key: "${KIMI_API_KEY}"
+
+  local:
+    adapter: openai_compatible
+    base_url: "${AXIOM_LOCAL_BASE_URL:-http://localhost:11434/v1}"
+    api_key: "${AXIOM_LOCAL_API_KEY}"
+    api_key_optional: true
+
+models:
+  reasoning:
+    provider: claude
+    model: "${CLAUDE_MODEL:-claude-model-id}"
+    capabilities: [chat, structured_output, tool_calling]
+
+  coding:
+    provider: deepseek
+    model: "${DEEPSEEK_MODEL:-deepseek-model-id}"
+    capabilities: [chat, tool_calling]
+
+  review:
+    provider: kimi
+    model: "${KIMI_MODEL:-kimi-model-id}"
+    capabilities: [chat]
+
+  local_coding:
+    provider: local
+    model: "${LOCAL_MODEL:-qwen3-coder:30b}"
+    capabilities: [chat]
+
+runtime:
+  default_model: reasoning
+  max_parallel_agents: 4
+  max_retries: 2
+  request_timeout_seconds: 120

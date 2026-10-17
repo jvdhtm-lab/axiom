@@ -1,0 +1,3 @@
+integration local_llm {
+  adapter: openai_compatible
+  base_url: env("AXIOM_LOCAL_BASE_URL")

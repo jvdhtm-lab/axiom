@@ -1,0 +1,11 @@
+[package]
+name = "axiom-syntax"
+description = "Axiom language front end: lexer, parser, AST, spans, diagnostics"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name = "axiom_syntax"
+path = "src/lib.rs"

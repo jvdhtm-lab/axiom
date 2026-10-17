@@ -1,0 +1,6 @@
+version: 1
+providers:
+  local:
+    adapter: openai_compatible
+    base_url: "${1BAD}"
+    api_key_optional: true

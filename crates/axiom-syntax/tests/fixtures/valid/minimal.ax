@@ -1,0 +1,3 @@
+agent Solo implements Agent<In, Out> {
+  purpose: "Just enough to be valid"
+}

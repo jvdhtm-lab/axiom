@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = ["crates/axiom-syntax", "crates/axiom-config", "crates/axiom-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+repository = "https://example.invalid/axiom"
+
+[workspace.dependencies]
+axiom-syntax = { path = "crates/axiom-syntax", version = "0.1.0" }
+axiom-config = { path = "crates/axiom-config", version = "0.1.0" }
+yaml_serde = "0.10.7"
+
+[profile.release]
+lto = "thin"

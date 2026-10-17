@@ -1,0 +1,6 @@
+version: 1
+providers:
+  claude:
+    adapter: anthropic_messages
+    base_url: "https://api.anthropic.com"
+    api_key: "${AXIOM_TEST_MISSING_KEY}"

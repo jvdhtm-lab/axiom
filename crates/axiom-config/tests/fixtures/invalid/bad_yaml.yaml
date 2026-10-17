@@ -1,0 +1,3 @@
+version: 1
+providers:
+  local: { adapter: openai_compatible

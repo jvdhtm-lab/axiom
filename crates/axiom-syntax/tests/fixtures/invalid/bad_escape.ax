@@ -1,0 +1,3 @@
+integration x {
+  base_url: env("a\qb")
+}

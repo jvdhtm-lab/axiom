@@ -1,0 +1,15 @@
+[package]
+name = "axiom-cli"
+description = "The `axiom` command-line interface"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "axiom"
+path = "src/main.rs"
+
+[dependencies]
+axiom-syntax = { workspace = true }
+axiom-config = { workspace = true }
