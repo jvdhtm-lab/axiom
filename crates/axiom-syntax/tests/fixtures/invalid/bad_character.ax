@@ -1,4 +1,3 @@
-agent A {
-  model: "x"
-}
-@
+module x;
+
+#

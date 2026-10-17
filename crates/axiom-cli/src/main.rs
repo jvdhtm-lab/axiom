@@ -101,7 +101,7 @@ fn run_check(arguments: &[String]) -> ExitCode {
         }
 
         if file_errors == 0 {
-            println!("ok: {display} ({} declaration(s))", result.file.decls.len());
+            println!("ok: {display} ({} item(s))", result.file.items.len());
         } else {
             failed = true;
         }

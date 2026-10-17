@@ -1,0 +1,32 @@
+// The same agent role bound to different model profiles. Change the profile in
+// configuration, not the agent definition in source.
+
+module profiles;
+
+import { FeatureSpec, ExecutionPlan } from "./hello_agent.ax";
+
+export enum Profile {
+  Local = "local_coding",
+  Hosted = "fast",
+  Reasoning = "reasoning",
+}
+
+export const localProfile: Profile = Profile.Local;
+
+export agent Architect implements Agent<FeatureSpec, ExecutionPlan> {
+  purpose: "Decompose requirements and design interfaces.";
+  model: "reasoning";
+  tools: [repository.read];
+  constraints {
+    must: ["keep interfaces stable"];
+    must_not: ["modify tests"];
+  }
+}
+
+export agent Reviewer implements Agent<ExecutionPlan, Review> {
+  purpose: "Assess artifacts against contracts.";
+  model: "reasoning";
+}
+
+export const localArchitect = Architect;
+export const hostedArchitect = Architect;

@@ -25,27 +25,25 @@ model changes. `Anthropic Messages` is an *adapter*; `claude_api` is an
 ## Status
 
 Axiom is re-baselined to the **Axiom 1.0** specification, but 1.0 is **not**
-implemented yet. The repository today is a working *pre-1.0* `.ax` front end plus
-a validated `axiom.yaml` (1.0 schema) loader. See
-[`docs/implementation-ledger.md`](docs/implementation-ledger.md) for the truthful
-phase-by-phase status; that file is the source of truth.
+implemented yet. The repository today is a `.ax` front end for the 1.0 surface
+grammar (no semantic analysis or execution) plus a validated `axiom.yaml` (1.0
+schema) loader. See [`docs/implementation-ledger.md`](docs/implementation-ledger.md)
+for the truthful phase-by-phase status; that file is the source of truth.
 
-| Phase | Scope | State |
+| # | Phase | State |
 | --- | --- | --- |
-| 0 | Reconnaissance, spec, grammar/EBNF, architecture, ADRs | partial |
-| 1 | Lexer, parser, AST, diagnostics (all 1.0 syntax) | partial — pre-1.0 grammar |
-| 2 | Modules, types, symbols, effects | not started |
-| 3 | Deterministic evaluator, typed IR, explain/plan | not started |
-| 4 | Configuration + model integration layer/adapter registry | partial — config only |
-| 5 | Tools, secure filesystem, workspaces, artifacts, commands | not started |
-| 6 | Agent runtime, teams, goals, contracts, invocation | not started |
-| 7 | Hybrid workflow engine | not started |
-| 8 | Durable state, recovery, observability | not started |
-| 9 | Standard library | not started |
-| 10 | CLI, formatter, linter, LSP | partial — `check`/`config check` |
-| 11 | Conformance, security, fuzzing, performance | not started |
-| 12 | Documentation, examples, packaging, compatibility | partial |
-| 13 | Release candidate / 1.0 sign-off | not started |
+| 0 | Design: spec, EBNF, semantics, ADRs, threat model, conformance matrix | partial |
+| 1 | Syntax: lexer, parser, AST, diagnostics with recovery | done |
+| 2 | Semantics: module graph, symbols, types, effects | not started |
+| 3 | Compiler and evaluator: typed IR, deterministic evaluator, explain/plan | not started |
+| 4 | Config and integrations: YAML schema, secrets, adapters/dialects | partial — config only |
+| 5 | Filesystem, tools, artifacts: secure FS, workspaces, patches, commands | not started |
+| 6 | Agent runtime: agents, teams, goals, contracts, typed output validation | not started |
+| 7 | Workflow engine and state: durable state, checkpoints, resume, traces | not started |
+| 8 | Stdlib and reference program | not started |
+| 9 | Tooling: CLI, formatter, linter, LSP | partial — `check`/`config check` |
+| 10 | Hardening and docs: conformance, security, fuzz, performance | not started |
+| 11 | Release sign-off | not started |
 
 See [`docs/development.md`](docs/development.md) for build/test commands and
 parity notes, [`docs/language-spec.md`](docs/language-spec.md) for the language,
@@ -59,7 +57,7 @@ crates/
   axiom-syntax/   lexer, parser, AST, spans, diagnostics  (no dependencies)
   axiom-config/   axiom.yaml loading, expansion, validation
   axiom-cli/      the `axiom` binary (check, config check, ...)
-examples/         .ax programs and axiom.yaml
+examples/         axiom.yaml and src/ (the agent.md §11 reference project)
 docs/             language spec, grammar, configuration, architecture, providers,
                   security, implementation ledger, ADRs
 ```
@@ -69,7 +67,7 @@ docs/             language spec, grammar, configuration, architecture, providers
 ```ts
 module architect;
 
-import { FeatureSpec, ExecutionPlan } from "spec/types";
+import { FeatureSpec, ExecutionPlan } from "./types.ax";
 
 export agent Architect implements Agent<FeatureSpec, ExecutionPlan> {
   purpose: "Decompose requirements and design interfaces.";
@@ -84,8 +82,8 @@ export agent Architect implements Agent<FeatureSpec, ExecutionPlan> {
 ```
 
 Endpoints, credentials, and concrete model ids live in `axiom.yaml`; `model:
-"reasoning"` names a model profile. The current parser implements only a
-pre-1.0 subset of this syntax (see the ledger).
+"reasoning"` names a model profile. This syntax parses today (`axiom check`);
+semantic analysis and execution are Phase 2+.
 
 ## Building
 
@@ -98,7 +96,7 @@ cargo check --workspace
 cargo test --workspace
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo run -p axiom-cli -- check examples/hello_agent.ax
+cargo run -p axiom-cli -- check examples/src/hello_agent.ax examples/src/filesystem_feature_workflow.ax
 cargo run -p axiom-cli -- config check examples/axiom.yaml
 ```
 

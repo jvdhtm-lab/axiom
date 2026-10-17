@@ -41,19 +41,19 @@ fn every_invalid_fixture_reports_an_error() {
 }
 
 #[test]
-fn missing_entry_value_is_reported() {
-    let source = "model x {\n  integration:\n}\n";
+fn missing_binding_value_is_reported() {
+    let source = "module x;\nconst n = ;\n";
     let result = parse(source);
     assert!(result.has_errors());
     assert!(result
         .diagnostics
         .iter()
-        .any(|d| d.message.contains("expected a value")));
+        .any(|d| d.message.contains("expected an expression")));
 }
 
 #[test]
 fn unknown_declaration_is_reported() {
-    let source = "widget thing { name: \"x\" }\n";
+    let source = "module x;\nwidget thing;\n";
     let result = parse(source);
     assert!(result
         .diagnostics
@@ -63,19 +63,18 @@ fn unknown_declaration_is_reported() {
 
 #[test]
 fn diagnostics_carry_line_and_column() {
-    let source = "integration x {\n  adapter openai_compatible\n}\n";
+    let source = "module x;\ninterface I {\n  name string;\n}\n";
     let result = parse(source);
     let diagnostic = result.diagnostics.iter().find(|d| d.is_error()).unwrap();
     let source = Source::new("x.ax", source);
     let rendered = diagnostic.render(&source);
-    assert!(rendered.contains("x.ax:2:"), "rendered was: {rendered}");
+    assert!(rendered.contains("x.ax:3:"), "rendered was: {rendered}");
     assert!(rendered.contains('^'), "rendered was: {rendered}");
 }
 
 #[test]
 fn error_recovery_reports_multiple_problems() {
-    // Two independent mistakes: a bad entry and a stray token.
-    let source = "integration x {\n  adapter openai_compatible\n}\nmodel y {\n  integration:\n}\n";
+    let source = "module x;\nconst a = ;\nconst b = ;\n";
     let result = parse(source);
     let error_count = result.diagnostics.iter().filter(|d| d.is_error()).count();
     assert!(
@@ -87,40 +86,71 @@ fn error_recovery_reports_multiple_problems() {
 #[test]
 fn parser_never_panics_on_token_soup() {
     let alphabet = [
-        "integration",
+        "module",
+        "import",
+        "from",
+        "export",
+        "type",
+        "interface",
+        "enum",
+        "const",
+        "let",
+        "fn",
+        "pure",
+        "agent",
+        "implements",
+        "team",
+        "tool",
+        "contract",
+        "goal",
+        "policy",
+        "workspace",
+        "workflow",
+        "if",
+        "else",
+        "match",
+        "for",
+        "while",
+        "in",
+        "return",
+        "require",
+        "escalate",
+        "parallel",
+        "retry",
+        "emit",
+        "delegate",
+        "await",
+        "effects",
         "{",
         "}",
         "(",
         ")",
+        "[",
+        "]",
+        "<",
+        ">",
         ":",
         ",",
         ".",
+        ";",
+        "|",
+        "&&",
+        "||",
+        "=>",
+        "->",
+        "=",
+        "==",
+        "!",
+        "?",
         "\"x\"",
         "120s",
-        "model",
-        "=",
-        "<",
-        ">",
-        "[",
-        "]",
-        "\n",
-        "agent",
-        "let",
-        "with",
-        "env",
         "1",
         "0.2",
+        "true",
+        "null",
+        "\n",
         "//c\n",
         "/*x*/",
-        "true",
-        "permissions",
-        "workflow",
-        "if",
-        "else",
-        "return",
-        "require",
-        "parallel",
-        "->",
     ];
 
     let mut state: u64 = 0x1234_5678_9abc_def0;
@@ -140,6 +170,6 @@ fn parser_never_panics_on_token_soup() {
         }
         // The contract: parsing any input returns; it must not panic.
         let result = parse(&source);
-        let _ = result.file.decls.len();
+        let _ = result.file.items.len();
     }
 }

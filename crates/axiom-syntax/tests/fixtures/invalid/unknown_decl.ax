@@ -1,3 +1,3 @@
-widget thing {
-  name: "x"
-}
+module x;
+
+widget thing;

@@ -1,3 +1,5 @@
-integration x {
-  adapter openai_compatible
+module x;
+
+interface I {
+  name string;
 }

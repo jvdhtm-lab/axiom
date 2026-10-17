@@ -1,12 +1,11 @@
-// Exercises every value form the parser accepts.
-model all_values {
-  s: "text"
-  i: 42
-  f: 0.5
-  b: true
-  d: 90s
-  p: some.path
-  c: env("KEY", "default", optional: false)
-  a: [1, 2, 3]
-  o: { k: "v", n: 1 }
-}
+module values;
+
+export const n = 42;
+export const f = 0.5;
+export const s = "hello\n";
+export const b = true;
+export const z = null;
+export const d = 120s;
+export const list = [1, 2, 3];
+export const record = { a: 1, b: "two" };
+export const calc = 1 + 2 * 3 < 10 && !false;

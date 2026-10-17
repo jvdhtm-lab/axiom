@@ -1,0 +1,49 @@
+module examples.agents;
+
+import { FeatureSpec, ExecutionPlan, ImplementationTask, PatchArtifact,
+         RepositoryReport, ReviewResult } from "./types.ax";
+import { ProjectReadOnly, ImplementationWorkspace } from "./workspaces.ax";
+
+export agent RepositoryAnalyst implements Agent<FeatureSpec, RepositoryReport> {
+  purpose: "Inspect the repository and report relevant files without modifying them";
+  model: "reasoning";
+  workspace: ProjectReadOnly;
+  tools: [fs.list, fs.walk, fs.search, fs.read_text, fs.hash, artifacts.publish];
+}
+
+export agent Architect implements Agent<FeatureSpec, ExecutionPlan> {
+  purpose: "Decompose requirements and define interfaces";
+  model: "reasoning";
+  workspace: ProjectReadOnly;
+  tools: [fs.list, fs.search, fs.read_text, artifacts.publish];
+  constraints {
+    must: ["Define explicit interfaces", "Identify dependencies"];
+    must_not: ["Write application files", "Change shared contracts implicitly"];
+  }
+}
+
+export agent Implementer implements Agent<ImplementationTask, PatchArtifact> {
+  purpose: "Implement the assigned task inside the isolated task workspace";
+  model: "coding";
+  workspace: ImplementationWorkspace;
+  tools: [fs.list, fs.walk, fs.search, fs.read_text, fs.write_text,
+          fs.apply_patch, fs.diff, artifacts.publish];
+  constraints {
+    must: ["Read the relevant existing code before changing it",
+           "Preserve unrelated changes",
+           "Return a patch artifact and change summary"];
+    must_not: ["Write outside the assigned workspace",
+               "Modify denied paths",
+               "Claim tests passed without command evidence"];
+  }
+}
+
+// No workspace: the reviewer sees immutable patch artifacts only.
+export agent Reviewer implements Agent<PatchArtifact, ReviewResult> {
+  purpose: "Review a verified patch artifact for correctness and policy compliance";
+  model: "review";
+  tools: [artifacts.fetch];
+}
+
+// Instance override: changes runtime binding, not agent source.
+export const localImplementer = Implementer.with { model: "local_coding" };

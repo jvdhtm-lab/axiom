@@ -1,0 +1,25 @@
+// A minimal Axiom 1.0 program: an interface, a type alias, and one agent.
+// Endpoints, credentials, and concrete model ids live in axiom.yaml, not here.
+
+module hello;
+
+export interface FeatureSpec {
+  title: string;
+  criteria: string[];
+}
+
+export type ExecutionPlan = {
+  summary: string;
+  steps: string[];
+};
+
+export agent Architect implements Agent<FeatureSpec, ExecutionPlan> {
+  purpose: "Decompose requirements and design interfaces.";
+  model: "reasoning";
+  tools: [repository.read, documentation.search];
+  workspace: ProjectReadOnly;
+  constraints {
+    must: ["define explicit interfaces", "preserve architectural boundaries"];
+    must_not: ["implement application code directly"];
+  }
+}

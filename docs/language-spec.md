@@ -8,11 +8,16 @@ credentials, model ids) live in `axiom.yaml`, never in `.ax` source.
 The **normative** grammar is `docs/grammar.ebnf`. This document is the human
 reading of it. Where they disagree, `grammar.ebnf` wins and this file is a bug.
 
-> **Implementation status.** The Axiom 1.0 grammar below is the target. The
-> current front end (`crates/axiom-syntax`) implements only a small, pre-1.0
-> subset: declarations without `module`/`import`/`export`, upper-case primitive
-> spellings, and blocks separated by newlines. Reworking the lexer, parser, and
-> AST to this full grammar is the next increment. See
+> **Implementation status.** The Axiom 1.0 surface grammar is implemented by
+> `crates/axiom-syntax` (lexer, parser, AST, spans, diagnostics): modules,
+> imports, exports; interfaces/types/enums; agents, tools, goals, teams,
+> contracts, policies, workspaces, workflows; functions; statements
+> (`let`/`let mut`/`const`, `if`, `match`, `for`, `while … max`, `return`,
+> `yield`, `break`, `continue`, `throw`, `try/catch/finally`, `require … else
+> escalate`, `parallel for … [max]`, `retry`, `timeout`, `on_error`,
+> `checkpoint`, `emit`); and the full expression/type grammars. Every example in
+> `agents.md` §11 and §5.7 parses cleanly. There is **no** semantic analysis,
+> type checking, IR, or execution yet (Phases 2+). See
 > `docs/implementation-ledger.md` for phase-by-phase truth.
 
 ## Program structure
@@ -20,8 +25,7 @@ reading of it. Where they disagree, `grammar.ebnf` wins and this file is a bug.
 ```ts
 module reviewer.agents;
 
-import { FeatureSpec, Review } from "review/types";
-import { read_file } from "workspace/fs";
+import { FeatureSpec, Review } from "./types.ax";
 
 export type AgentId = string;
 export type Verdict = "pass" | "fail" | "escalate";
@@ -44,63 +48,89 @@ export agent Reviewer implements Agent<FeatureSpec, Review> {
 ```
 
 A file is a `module` header, an optional run of `import` statements, and a run of
-top-level declarations, each optionally prefixed with `export`. Statements are
-terminated by `;` or a newline.
+top-level declarations, each optionally prefixed with `export`. **Statements and
+member entries end with `;`; newlines are insignificant whitespace.** A closing
+`}` may act as the final separator of a block, so the last member need not be
+followed by `;`.
 
 ## Lexical structure
 
 - **Encoding:** UTF-8. Identifiers are ASCII (`[A-Za-z_][A-Za-z0-9_]*`).
 - **Line comments:** `// ...` to end of line.
-- **Block comments:** `/* ... */` (not nested). A block comment containing a line
-  break acts as a line break.
+- **Block comments:** `/* ... */` (not nested).
 - **Strings:** double-quoted, with escapes `\" \\ \n \r \t`. An unknown escape is
   a diagnostic.
 - **Numbers:** `123` (int) or `0.2` (float).
 - **Durations:** an integer immediately followed by `ms`, `s`, `m`, or `h`
-  (e.g. `120s`). Stored internally as milliseconds.
-- **Booleans:** `true` and `false`.
-- **Terminator:** `;` or a newline.
+  (e.g. `120s`, `30s`). Stored internally as milliseconds.
+- **Sizes:** an integer immediately followed by `B`, `kB`/`KB`, `MB`, `GB`, `TB`
+  (decimal) or `KiB`, `MiB`, `GiB`, `TiB` (binary) — e.g. `2MB` = 10^6 bytes,
+  `2MiB` = 2^20 bytes. Stored internally as a byte count.
+- **Booleans / null:** `true`, `false`, `null` (lexed as identifiers and
+  recognised by the parser unless immediately followed by `(` or `.`).
+- **Terminator:** `;`.
 
 ## Types
 
-The primitive type names are lower-case: `string`, `bool`, `int`, `float`,
-`duration`. Composite forms:
+Lower-case primitives: `string`, `bool`, `int`, `float`, `bytes`, `duration`,
+`timestamp`, `null`. Built-ins include `Option<T>`, `Result<T, E>`, `Map<K, V>`,
+`JsonValue`, and the error/enum types named in `agents.md`. Composite forms:
 
 | Form | Meaning |
 | --- | --- |
-| `T[]` | array of `T` |
+| `T[]` | array of `T` (normative; `[T]` is a legacy prefix form) |
 | `A \| B` | union |
+| `(A, B)` | tuple |
 | `{ name: T; ... }` | record / object type |
+| `"a" \| "b"` | string-literal union |
 | `ident` / `pkg.Name` | a named type reference |
 | `Foo<A, B>` | generic reference, e.g. `Agent<I, O>` |
 
 `export interface` and `export type` both introduce named types. An interface
-lists fields; a `type` alias introduces a name for any type expression
-(including unions and records).
+lists fields; a `type` alias introduces a name for any type expression.
 
-## Agents
+## Declarations
 
-```ts
-export agent X implements Agent<Input, Output> {
-  purpose: "…";
-  model: "reasoning";
-  tools: [a.b, c.d];
-  workspace: ProjectReadOnly;
-  constraints { must: [...]; must_not: [...] }
-}
-```
+Declarations are `type interface enum const fn agent team tool contract goal
+policy workspace workflow`, each optionally prefixed with `export`.
 
-`purpose`, `model`, `tools`, and `workspace` are ordinary fields. The
-`constraints` block holds `must` / `must_not` natural-language lists. Natural-
-language constraints are **model-evaluated**, not statically verified; the
-language makes no claim otherwise.
+- **Agents** (`agent X implements Agent<I, O> { ... }`) are member blocks with
+  `purpose`, `model`, `tools`, optional `workspace`, `constraints { must; must_not; }`,
+  and limits.
+- **Tools** (`tool f(p: T) -> R effects [fs.read] { ... }`) declare a signature,
+  effects, and a metadata member block (`timeout`, `idempotent`,
+  `max_output_bytes`, `binding`). A tool declaration never contains executable
+  code.
+- **Goals** (`goal G(x: T) -> R { ... }`) are a signature plus a member block
+  (`objective`, `completion`, `decomposition`, `authority`, `workflow`).
+- **Teams** (`team T { members: [...]; routing { Input -> Member; } policy: P; }`)
+  map input types to members.
+- **Contracts** (`contract C { version: "..."; subject: T; postcondition label:
+  expr; criterion "text": CheckKind.X; }`) carry labelled clauses.
+- **Policies** and **workspaces** are member blocks. A workspace has exactly one
+  of `root`/`base`, an `isolation`, `read`/`write`/`deny` globs, an optional
+  nested `limits { ... }`, and optional `write_authority`.
+
+`purpose`, `model`, `tools`, and `workspace` on an agent are ordinary fields. The
+`constraints` block holds `must` / `must_not` natural-language lists.
+Natural-language constraints are **model-evaluated**, not statically verified;
+the language makes no claim otherwise.
 
 ## Expressions and statements
 
-Expressions use the usual precedence tiers: calls, member access (`.name`),
-unary, multiplicative, additive, comparison, equality, `&&`, `||`. Statements
-include `let` bindings, `return`, `require`, `parallel` blocks, `if`/`else`, and
-expression statements. See `grammar.ebnf` for exact productions.
+Expressions use the usual precedence tiers: postfix (calls, member access
+`.name`, indexing), unary, multiplicative, additive, comparison, equality, `&&`,
+`||`, then the conditional `? :`. `await`, `delegate Agent.method(...)`, and
+`parallel for x in xs [max N] { ... yield v; }` are expressions. A lambda is
+either `(x: T, y: U) => body`, `(x) => body`, or the single-parameter `x => body`.
+`Agent.with { model: "..." }` is sugar for a call with an object argument.
+
+Statements include `let`/`let mut`/`const` bindings, `if`/`else`, `match`,
+`for`, `while cond max N`, `return`, `yield`, `break`, `continue`, `throw`,
+`try/catch/finally`, `require expr;` / `require expr else escalate expr;`,
+`parallel for`, `retry N { }`, `timeout D { }`, `on_error(e: T) { }`,
+`checkpoint "label";`, and `emit expr;`. See `grammar.ebnf` for exact
+productions.
 
 `env(...)` and `secret(...)` are ordinary calls in source. A secret argument is a
 *name*, never a value: secrets are never written into compiled plans, traces, or
@@ -124,7 +154,7 @@ error recovery, so a file can yield multiple diagnostics in one pass.
 
 ## What is *not* here yet
 
-- The 1.0 grammar above is not yet implemented; the current parser handles a
-  pre-1.0 subset (see the implementation-status note).
-- No semantic analysis, symbol resolution, or type checking (Phase 2).
+- No semantic analysis, module graph, symbol resolution, or type checking
+  (Phase 2).
 - No IR, no `explain`/`plan`, no execution (Phase 3+).
+- No runtime, filesystem, artifacts, or provider adapters (Phases 4+).

@@ -1,0 +1,43 @@
+module examples.types;
+
+export interface ContractRef { id: string; version: string; }
+
+export interface AcceptanceCriterion {
+  id: string;
+  description: string;
+  verification: "unit_test" | "integration_test" | "security_check" | "human_review";
+}
+
+export interface FeatureSpec {
+  name: string;
+  objective: string;
+  required_files: string[];
+  acceptance: AcceptanceCriterion[];
+}
+
+export interface ImplementationTask {
+  id: string;
+  objective: string;
+  owned_paths: string[];
+  dependencies: string[];
+  contract: ContractRef;
+}
+
+export interface ExecutionPlan { tasks: ImplementationTask[]; risks: string[]; }
+
+export interface RepositoryReport {
+  relevant_files: string[];
+  summary: string;
+  risks: string[];
+}
+
+export interface PatchArtifact {
+  artifact_id: string;
+  task_id: string;
+  changed_paths: string[];
+  diff_hash: string;
+  contract: ContractRef;
+}
+
+export interface ReviewResult { approved: bool; findings: string[]; }
+export interface WorkflowResult { release_artifact_id: string; patch_ids: string[]; }

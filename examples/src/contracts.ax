@@ -1,0 +1,9 @@
+module examples.contracts;
+import { RepositoryReport } from "./types.ax";
+
+export contract RepositoryReportContract {
+  version: "1.0.0";
+  subject: RepositoryReport;
+  postcondition non_empty: output.relevant_files.length > 0;
+  criterion "Summary explains why each file is relevant": CheckKind.ModelEvaluated;
+}

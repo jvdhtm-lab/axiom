@@ -2,8 +2,8 @@
 //!
 //! The lexer never panics. It records diagnostics for invalid characters and
 //! malformed strings, and keeps scanning. Line breaks are emitted as explicit
-//! [`TokenKind::Newline`] tokens (consecutive breaks collapse) because they act
-//! as entry separators inside declaration bodies.
+//! [`TokenKind::Newline`] tokens (consecutive breaks collapse) because a
+//! statement or declaration is terminated by `;` or a line break.
 
 use crate::diagnostic::Diagnostic;
 use crate::span::Span;
@@ -15,6 +15,7 @@ pub enum TokenKind {
     Integer(i64),
     Float(f64),
     Duration { millis: u64, unit: String },
+    Size { bytes: u64, unit: String },
     LBrace,
     RBrace,
     LParen,
@@ -23,12 +24,31 @@ pub enum TokenKind {
     RBracket,
     Lt,
     Gt,
+    LtEq,
+    GtEq,
     Colon,
     Comma,
     Dot,
     Semicolon,
     Equals,
+    EqEq,
+    BangEq,
     Arrow,
+    FatArrow,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Percent,
+    Bang,
+    AmpAmp,
+    PipePipe,
+    Pipe,
+    Question,
+    PlusEq,
+    MinusEq,
+    StarEq,
+    SlashEq,
     Newline,
     Eof,
 }
@@ -41,6 +61,7 @@ impl TokenKind {
             TokenKind::String(_) => "string literal".to_string(),
             TokenKind::Integer(_) | TokenKind::Float(_) => "number".to_string(),
             TokenKind::Duration { .. } => "duration".to_string(),
+            TokenKind::Size { .. } => "size".to_string(),
             TokenKind::LBrace => "`{`".to_string(),
             TokenKind::RBrace => "`}`".to_string(),
             TokenKind::LParen => "`(`".to_string(),
@@ -49,12 +70,31 @@ impl TokenKind {
             TokenKind::RBracket => "`]`".to_string(),
             TokenKind::Lt => "`<`".to_string(),
             TokenKind::Gt => "`>`".to_string(),
+            TokenKind::LtEq => "`<=`".to_string(),
+            TokenKind::GtEq => "`>=`".to_string(),
             TokenKind::Colon => "`:`".to_string(),
             TokenKind::Comma => "`,`".to_string(),
             TokenKind::Dot => "`.`".to_string(),
             TokenKind::Semicolon => "`;`".to_string(),
             TokenKind::Equals => "`=`".to_string(),
+            TokenKind::EqEq => "`==`".to_string(),
+            TokenKind::BangEq => "`!=`".to_string(),
             TokenKind::Arrow => "`->`".to_string(),
+            TokenKind::FatArrow => "`=>`".to_string(),
+            TokenKind::Plus => "`+`".to_string(),
+            TokenKind::Minus => "`-`".to_string(),
+            TokenKind::Star => "`*`".to_string(),
+            TokenKind::Slash => "`/`".to_string(),
+            TokenKind::Percent => "`%`".to_string(),
+            TokenKind::Bang => "`!`".to_string(),
+            TokenKind::AmpAmp => "`&&`".to_string(),
+            TokenKind::PipePipe => "`||`".to_string(),
+            TokenKind::Pipe => "`|`".to_string(),
+            TokenKind::Question => "`?`".to_string(),
+            TokenKind::PlusEq => "`+=`".to_string(),
+            TokenKind::MinusEq => "`-=`".to_string(),
+            TokenKind::StarEq => "`*=`".to_string(),
+            TokenKind::SlashEq => "`/=`".to_string(),
             TokenKind::Newline => "line break".to_string(),
             TokenKind::Eof => "end of file".to_string(),
         }
@@ -346,6 +386,14 @@ fn scan_number(
         return;
     }
 
+    if let Some((bytes, unit)) = try_size_unit(scanner, &text) {
+        tokens.push(Token {
+            kind: TokenKind::Size { bytes, unit },
+            span: Span::new(start, scanner.offset()),
+        });
+        return;
+    }
+
     if let Some((millis, unit)) = try_duration_unit(scanner, &text) {
         tokens.push(Token {
             kind: TokenKind::Duration { millis, unit },
@@ -364,6 +412,42 @@ fn scan_number(
             format!("integer literal out of range: `{text}`"),
         )),
     }
+}
+
+/// Recognize byte-size units (`B`, `kB`/`KB`, `MB`, `GB`, `TB`, `KiB`, `MiB`,
+/// `GiB`, `TiB`) immediately following an integer.
+fn try_size_unit(scanner: &mut Scanner, digits: &str) -> Option<(u64, String)> {
+    let rest: Vec<char> = (0..4).filter_map(|i| scanner.peek_at(i)).collect();
+    let (unit, len): (&str, usize) = match rest.as_slice() {
+        ['K', 'i', 'B', ..] => ("KiB", 3),
+        ['M', 'i', 'B', ..] => ("MiB", 3),
+        ['G', 'i', 'B', ..] => ("GiB", 3),
+        ['T', 'i', 'B', ..] => ("TiB", 3),
+        ['k', 'B', ..] => ("kB", 2),
+        ['K', 'B', ..] => ("KB", 2),
+        ['M', 'B', ..] => ("MB", 2),
+        ['G', 'B', ..] => ("GB", 2),
+        ['T', 'B', ..] => ("TB", 2),
+        ['B', next, ..] if !next.is_ascii_alphanumeric() && *next != '_' => ("B", 1),
+        _ => return None,
+    };
+    let value: u64 = digits.parse().ok()?;
+    let factor: u64 = match unit {
+        "B" => 1,
+        "kB" | "KB" => 1_000,
+        "MB" => 1_000_000,
+        "GB" => 1_000_000_000,
+        "TB" => 1_000_000_000_000,
+        "KiB" => 1 << 10,
+        "MiB" => 1 << 20,
+        "GiB" => 1 << 30,
+        "TiB" => 1 << 40,
+        _ => return None,
+    };
+    for _ in 0..len {
+        scanner.bump();
+    }
+    Some((value.saturating_mul(factor), unit.to_string()))
 }
 
 /// Recognize `ms`, `s`, `m`, `h` immediately following an integer, provided the
@@ -393,6 +477,28 @@ fn try_duration_unit(scanner: &mut Scanner, digits: &str) -> Option<(u64, String
 
 fn scan_punct(scanner: &mut Scanner) -> Option<TokenKind> {
     let c = scanner.peek()?;
+    let next = scanner.peek_at(1);
+    let two = match (c, next) {
+        ('-', Some('>')) => Some(TokenKind::Arrow),
+        ('=', Some('>')) => Some(TokenKind::FatArrow),
+        ('=', Some('=')) => Some(TokenKind::EqEq),
+        ('!', Some('=')) => Some(TokenKind::BangEq),
+        ('<', Some('=')) => Some(TokenKind::LtEq),
+        ('>', Some('=')) => Some(TokenKind::GtEq),
+        ('&', Some('&')) => Some(TokenKind::AmpAmp),
+        ('|', Some('|')) => Some(TokenKind::PipePipe),
+        ('+', Some('=')) => Some(TokenKind::PlusEq),
+        ('-', Some('=')) => Some(TokenKind::MinusEq),
+        ('*', Some('=')) => Some(TokenKind::StarEq),
+        ('/', Some('=')) => Some(TokenKind::SlashEq),
+        _ => None,
+    };
+    if let Some(kind) = two {
+        scanner.bump();
+        scanner.bump();
+        return Some(kind);
+    }
+
     let kind = match c {
         '{' => TokenKind::LBrace,
         '}' => TokenKind::RBrace,
@@ -407,11 +513,14 @@ fn scan_punct(scanner: &mut Scanner) -> Option<TokenKind> {
         '.' => TokenKind::Dot,
         ';' => TokenKind::Semicolon,
         '=' => TokenKind::Equals,
-        '-' if scanner.peek_at(1) == Some('>') => {
-            scanner.bump();
-            scanner.bump();
-            return Some(TokenKind::Arrow);
-        }
+        '+' => TokenKind::Plus,
+        '-' => TokenKind::Minus,
+        '*' => TokenKind::Star,
+        '/' => TokenKind::Slash,
+        '%' => TokenKind::Percent,
+        '!' => TokenKind::Bang,
+        '|' => TokenKind::Pipe,
+        '?' => TokenKind::Question,
         _ => return None,
     };
     scanner.bump();
@@ -482,6 +591,71 @@ mod tests {
             vec![
                 TokenKind::Integer(2),
                 TokenKind::Ident("xy".into()),
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn size_literals_use_decimal_and_binary_units() {
+        assert_eq!(
+            kinds("2MB 2MiB 1KB 1KiB 500B 20GB"),
+            vec![
+                TokenKind::Size {
+                    bytes: 2_000_000,
+                    unit: "MB".into()
+                },
+                TokenKind::Size {
+                    bytes: 2 * (1 << 20),
+                    unit: "MiB".into()
+                },
+                TokenKind::Size {
+                    bytes: 1_000,
+                    unit: "KB".into()
+                },
+                TokenKind::Size {
+                    bytes: 1 << 10,
+                    unit: "KiB".into()
+                },
+                TokenKind::Size {
+                    bytes: 500,
+                    unit: "B".into()
+                },
+                TokenKind::Size {
+                    bytes: 20_000_000_000,
+                    unit: "GB".into()
+                },
+                TokenKind::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn operators_are_lexed_longest_first() {
+        assert_eq!(
+            kinds("-> => == != <= >= && || | < > + - * / % ! ? = += +"),
+            vec![
+                TokenKind::Arrow,
+                TokenKind::FatArrow,
+                TokenKind::EqEq,
+                TokenKind::BangEq,
+                TokenKind::LtEq,
+                TokenKind::GtEq,
+                TokenKind::AmpAmp,
+                TokenKind::PipePipe,
+                TokenKind::Pipe,
+                TokenKind::Lt,
+                TokenKind::Gt,
+                TokenKind::Plus,
+                TokenKind::Minus,
+                TokenKind::Star,
+                TokenKind::Slash,
+                TokenKind::Percent,
+                TokenKind::Bang,
+                TokenKind::Question,
+                TokenKind::Equals,
+                TokenKind::PlusEq,
+                TokenKind::Plus,
                 TokenKind::Eof,
             ]
         );
