@@ -1,8 +1,10 @@
 (* Axiom language grammar — target 1.0).
 
    This file is the normative grammar for Axiom 1.0 and matches the parser in
-   crates/axiom-syntax. There is no semantic analysis, type checking, or
-   execution yet (Phases 2+); see docs/implementation-ledger.md for status.
+   crates/axiom-syntax. Partial semantic analysis (module graph, symbols,
+   declaration/effect checks) lives in crates/axiom-types; full type checking and
+   execution are not implemented yet (Phases 2+/3+). See
+   docs/implementation-ledger.md for status.
 
    Lexical convention (agents.md §5.1): statements and member entries end with
    ";". Newlines are insignificant whitespace. The lexer still emits NEWLINE

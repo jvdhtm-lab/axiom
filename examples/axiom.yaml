@@ -81,3 +81,17 @@ commands:
     working_directory: "."
     timeout_seconds: 600
     network: false
+
+  integration_tests:
+    executable: cargo
+    args: ["test", "--offline", "--workspace", "--test", "*"]
+    working_directory: "."
+    timeout_seconds: 900
+    network: false
+
+  full_ci:
+    executable: cargo
+    args: ["test", "--offline", "--workspace", "--all-targets"]
+    working_directory: "."
+    timeout_seconds: 1800
+    network: false

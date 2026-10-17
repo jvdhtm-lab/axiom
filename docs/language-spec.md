@@ -16,8 +16,11 @@ reading of it. Where they disagree, `grammar.ebnf` wins and this file is a bug.
 > `yield`, `break`, `continue`, `throw`, `try/catch/finally`, `require … else
 > escalate`, `parallel for … [max]`, `retry`, `timeout`, `on_error`,
 > `checkpoint`, `emit`); and the full expression/type grammars. Every example in
-> `agents.md` §11 and §5.7 parses cleanly. There is **no** semantic analysis,
-> type checking, IR, or execution yet (Phases 2+). See
+> `agents.md` §11 and §5.7 parses cleanly. **Partial semantic analysis** exists
+> in `crates/axiom-types` (module graph, symbols, declaration/aggregate/effect
+> checks, source/config cross-validation); full type inference, expression
+> typing, `match` exhaustiveness, and effect propagation are not implemented.
+> There is no IR or execution yet (Phases 3+). See
 > `docs/implementation-ledger.md` for phase-by-phase truth.
 
 ## Program structure
@@ -154,7 +157,8 @@ error recovery, so a file can yield multiple diagnostics in one pass.
 
 ## What is *not* here yet
 
-- No semantic analysis, module graph, symbol resolution, or type checking
-  (Phase 2).
+- Full type inference, expression typing, generics checking beyond built-in
+  arity, and `match` exhaustiveness (Phase 2, in progress).
+- Inter-procedural effect propagation and capability intersection (Phase 2/4).
 - No IR, no `explain`/`plan`, no execution (Phase 3+).
 - No runtime, filesystem, artifacts, or provider adapters (Phases 4+).

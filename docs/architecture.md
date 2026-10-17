@@ -46,9 +46,9 @@ tokens (+ byte spans)
   │  parser           (axiom-syntax::parser)
   ▼
 AST                   (axiom-syntax::ast)
-  │  semantic analysis          [Phase 2]
+  │  semantic analysis          (axiom-types; Phase 2, in progress)
   ▼
-typed AST + symbols
+module graph + symbols + diagnostics
   │  lowering                   [Phase 3]
   ▼
 IR / execution graph
@@ -64,8 +64,12 @@ ProjectConfig (integrations, model profiles, runtime/filesystem limits)
 
 Phase 1 implements two slices: `.ax` source → tokens → AST, and `axiom.yaml` →
 validated `ProjectConfig`, both with diagnostics and accurate spans (configuration
-value diagnostics use an approximate span — see `docs/configuration.md`). Nothing
-below the AST exists yet, and no integration is contacted.
+value diagnostics use an approximate span — see `docs/configuration.md`). Phase 2
+has begun: `axiom-types` builds the multi-file module graph (import validation,
+cycle detection) and symbol tables, and runs declaration/aggregate/effect checks
+plus source/config cross-validation. Full type inference and effect propagation
+are not implemented yet. Nothing below the AST is executed, and no integration is
+contacted.
 
 ## Source vs configuration
 
@@ -80,15 +84,18 @@ and never overlap: source refers to model profiles by alias only. See
 ```
 crates/
   axiom-syntax/   lexer, parser, AST, spans, diagnostics   (no dependencies)
+  axiom-types/    module graph, symbols, semantic checks
   axiom-config/   axiom.yaml loading, expansion, validation
   axiom-cli/      the `axiom` binary
 ```
 
-Planned: `axiom-types` (Phase 2), `axiom-ir` (Phase 3), `axiom-providers`
-(Phase 4), `axiom-runtime` (Phase 5-6). The workspace grows only when a crate
-earns its keep; dependency direction stays acyclic and the syntax crate never
-depends on the runtime. `axiom-config` depends on `axiom-syntax` for the shared
-diagnostic type, and on `yaml_serde` (ADR-0009).
+`axiom-types` (Phase 2, in progress) depends on `axiom-syntax` for the AST and
+diagnostics and on `axiom-config` for cross-validating model aliases and command
+names. Planned: `axiom-ir` (Phase 3), `axiom-providers` (Phase 4),
+`axiom-runtime` (Phase 5-6). The workspace grows only when a crate earns its
+keep; dependency direction stays acyclic and the syntax crate never depends on
+the runtime. `axiom-config` depends on `axiom-syntax` for the shared diagnostic
+type, and on `yaml_serde` (ADR-0009).
 
 ## Configuration precedence
 

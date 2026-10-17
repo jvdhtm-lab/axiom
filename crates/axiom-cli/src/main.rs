@@ -7,7 +7,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use axiom_config::parse_config;
-use axiom_syntax::{parse, Source, VERSION};
+use axiom_syntax::{Source, VERSION};
+use axiom_types::{check_options_from_config, check_project, CheckOptions};
 
 const USAGE: &str = "\
 axiom - the Axiom language toolchain
@@ -16,7 +17,7 @@ USAGE:
     axiom <COMMAND> [OPTIONS]
 
 COMMANDS:
-    check <FILE>...            Parse and report diagnostics for .ax source files
+    check <FILE>...            Load the module graph and report diagnostics
     config check <FILE>...     Validate an axiom.yaml project configuration
     version                    Print the version
     help                       Print this message
@@ -24,6 +25,7 @@ COMMANDS:
 OPTIONS:
     -h, --help         Print help
     -V, --version      Print version
+    --config <FILE>    Cross-validate source against an axiom.yaml (for `check`)
 ";
 
 fn main() -> ExitCode {
@@ -60,8 +62,35 @@ fn file_arguments(arguments: &[String]) -> Vec<PathBuf> {
         .collect()
 }
 
+/// Split `check` arguments into an optional `--config` path and positional files.
+fn split_check_args(arguments: &[String]) -> Result<(Option<PathBuf>, Vec<PathBuf>), String> {
+    let mut config = None;
+    let mut files = Vec::new();
+    let mut iter = arguments.iter();
+    while let Some(arg) = iter.next() {
+        if arg == "--config" {
+            match iter.next() {
+                Some(path) => config = Some(PathBuf::from(path)),
+                None => return Err("`--config` needs a path".to_string()),
+            }
+        } else if let Some(path) = arg.strip_prefix("--config=") {
+            config = Some(PathBuf::from(path));
+        } else if !arg.starts_with('-') {
+            files.push(PathBuf::from(arg));
+        }
+    }
+    Ok((config, files))
+}
+
 fn run_check(arguments: &[String]) -> ExitCode {
-    let files = file_arguments(arguments);
+    let (config_path, files) = match split_check_args(arguments) {
+        Ok(parsed) => parsed,
+        Err(message) => {
+            eprintln!("error: {message}\n");
+            eprint!("{USAGE}");
+            return ExitCode::from(2);
+        }
+    };
     if files.is_empty() {
         eprintln!("error: `check` needs at least one .ax file\n");
         eprint!("{USAGE}");
@@ -70,44 +99,83 @@ fn run_check(arguments: &[String]) -> ExitCode {
 
     let mut error_count = 0usize;
     let mut warning_count = 0usize;
-    let mut checked = 0usize;
     let mut failed = false;
 
-    for path in &files {
+    // Optional source/config cross-validation.
+    let mut options = CheckOptions::none();
+    if let Some(path) = &config_path {
         let display = path.display().to_string();
         let text = match std::fs::read_to_string(path) {
             Ok(text) => text,
             Err(err) => {
                 eprintln!("error: cannot read `{display}`: {err}");
-                error_count += 1;
-                failed = true;
-                continue;
+                return ExitCode::from(1);
             }
         };
-        checked += 1;
-
-        let result = parse(&text);
+        let report = parse_config(&display, &text);
         let source = Source::new(display.clone(), text);
-
-        let mut file_errors = 0usize;
-        for diagnostic in &result.diagnostics {
+        for diagnostic in &report.diagnostics {
             if diagnostic.is_error() {
                 error_count += 1;
-                file_errors += 1;
             } else {
                 warning_count += 1;
             }
             eprint!("{}", diagnostic.render(&source));
         }
-
-        if file_errors == 0 {
-            println!("ok: {display} ({} item(s))", result.file.items.len());
-        } else {
+        if report.has_errors() {
             failed = true;
+        }
+        if let Some(config) = &report.config {
+            options = check_options_from_config(config);
         }
     }
 
-    print_summary(checked, error_count, warning_count);
+    let project = axiom_types::load(&files);
+    let diagnostics = check_project(&project, &options);
+
+    let sources: Vec<Source> = project
+        .graph
+        .modules
+        .iter()
+        .map(|module| Source::new(module.display.clone(), module.source.clone()))
+        .collect();
+    let graph_source = Source::new("(project)", String::new());
+
+    let mut modules_with_errors: std::collections::HashSet<usize> =
+        std::collections::HashSet::new();
+    for diagnostic in &diagnostics {
+        if diagnostic.diagnostic.is_error() {
+            if let Some(module) = diagnostic.module {
+                modules_with_errors.insert(module);
+            }
+        }
+    }
+
+    for diagnostic in &diagnostics {
+        if diagnostic.diagnostic.is_error() {
+            error_count += 1;
+            failed = true;
+        } else {
+            warning_count += 1;
+        }
+        match diagnostic.module {
+            Some(id) => eprint!("{}", diagnostic.diagnostic.render(&sources[id])),
+            None => eprint!("{}", diagnostic.diagnostic.render(&graph_source)),
+        }
+    }
+
+    for &root in &project.graph.roots {
+        if !modules_with_errors.contains(&root) {
+            let module = &project.graph.modules[root];
+            println!(
+                "ok: {} ({} item(s))",
+                module.display,
+                module.file.items.len()
+            );
+        }
+    }
+
+    print_summary(files.len(), error_count, warning_count);
     exit_code(failed)
 }
 

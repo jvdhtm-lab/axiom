@@ -58,18 +58,25 @@ ADR-0009); it becomes more relevant from Phase 4 onward (async + HTTP).
 
 ## Phase parity
 
+Phase numbers follow `agents.md` §14; `docs/implementation-ledger.md` is the
+source of truth.
+
 | Phase | Deliverable | State |
 | --- | --- | --- |
-| 0 | Architecture, ADRs, grammar draft, workspace, CI | done |
-| 1 | Lexer, parser, AST, diagnostics, `axiom check`; `axiom.yaml` load/validate, `axiom config check` | done |
-| 2 | Semantic analysis and contracts | pending |
-| 3 | IR + `explain`/`plan` | pending |
-| 4 | Integration layer, adapters, model profiles | pending |
-| 5 | Runtime + typed tools | pending |
-| 6 | Workflows + verification gates | pending |
-| 7 | Example app + hardening | pending |
+| 0 | Architecture, ADRs, grammar, workspace, CI | partial |
+| 1 | Lexer, parser, AST, diagnostics; `axiom.yaml` load/validate | done |
+| 2 | Module graph, symbols, type system, effects, cross-validation | partial |
+| 3 | Typed IR + `explain`/`plan` | pending |
+| 4 | Integrations, adapters, model profiles | pending |
+| 5 | Filesystem, typed tools, artifacts | pending |
+| 6 | Agent runtime, teams, goals, contracts | pending |
+| 7 | Workflow engine + durable state | pending |
+| 8 | Standard library + reference program | pending |
+| 9 | CLI, formatter, linter, LSP | pending |
+| 10 | Hardening and docs | pending |
+| 11 | Release sign-off | pending |
 
-Phase 1 is parsing and configuration validation only: no semantic checks, no
-model calls, no execution. Semantic errors are intentionally deferred to Phase 2
-and the CLI never contacts an integration. See `docs/implementation-ledger.md`
-for the full Axiom 1.0 phase status.
+Phase 1 is parsing and configuration validation. Phase 2 is in progress: the
+module graph, symbol tables, and declaration/aggregate/effect checks run under
+`axiom check` (optionally with `--config`); full type inference is not
+implemented. The CLI never contacts an integration and no `.ax` code is executed.

@@ -4,7 +4,7 @@ Tracks Axiom 1.0 requirements against implementation status. **Do not mark an
 item complete without test evidence.** Statuses: `done` (implemented + tested),
 `partial`, `not started`. Phase numbers follow `agents.md` §14.
 
-Last updated: 2026-10-18 (Phase 1 syntax reworked to the agents.md v4 grammar).
+Last updated: 2026-10-18 (Phase 2 begun: module graph, symbols, declaration/effect checks).
 
 ## Phase status
 
@@ -12,14 +12,14 @@ Last updated: 2026-10-18 (Phase 1 syntax reworked to the agents.md v4 grammar).
 | --- | --- | --- |
 | 0 | Design: spec, EBNF, semantics, ADRs, threat model, conformance matrix | partial — spec/grammar/ADRs drafted; conformance matrix, threat model, provider verification pending |
 | 1 | Syntax: lexer, parser, AST, source maps, diagnostics with recovery | done — 1.0 surface grammar implemented; every §11/§5.7 example parses |
-| 2 | Semantics: module graph, symbols, type system, generics, Option/Result, effects, source/config cross-validation | not started |
+| 2 | Semantics: module graph, symbols, type system, generics, Option/Result, effects, source/config cross-validation | partial — module graph, symbol tables, declaration/aggregate/effect checks, and literal config cross-validation landed; full type inference and effect propagation pending |
 | 3 | Compiler and evaluator: typed IR, deterministic evaluator, workflow graph validation, `explain`/`plan` | not started |
 | 4 | Config and integrations: YAML schema, env/secret resolution, redaction, registry, profiles, precedence, adapters/dialects | partial — `axiom.yaml` schema/validation only; no adapters |
 | 5 | Filesystem, tools, artifacts: secure FS, workspaces, Git worktrees, patches, artifacts, tool registry, command profiles | not started |
 | 6 | Agent runtime: agents, teams, goals, contracts, tool loops, typed output validation | not started |
 | 7 | Workflow engine and state: full semantics, durable state, checkpoints, resume, cancel, approvals, events, traces | not started |
 | 8 | Stdlib and reference program: complete stdlib; §11 as a real integration test | not started |
-| 9 | Tooling: CLI, formatter, linter, LSP | partial — `check` and `config check` only |
+| 9 | Tooling: CLI, formatter, linter, LSP | partial — `check` (with `--config`) and `config check` only |
 | 10 | Hardening and docs: conformance, property/fuzz/security/concurrency tests, performance, docs, examples, packaging | not started |
 | 11 | Release sign-off: audit, `docs/release-readiness.md` | not started |
 
@@ -33,19 +33,22 @@ Last updated: 2026-10-18 (Phase 1 syntax reworked to the agents.md v4 grammar).
 | Full workflow statement set (`yield`, `timeout`, `on_error`, `retry`, `parallel for … [max]`, `require … else escalate`) | 1 | done | `reference_workflow_parses` | `docs/language-spec.md` | — |
 | All `agents.md` §11/§5.7 examples parse cleanly | 1 | done | `examples_parse_cleanly` (8 files) | `examples/src/*.ax` | Parser only; type-checking/execution are later phases |
 | No panic on malformed/fuzz input | 1 | done | `parser_never_panics_on_token_soup` | `docs/decisions/0007-parser-recovery.md` | Property/fuzz targets not set up |
-| `axiom check` CLI | 1,9 | partial | CLI smoke tests | `README.md` | No machine-readable output yet |
+| `axiom check` CLI (parse + module graph + semantics, optional `--config`) | 1,2,9 | partial | CLI smoke tests; `check` runs `axiom-types` | `README.md` | No machine-readable output yet |
 | `axiom.yaml` load + `${...}` expansion + validation | 4 | done | `crates/axiom-config` (22 tests) | `docs/configuration.md` | Value diagnostics use approximate spans |
 | YAML keys match 1.0 spec (`integrations`/`integration`/`timeout_seconds`) | 4 | done | config integration tests | `docs/configuration.md` | `language:`/`sources:` top-level keys not yet accepted |
 | `filesystem:` config section parsing/validation | 4 | partial | config tests | `docs/configuration.md` | Parsed but not enforced (Phase 5) |
 | `commands:` allowlisted command profiles (schema) | 4,5 | partial | config tests | `docs/configuration.md` | Parsed/validated only; no execution (Phase 5) |
-| Modules, imports, exports, multi-file projects | 1,2 | partial | parser tests | `docs/grammar.ebnf` | Syntax only; resolution is Phase 2 |
-| Static type system (primitives, generics, unions, Option/Result, inference) | 2 | not started | — | `docs/language-spec.md` | — |
-| Effects/capabilities static checking | 2,4 | not started | — | `docs/architecture.md` | — |
+| Module graph: relative import resolution, missing/unexported names, cycles, duplicate module paths | 2 | done | `crates/axiom-types` (19 tests) | `docs/architecture.md` | Deterministic path normalization; no `../` escape guard yet |
+| Symbol tables per module (kind, export, duplicates) | 2 | done | `crates/axiom-types` tests | `docs/architecture.md` | One namespace per module; no nested scopes yet |
+| Declaration/aggregate checks (duplicates, record/interface/enum fields, generic arity) | 2 | partial | `axiom-types` tests | `docs/language-spec.md` | Only built-in generic arities checked; no user-generic arity |
+| Effects: known effect names, `pure` discipline (no effects clause, no `await`/`delegate`/`parallel`) | 2 | partial | `axiom-types` tests | `docs/language-spec.md` | No inter-procedural effect propagation or capability intersection |
+| Source/config cross-validation (literal model aliases, `commands.run` names) | 2,4 | partial | `axiom-types` tests; `axiom check --config` | `docs/configuration.md` | Tool `binding` strings not yet resolved |
+| Static type system (generics, unions, Option/Result, inference, `match` exhaustiveness) | 2 | not started | — | `docs/language-spec.md` | — |
 | Typed IR + `explain`/`plan`/dry-run | 3 | not started | — | — | — |
 | Adapter registry + native/generic/mock adapters | 4 | not started | — | `docs/providers.md` | Config schema only |
 | Typed tools + command profiles (enforced) | 5 | not started | — | — | — |
 | Filesystem/workspace/artifact subsystem | 5,8 | not started | — | — | — |
-| §11 reference program as a compiling integration test | 8 | not started | — | `examples/src/*.ax` | Parses now; execution is Phase 8 |
+| §11 reference program as a compiling integration test | 8 | not started | — | `examples/src/*.ax` | Parses and passes semantic checks; execution is Phase 8 |
 | Agent runtime, teams, goals, contracts | 6 | not started | — | — | — |
 | Hybrid workflow engine + durable state | 7 | not started | — | — | — |
 | Standard library modules | 8 | not started | — | — | — |
@@ -56,13 +59,16 @@ Last updated: 2026-10-18 (Phase 1 syntax reworked to the agents.md v4 grammar).
 
 ## Truthfulness note
 
-Axiom 1.0 is **not** complete. The current repository is a Phase 1 front end for
-the 1.0 surface grammar plus a validated `axiom.yaml` (1.0 schema) loader. The
-lexer, parser, and AST cover the full surface syntax — including member blocks,
-positional/named arguments, `await`/`delegate`/`parallel for` expressions,
-durations/sizes, and the complete workflow statement set — and every reference
-example in `agents.md` §11 and §5.7 parses cleanly. There is no semantic
-analysis, type checking, IR, or execution yet. The next increment is Phase 2:
-the module graph, symbols, the type system, and effect checking. Nothing outside
-the parser tests, configuration tests, and CLI smoke tests above should be
-assumed to work.
+Axiom 1.0 is **not** complete. The repository is a Phase 1 front end for the 1.0
+surface grammar, a validated `axiom.yaml` (1.0 schema) loader, and the **first
+increment of Phase 2**: a multi-file module graph with import validation and
+cycle detection, per-module symbol tables, and semantic checks for duplicate
+declarations, malformed aggregates, built-in generic arity, effect validity,
+`pure` discipline, and cross-validation of literal model aliases and
+`commands.run` names against configuration. Full type inference, expression
+typing, `match` exhaustiveness, and inter-procedural effect propagation are
+**not** implemented. `axiom check` loads the module graph and runs these checks
+(with an optional `--config`); it performs no analysis, IR, or execution beyond
+that. Nothing outside the parser, semantic, configuration, and CLI tests above
+should be assumed to work.
+

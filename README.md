@@ -26,15 +26,16 @@ model changes. `Anthropic Messages` is an *adapter*; `claude_api` is an
 
 Axiom is re-baselined to the **Axiom 1.0** specification, but 1.0 is **not**
 implemented yet. The repository today is a `.ax` front end for the 1.0 surface
-grammar (no semantic analysis or execution) plus a validated `axiom.yaml` (1.0
-schema) loader. See [`docs/implementation-ledger.md`](docs/implementation-ledger.md)
-for the truthful phase-by-phase status; that file is the source of truth.
+grammar (no execution), a first increment of semantic analysis (module graph,
+symbols, declaration/effect checks), and a validated `axiom.yaml` (1.0 schema)
+loader. See [`docs/implementation-ledger.md`](docs/implementation-ledger.md) for
+the truthful phase-by-phase status; that file is the source of truth.
 
 | # | Phase | State |
 | --- | --- | --- |
 | 0 | Design: spec, EBNF, semantics, ADRs, threat model, conformance matrix | partial |
 | 1 | Syntax: lexer, parser, AST, diagnostics with recovery | done |
-| 2 | Semantics: module graph, symbols, types, effects | not started |
+| 2 | Semantics: module graph, symbols, types, effects | partial — module graph, symbols, declaration/effect checks |
 | 3 | Compiler and evaluator: typed IR, deterministic evaluator, explain/plan | not started |
 | 4 | Config and integrations: YAML schema, secrets, adapters/dialects | partial — config only |
 | 5 | Filesystem, tools, artifacts: secure FS, workspaces, patches, commands | not started |
@@ -55,6 +56,7 @@ parity notes, [`docs/language-spec.md`](docs/language-spec.md) for the language,
 ```
 crates/
   axiom-syntax/   lexer, parser, AST, spans, diagnostics  (no dependencies)
+  axiom-types/    module graph, symbols, declaration/effect checks
   axiom-config/   axiom.yaml loading, expansion, validation
   axiom-cli/      the `axiom` binary (check, config check, ...)
 examples/         axiom.yaml and src/ (the agent.md §11 reference project)
@@ -96,7 +98,8 @@ cargo check --workspace
 cargo test --workspace
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo run -p axiom-cli -- check examples/src/hello_agent.ax examples/src/filesystem_feature_workflow.ax
+cargo run -p axiom-cli -- check examples/src/filesystem_feature_workflow.ax examples/src/team.ax
+cargo run -p axiom-cli -- check --config examples/axiom.yaml examples/src/team.ax
 cargo run -p axiom-cli -- config check examples/axiom.yaml
 ```
 
