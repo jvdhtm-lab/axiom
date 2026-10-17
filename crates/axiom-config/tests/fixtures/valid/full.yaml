@@ -1,11 +1,11 @@
 version: 1
 
-providers:
+integrations:
   claude:
     adapter: anthropic_messages
     base_url: "${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
     api_key: "${ANTHROPIC_API_KEY}"
-    request_timeout_seconds: 90
+    timeout_seconds: 90
 
   local:
     adapter: openai_compatible
@@ -17,11 +17,11 @@ providers:
 
 models:
   reasoning:
-    provider: claude
+    integration: claude
     model: "${CLAUDE_MODEL:-claude-model-id}"
     capabilities: [chat, structured_output, tool_calling]
   local_coding:
-    provider: local
+    integration: local
     model: "${LOCAL_MODEL:-qwen3-coder:30b}"
     capabilities: [chat]
 
@@ -30,3 +30,19 @@ runtime:
   max_parallel_agents: 4
   max_retries: 2
   request_timeout_seconds: 120
+
+filesystem:
+  project_root: "."
+  default_agent_isolation: per_task
+  max_read_bytes: 2000000
+  max_write_bytes: 1000000
+  max_files_per_task: 500
+  protect_vcs_metadata: true
+
+commands:
+  cargo_check:
+    executable: cargo
+    args: ["check", "--offline", "--workspace"]
+    working_directory: "."
+    timeout_seconds: 300
+    network: false

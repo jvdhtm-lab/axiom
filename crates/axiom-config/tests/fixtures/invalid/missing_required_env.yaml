@@ -1,5 +1,5 @@
 version: 1
-providers:
+integrations:
   claude:
     adapter: anthropic_messages
     base_url: "https://api.anthropic.com"

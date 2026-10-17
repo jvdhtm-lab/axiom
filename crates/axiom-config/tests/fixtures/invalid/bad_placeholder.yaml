@@ -1,5 +1,5 @@
 version: 1
-providers:
+integrations:
   local:
     adapter: openai_compatible
     base_url: "${1BAD}"

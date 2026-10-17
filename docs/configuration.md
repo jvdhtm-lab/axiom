@@ -4,25 +4,24 @@ Axiom separates **source** from **configuration**:
 
 | File | Responsibilities |
 | --- | --- |
-| `*.ax` | The language: types, agents, goals, contracts, tools, policies, workflows, delegation, parallelism, branching, retries, verification gates. Portable and environment-independent. |
-| `axiom.yaml` | Deployment/environment configuration: provider connections (adapters, endpoints, secret references, timeouts, headers), model profiles, runtime defaults and limits. |
+| `*.ax` | The language: modules, types, agents, goals, contracts, tools, policies, workflows, delegation, parallelism, branching, retries, verification gates. Portable and environment-independent. |
+| `axiom.yaml` | Deployment/environment configuration: integration connections (adapters, endpoints, secret references, timeouts, headers), model profiles, runtime defaults and limits, filesystem limits, and allowlisted command profiles. |
 
 Neither file may contain the other's concerns. In particular, **do not put
-credentials or environment-specific endpoints into `.ax` source**. The `.ax`
-grammar also accepts `integration` and `model` declarations for portability and
-small examples, but `axiom.yaml` is the canonical deployment configuration;
-resolving how embedded declarations interact with configuration is a Phase 2+
-concern (see ADR-0008).
+credentials or environment-specific endpoints into `.ax` source**. `axiom.yaml`
+is the canonical deployment configuration; the `.ax` language (Axiom 1.0) does
+not embed integration or model declarations.
 
 Status: the `axiom-config` crate implements loading, `${...}` expansion, strict
-validation, and reference checks for `axiom.yaml` (Phase 1). No provider is
-contacted (Phase 4).
+validation, and reference checks for `axiom.yaml` (Phase 1). No integration is
+contacted (Phase 4), and filesystem/command limits are parsed and validated but
+not yet enforced (Phase 5).
 
 ## Command
 
 ```console
 $ axiom config check axiom.yaml
-ok: axiom.yaml (4 provider(s), 4 model(s))
+ok: axiom.yaml (4 integration(s), 4 model(s))
 checked 1 file: 0 error(s), 1 warning(s)
 ```
 
@@ -30,17 +29,20 @@ Exit codes: `0` success (warnings allowed), `1` diagnostics, `2` usage error.
 
 ## Schema
 
-The top level is a mapping with the keys `version`, `providers`, `models`, and
-`runtime`. Unknown keys are errors, never silently ignored.
+The top level is a mapping with the keys `version`, `integrations`, `models`,
+`runtime`, `filesystem`, and `commands`. Unknown keys are errors, never silently
+ignored. The reference key for a model's connection is named `integration`; there
+is no undocumented aliasing.
 
 ### `version`
 
 Required to be `1` when present (defaults to `1`). Any other value is rejected.
 
-### `providers`
+### `integrations`
 
-A mapping of provider id → connection. A provider is an *integration
-connection*: it names the protocol **adapter** and the endpoint.
+A mapping of integration id → connection. An integration is a *connection*: it
+names the protocol **adapter** and the endpoint. It is not an adapter, and not a
+model profile.
 
 | Key | Type | Notes |
 | --- | --- | --- |
@@ -48,17 +50,18 @@ connection*: it names the protocol **adapter** and the endpoint.
 | `base_url` | string (required) | endpoint URL |
 | `api_key` | string (optional) | usually a `${...}` reference to a secret |
 | `api_key_optional` | bool (default `false`) | allow a missing/empty key (e.g. local endpoints) |
-| `request_timeout_seconds` | integer (optional) | |
+| `timeout_seconds` | integer (optional) | |
 | `headers` | mapping string → string (optional) | values support `${...}` |
 
 ### `models`
 
 A mapping of model profile id → profile. A profile is a *logical alias* bound to
-a provider and a concrete model id; it makes no claim about model intelligence.
+an integration and a concrete model id; it makes no claim about model
+intelligence.
 
 | Key | Type | Notes |
 | --- | --- | --- |
-| `provider` | string (required) | must reference a declared provider |
+| `integration` | string (required) | must reference a declared integration |
 | `model` | string (required) | a concrete, user-supplied model id |
 | `capabilities` | sequence (optional) | `chat`, `structured_output`, `tool_calling`, `streaming`, `vision`, `embeddings`, `reasoning` |
 
@@ -74,6 +77,33 @@ support in Phase 4; unsupported operations must fail explicitly.
 | `max_retries` | integer (optional) | |
 | `request_timeout_seconds` | integer (optional) | |
 
+### `filesystem`
+
+Environment-independent operational limits for the filesystem/workspace
+subsystem. Parsed in Phase 1; enforced in Phase 5.
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `project_root` | string (optional) | root the runtime is confined to |
+| `default_agent_isolation` | string (optional) | e.g. `per_task`, `shared_read_only` |
+| `max_read_bytes` | integer (optional) | per-read limit |
+| `max_write_bytes` | integer (optional) | per-write limit |
+| `max_files_per_task` | integer (optional) | |
+| `protect_vcs_metadata` | bool (optional) | keep VCS metadata out of agent reach |
+
+### `commands`
+
+A mapping of command profile id → profile. The runtime may run only these named
+profiles; command lines are never assembled from model output.
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `executable` | string (required) | |
+| `args` | sequence of string (optional) | fixed arguments |
+| `working_directory` | string (optional) | |
+| `timeout_seconds` | integer (optional) | |
+| `network` | bool (optional) | whether the command may use the network |
+
 ## Placeholder expansion
 
 Expansion is implemented explicitly by Axiom; it is **not** delegated to the YAML
@@ -84,9 +114,9 @@ parser. Only string scalars are expanded:
 - `$$` → a literal `$`.
 - Any other `$` is a malformed-placeholder error.
 
-There is no recursion and no expression evaluation. A provider whose
+There is no recursion and no expression evaluation. An integration whose
 `api_key` cannot be resolved is an error unless `api_key_optional: true`, in
-which case it is a warning and the provider loads without a key.
+which case it is a warning and the integration loads without a key.
 
 ## Secrets
 
@@ -100,11 +130,11 @@ error messages. No credentials are needed to parse either file type.
 - Value-level checks (unknown key, missing field, unknown capability, unresolved
   reference, missing environment variable) carry an **approximate** span: YAML
   values have no spans, so Axiom points at the first occurrence of the offending
-  key (`providers.claude` → the `claude:` line), falling back to the start of the
-  file. Precise value spans are a possible later improvement.
+  key (`integrations.claude` → the `claude:` line), falling back to the start of
+  the file. Precise value spans are a possible later improvement.
 
 ## Non-goals (Phase 1)
 
-No provider calls, no capability negotiation, no vendor-specific option
-validation, no model discovery. Vendor-namespaced options and the adapter
-registry are Phase 4 concerns.
+No integration calls, no capability negotiation, no vendor-specific option
+validation, no model discovery. Vendor-namespaced options, the adapter registry,
+and enforcement of the `filesystem`/`commands` limits are later-phase concerns.

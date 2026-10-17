@@ -1,11 +1,11 @@
 version: 1
-providers:
+integrations:
   local:
     adapter: openai_compatible
     base_url: "http://localhost:11434/v1"
     api_key_optional: true
 models:
   m:
-    provider: local
+    integration: local
     model: some-model
     capabilities: [chat, telepathy]

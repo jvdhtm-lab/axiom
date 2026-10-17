@@ -3,7 +3,7 @@
 //! The loader is deliberately explicit: it parses YAML into a value tree,
 //! expands `${...}` placeholders itself, checks the schema strictly (unknown
 //! keys are errors, not silently dropped), and cross-checks references between
-//! providers, model profiles, and runtime defaults.
+//! integrations, model profiles, and runtime defaults.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -13,7 +13,10 @@ use yaml_serde::value::Mapping;
 use yaml_serde::Value;
 
 use crate::expand::expand;
-use crate::model::{Capability, ModelConfig, ProjectConfig, ProviderConfig, RuntimeConfig, Secret};
+use crate::model::{
+    Capability, CommandProfile, FilesystemConfig, IntegrationConfig, ModelConfig, ProjectConfig,
+    RuntimeConfig, Secret,
+};
 
 /// The outcome of loading a configuration file.
 #[derive(Debug, Clone)]
@@ -70,9 +73,11 @@ pub fn parse_config_with(
 fn default_config() -> ProjectConfig {
     ProjectConfig {
         version: ProjectConfig::SUPPORTED_VERSION,
-        providers: BTreeMap::new(),
+        integrations: BTreeMap::new(),
         models: BTreeMap::new(),
         runtime: RuntimeConfig::default(),
+        filesystem: FilesystemConfig::default(),
+        commands: BTreeMap::new(),
     }
 }
 
@@ -93,8 +98,8 @@ impl<'a> Builder<'a> {
     }
 
     /// Approximate the span of a labelled key. YAML values carry no spans, so we
-    /// look for the last path segment (`providers.claude` -> `claude:`). When it
-    /// cannot be found we fall back to the start of the file; this is
+    /// look for the last path segment (`integrations.claude` -> `claude:`). When
+    /// it cannot be found we fall back to the start of the file; this is
     /// best-effort and documented in `docs/configuration.md`.
     fn span_for(&self, label: &str) -> Span {
         let segment = label.rsplit('.').next().unwrap_or(label);
@@ -146,23 +151,32 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
 
     check_allowed(
         mapping,
-        &["version", "providers", "models", "runtime"],
+        &[
+            "version",
+            "integrations",
+            "models",
+            "runtime",
+            "filesystem",
+            "commands",
+        ],
         "axiom.yaml",
         builder,
     );
 
     let version = read_version(mapping, builder);
-    let providers = build_providers(mapping, builder);
+    let integrations = build_integrations(mapping, builder);
     let models = build_models(mapping, builder);
     let runtime = build_runtime(mapping, builder);
+    let filesystem = build_filesystem(mapping, builder);
+    let commands = build_commands(mapping, builder);
 
     for (name, model) in &models {
-        if !providers.contains_key(&model.provider) {
+        if !integrations.contains_key(&model.integration) {
             builder.error(
                 &format!("models.{name}"),
                 format!(
-                    "unknown provider `{}`; declare it under `providers:`",
-                    model.provider
+                    "unknown integration `{}`; declare it under `integrations:`",
+                    model.integration
                 ),
             );
         }
@@ -178,9 +192,11 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
 
     Some(ProjectConfig {
         version,
-        providers,
+        integrations,
         models,
         runtime,
+        filesystem,
+        commands,
     })
 }
 
@@ -217,38 +233,42 @@ fn read_version(mapping: &Mapping, builder: &mut Builder<'_>) -> u32 {
     version
 }
 
-fn build_providers(
+fn build_integrations(
     mapping: &Mapping,
     builder: &mut Builder<'_>,
-) -> BTreeMap<String, ProviderConfig> {
-    let mut providers = BTreeMap::new();
-    let Some(value) = mapping_field(mapping, "providers") else {
-        return providers;
+) -> BTreeMap<String, IntegrationConfig> {
+    let mut integrations = BTreeMap::new();
+    let Some(value) = mapping_field(mapping, "integrations") else {
+        return integrations;
     };
-    let Some(entries) = expect_mapping(value, "providers", builder) else {
-        return providers;
+    let Some(entries) = expect_mapping(value, "integrations", builder) else {
+        return integrations;
     };
 
     for (key, entry) in entries {
         let Some(id) = key.as_str() else {
-            builder.error("providers", "provider names must be strings");
+            builder.error("integrations", "integration names must be strings");
             continue;
         };
-        let label = format!("providers.{id}");
+        let label = format!("integrations.{id}");
         if !is_ident(id) {
             builder.error(
                 &label,
-                "invalid provider name; use letters, digits, and underscores",
+                "invalid integration name; use letters, digits, and underscores",
             );
         }
-        if let Some(provider) = build_provider(entry, &label, builder) {
-            providers.insert(id.to_string(), provider);
+        if let Some(integration) = build_integration(entry, &label, builder) {
+            integrations.insert(id.to_string(), integration);
         }
     }
-    providers
+    integrations
 }
 
-fn build_provider(value: &Value, label: &str, builder: &mut Builder<'_>) -> Option<ProviderConfig> {
+fn build_integration(
+    value: &Value,
+    label: &str,
+    builder: &mut Builder<'_>,
+) -> Option<IntegrationConfig> {
     let mapping = expect_mapping(value, label, builder)?;
     check_allowed(
         mapping,
@@ -257,7 +277,7 @@ fn build_provider(value: &Value, label: &str, builder: &mut Builder<'_>) -> Opti
             "base_url",
             "api_key",
             "api_key_optional",
-            "request_timeout_seconds",
+            "timeout_seconds",
             "headers",
         ],
         label,
@@ -267,16 +287,16 @@ fn build_provider(value: &Value, label: &str, builder: &mut Builder<'_>) -> Opti
     let adapter = required_string(mapping, label, "adapter", builder)?;
     let base_url = required_string(mapping, label, "base_url", builder)?;
     let api_key_optional = optional_bool(mapping, label, "api_key_optional", builder, false);
-    let request_timeout_seconds = optional_u64(mapping, label, "request_timeout_seconds", builder);
+    let timeout_seconds = optional_u64(mapping, label, "timeout_seconds", builder);
     let headers = build_headers(mapping, label, builder);
     let api_key = build_api_key(mapping, label, api_key_optional, builder);
 
-    Some(ProviderConfig {
+    Some(IntegrationConfig {
         adapter,
         base_url,
         api_key,
         api_key_optional,
-        request_timeout_seconds,
+        timeout_seconds,
         headers,
     })
 }
@@ -291,7 +311,7 @@ fn build_api_key(
         if !api_key_optional {
             builder.warn(
                 label,
-                "`api_key` is not set; add one or mark the provider `api_key_optional: true` if the endpoint needs no credentials",
+                "`api_key` is not set; add one or mark the integration `api_key_optional: true` if the endpoint needs no credentials",
             );
         }
         return None;
@@ -385,17 +405,17 @@ fn build_model(value: &Value, label: &str, builder: &mut Builder<'_>) -> Option<
     let mapping = expect_mapping(value, label, builder)?;
     check_allowed(
         mapping,
-        &["provider", "model", "capabilities"],
+        &["integration", "model", "capabilities"],
         label,
         builder,
     );
 
-    let provider = required_string(mapping, label, "provider", builder)?;
+    let integration = required_string(mapping, label, "integration", builder)?;
     let model = required_string(mapping, label, "model", builder)?;
     let capabilities = build_capabilities(mapping, label, builder);
 
     Some(ModelConfig {
-        provider,
+        integration,
         model,
         capabilities,
     })
@@ -472,6 +492,132 @@ fn build_runtime(mapping: &Mapping, builder: &mut Builder<'_>) -> RuntimeConfig 
     runtime.request_timeout_seconds =
         optional_u64(entries, "runtime", "request_timeout_seconds", builder);
     runtime
+}
+
+fn build_filesystem(mapping: &Mapping, builder: &mut Builder<'_>) -> FilesystemConfig {
+    let mut filesystem = FilesystemConfig::default();
+    let Some(value) = mapping_field(mapping, "filesystem") else {
+        return filesystem;
+    };
+    let Some(entries) = expect_mapping(value, "filesystem", builder) else {
+        return filesystem;
+    };
+    check_allowed(
+        entries,
+        &[
+            "project_root",
+            "default_agent_isolation",
+            "max_read_bytes",
+            "max_write_bytes",
+            "max_files_per_task",
+            "protect_vcs_metadata",
+        ],
+        "filesystem",
+        builder,
+    );
+
+    filesystem.project_root = optional_string(entries, "filesystem", "project_root", builder);
+    filesystem.default_agent_isolation =
+        optional_string(entries, "filesystem", "default_agent_isolation", builder);
+    filesystem.max_read_bytes = optional_u64(entries, "filesystem", "max_read_bytes", builder);
+    filesystem.max_write_bytes = optional_u64(entries, "filesystem", "max_write_bytes", builder);
+    filesystem.max_files_per_task =
+        optional_u64(entries, "filesystem", "max_files_per_task", builder);
+    filesystem.protect_vcs_metadata =
+        optional_bool_value(entries, "filesystem", "protect_vcs_metadata", builder);
+    filesystem
+}
+
+fn build_commands(
+    mapping: &Mapping,
+    builder: &mut Builder<'_>,
+) -> BTreeMap<String, CommandProfile> {
+    let mut commands = BTreeMap::new();
+    let Some(value) = mapping_field(mapping, "commands") else {
+        return commands;
+    };
+    let Some(entries) = expect_mapping(value, "commands", builder) else {
+        return commands;
+    };
+
+    for (key, entry) in entries {
+        let Some(id) = key.as_str() else {
+            builder.error("commands", "command profile names must be strings");
+            continue;
+        };
+        let label = format!("commands.{id}");
+        if !is_ident(id) {
+            builder.error(
+                &label,
+                "invalid command profile name; use letters, digits, and underscores",
+            );
+        }
+        if let Some(profile) = build_command(entry, &label, builder) {
+            commands.insert(id.to_string(), profile);
+        }
+    }
+    commands
+}
+
+fn build_command(value: &Value, label: &str, builder: &mut Builder<'_>) -> Option<CommandProfile> {
+    let mapping = expect_mapping(value, label, builder)?;
+    check_allowed(
+        mapping,
+        &[
+            "executable",
+            "args",
+            "working_directory",
+            "timeout_seconds",
+            "network",
+        ],
+        label,
+        builder,
+    );
+
+    let executable = required_string(mapping, label, "executable", builder)?;
+    let args = build_string_list(mapping, label, "args", builder);
+    let working_directory = optional_string(mapping, label, "working_directory", builder);
+    let timeout_seconds = optional_u64(mapping, label, "timeout_seconds", builder);
+    let network = optional_bool_value(mapping, label, "network", builder);
+
+    Some(CommandProfile {
+        executable,
+        args,
+        working_directory,
+        timeout_seconds,
+        network,
+    })
+}
+
+fn build_string_list(
+    mapping: &Mapping,
+    label: &str,
+    field: &str,
+    builder: &mut Builder<'_>,
+) -> Vec<String> {
+    let mut values = Vec::new();
+    let Some(value) = mapping_field(mapping, field) else {
+        return values;
+    };
+    match value {
+        Value::Null => {}
+        Value::Sequence(items) => {
+            for item in items {
+                let Some(raw) = item.as_str() else {
+                    builder.error(label, format!("`{field}` entries must be strings"));
+                    continue;
+                };
+                if let Some(expanded) = builder.expand(label, field, raw) {
+                    values.push(expanded);
+                }
+            }
+        }
+        other => builder.error(
+            label,
+            format!("`{field}` must be a sequence, found {}", type_name(other)),
+        ),
+    }
+    values
 }
 
 // --- value helpers -------------------------------------------------------
@@ -556,15 +702,24 @@ fn optional_bool(
     builder: &mut Builder<'_>,
     default: bool,
 ) -> bool {
+    optional_bool_value(mapping, label, field, builder).unwrap_or(default)
+}
+
+fn optional_bool_value(
+    mapping: &Mapping,
+    label: &str,
+    field: &str,
+    builder: &mut Builder<'_>,
+) -> Option<bool> {
     match mapping_field(mapping, field) {
-        None => default,
-        Some(Value::Bool(value)) => *value,
+        None => None,
+        Some(Value::Bool(value)) => Some(*value),
         Some(other) => {
             builder.error(
                 label,
                 format!("`{field}` must be a boolean, found {}", type_name(other)),
             );
-            default
+            None
         }
     }
 }

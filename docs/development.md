@@ -64,11 +64,12 @@ ADR-0009); it becomes more relevant from Phase 4 onward (async + HTTP).
 | 1 | Lexer, parser, AST, diagnostics, `axiom check`; `axiom.yaml` load/validate, `axiom config check` | done |
 | 2 | Semantic analysis and contracts | pending |
 | 3 | IR + `explain`/`plan` | pending |
-| 4 | Providers, adapters, model profiles | pending |
+| 4 | Integration layer, adapters, model profiles | pending |
 | 5 | Runtime + typed tools | pending |
 | 6 | Workflows + verification gates | pending |
 | 7 | Example app + hardening | pending |
 
 Phase 1 is parsing and configuration validation only: no semantic checks, no
 model calls, no execution. Semantic errors are intentionally deferred to Phase 2
-and the CLI never contacts a provider.
+and the CLI never contacts an integration. See `docs/implementation-ledger.md`
+for the full Axiom 1.0 phase status.

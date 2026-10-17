@@ -11,6 +11,7 @@
 | [0007](0007-diagnostics-and-recovery.md) | Spanned diagnostics with error recovery | accepted |
 | [0008](0008-source-vs-configuration.md) | `.ax` source versus `axiom.yaml` configuration | accepted |
 | [0009](0009-yaml-dependency.md) | YAML parsing dependency (`yaml_serde`) | accepted |
+| [0010](0010-rebaseline-axiom-1-0.md) | Re-baseline to Axiom 1.0 | accepted |
 
 ADRs are immutable once accepted; a later ADR supersedes an earlier one rather
 than editing it.

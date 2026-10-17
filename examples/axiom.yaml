@@ -1,55 +1,83 @@
-# Axiom project configuration for the bundled examples.
+# Axiom project configuration (Axiom 1.0 schema).
+#
 # Environment references use explicit ${...} expansion: ${NAME} is required,
 # ${NAME:-default} falls back when the variable is unset or empty. Secrets are
-# resolved at runtime and never written into compiled plans or logs.
+# resolved at runtime and never written into compiled plans, traces, or logs.
 
 version: 1
 
-providers:
+integrations:
   claude:
     adapter: anthropic_messages
     base_url: "${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
     api_key: "${ANTHROPIC_API_KEY}"
+    timeout_seconds: 120
 
   deepseek:
     adapter: openai_compatible
     base_url: "${DEEPSEEK_BASE_URL:-https://api.deepseek.com}"
     api_key: "${DEEPSEEK_API_KEY}"
+    timeout_seconds: 120
 
   kimi:
     adapter: openai_compatible
     base_url: "${KIMI_BASE_URL:-https://api.moonshot.ai/v1}"
     api_key: "${KIMI_API_KEY}"
+    timeout_seconds: 120
 
   local:
     adapter: openai_compatible
     base_url: "${AXIOM_LOCAL_BASE_URL:-http://localhost:11434/v1}"
     api_key: "${AXIOM_LOCAL_API_KEY}"
     api_key_optional: true
+    timeout_seconds: 180
 
 models:
   reasoning:
-    provider: claude
+    integration: claude
     model: "${CLAUDE_MODEL:-claude-model-id}"
     capabilities: [chat, structured_output, tool_calling]
 
   coding:
-    provider: deepseek
+    integration: deepseek
     model: "${DEEPSEEK_MODEL:-deepseek-model-id}"
     capabilities: [chat, tool_calling]
 
   review:
-    provider: kimi
+    integration: kimi
     model: "${KIMI_MODEL:-kimi-model-id}"
     capabilities: [chat]
 
   local_coding:
-    provider: local
+    integration: local
     model: "${LOCAL_MODEL:-qwen3-coder:30b}"
     capabilities: [chat]
 
 runtime:
   default_model: reasoning
-  max_parallel_agents: 4
-  max_retries: 2
+  max_parallel_agents: 8
+  max_retries: 3
   request_timeout_seconds: 120
+
+filesystem:
+  project_root: "."
+  default_agent_isolation: per_task
+  max_read_bytes: 2000000
+  max_write_bytes: 1000000
+  max_files_per_task: 500
+  protect_vcs_metadata: true
+
+commands:
+  cargo_check:
+    executable: cargo
+    args: ["check", "--offline", "--workspace", "--all-targets"]
+    working_directory: "."
+    timeout_seconds: 300
+    network: false
+
+  unit_tests:
+    executable: cargo
+    args: ["test", "--offline", "--workspace", "--lib"]
+    working_directory: "."
+    timeout_seconds: 600
+    network: false

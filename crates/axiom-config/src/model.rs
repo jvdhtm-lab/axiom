@@ -2,10 +2,9 @@
 //!
 //! These are the shapes the rest of the toolchain consumes after `axiom.yaml`
 //! has been loaded, placeholders expanded, and the schema validated. The model
-//! keeps the three provider concepts separate: a **provider** (integration
-//! connection) names a protocol `adapter` and an endpoint, while a **model**
-//! profile names a provider plus a concrete model identifier and the
-//! capabilities it expects.
+//! keeps the integration concepts separate: an **integration** names a protocol
+//! `adapter` and an endpoint, while a **model** profile names an integration plus
+//! a concrete model id and the capabilities it expects.
 
 use std::collections::BTreeMap;
 
@@ -47,7 +46,7 @@ impl std::fmt::Display for Secret {
 /// A capability a model profile expects from its endpoint.
 ///
 /// Declared capabilities are expectations, not proof: adapters negotiate them
-/// in Phase 4 and unsupported operations must fail explicitly.
+/// (Phase 4) and unsupported operations must fail explicitly.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Capability {
     Chat,
@@ -98,20 +97,20 @@ impl Capability {
 
 /// An integration connection: a named endpoint speaking a protocol `adapter`.
 #[derive(Debug, Clone)]
-pub struct ProviderConfig {
+pub struct IntegrationConfig {
     /// The protocol adapter, e.g. `anthropic_messages` or `openai_compatible`.
     pub adapter: String,
     pub base_url: String,
     pub api_key: Option<Secret>,
     pub api_key_optional: bool,
-    pub request_timeout_seconds: Option<u64>,
+    pub timeout_seconds: Option<u64>,
     pub headers: BTreeMap<String, String>,
 }
 
-/// A model profile: a logical alias bound to a provider and concrete model ID.
+/// A model profile: a logical alias bound to an integration and concrete model id.
 #[derive(Debug, Clone)]
 pub struct ModelConfig {
-    pub provider: String,
+    pub integration: String,
     pub model: String,
     pub capabilities: Vec<Capability>,
 }
@@ -125,13 +124,42 @@ pub struct RuntimeConfig {
     pub request_timeout_seconds: Option<u64>,
 }
 
+/// Environment-independent filesystem operational limits.
+///
+/// These values are parsed and validated in Phase 1/4 but enforced by the
+/// filesystem subsystem in Phase 5.
+#[derive(Debug, Clone, Default)]
+pub struct FilesystemConfig {
+    pub project_root: Option<String>,
+    pub default_agent_isolation: Option<String>,
+    pub max_read_bytes: Option<u64>,
+    pub max_write_bytes: Option<u64>,
+    pub max_files_per_task: Option<u64>,
+    pub protect_vcs_metadata: Option<bool>,
+}
+
+/// An allowlisted command profile: an executable plus fixed arguments.
+///
+/// Commands are never assembled from model output; the runtime runs only named
+/// profiles (Phase 5).
+#[derive(Debug, Clone)]
+pub struct CommandProfile {
+    pub executable: String,
+    pub args: Vec<String>,
+    pub working_directory: Option<String>,
+    pub timeout_seconds: Option<u64>,
+    pub network: Option<bool>,
+}
+
 /// A validated `axiom.yaml` project configuration.
 #[derive(Debug, Clone)]
 pub struct ProjectConfig {
     pub version: u32,
-    pub providers: BTreeMap<String, ProviderConfig>,
+    pub integrations: BTreeMap<String, IntegrationConfig>,
     pub models: BTreeMap<String, ModelConfig>,
     pub runtime: RuntimeConfig,
+    pub filesystem: FilesystemConfig,
+    pub commands: BTreeMap<String, CommandProfile>,
 }
 
 impl ProjectConfig {

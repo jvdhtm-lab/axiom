@@ -59,20 +59,21 @@ results, artifacts, verification evidence
 axiom.yaml
   │  load + ${...} expansion + schema validation   (axiom-config)
   ▼
-ProjectConfig (providers, model profiles, runtime defaults)
+ProjectConfig (integrations, model profiles, runtime/filesystem limits)
 ```
 
 Phase 1 implements two slices: `.ax` source → tokens → AST, and `axiom.yaml` →
 validated `ProjectConfig`, both with diagnostics and accurate spans (configuration
 value diagnostics use an approximate span — see `docs/configuration.md`). Nothing
-below the AST exists yet, and no provider is contacted.
+below the AST exists yet, and no integration is contacted.
 
 ## Source vs configuration
 
 `.ax` is the portable language; `axiom.yaml` is deployment/environment
-configuration (providers, endpoints, secret references, model profiles, runtime
-limits). They are validated independently and never overlap: source refers to
-model profiles by alias only. See `docs/configuration.md` and ADR-0008.
+configuration (integrations, endpoints, secret references, model profiles,
+runtime/filesystem limits, command profiles). They are validated independently
+and never overlap: source refers to model profiles by alias only. See
+`docs/configuration.md` and ADR-0008.
 
 ## Crates
 

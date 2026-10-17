@@ -1,7 +1,7 @@
 //! The `axiom` command-line interface.
 //!
 //! Phase 1 exposes `axiom check` for `.ax` source and `axiom config check` for
-//! `axiom.yaml`. Neither command contacts a model provider.
+//! `axiom.yaml`. Neither command contacts a model integration.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -163,8 +163,8 @@ fn run_config_check(arguments: &[String]) -> ExitCode {
             failed = true;
         } else if let Some(config) = &report.config {
             println!(
-                "ok: {display} ({} provider(s), {} model(s))",
-                config.providers.len(),
+                "ok: {display} ({} integration(s), {} model(s))",
+                config.integrations.len(),
                 config.models.len()
             );
         }

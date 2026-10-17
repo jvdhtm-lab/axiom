@@ -74,13 +74,14 @@ fn bundled_example_configuration_loads() {
     assert_eq!(report.error_count(), 0, "{}", messages(&report));
 
     let config = report.config.expect("a resolved config");
-    assert_eq!(config.providers.len(), 4);
+    assert_eq!(config.integrations.len(), 4);
     assert_eq!(config.models.len(), 4);
     assert_eq!(config.runtime.default_model.as_deref(), Some("reasoning"));
-    assert_eq!(config.runtime.max_parallel_agents, Some(4));
+    assert_eq!(config.runtime.max_parallel_agents, Some(8));
+    assert_eq!(config.runtime.request_timeout_seconds, Some(120));
 
     let reasoning = &config.models["reasoning"];
-    assert_eq!(reasoning.provider, "claude");
+    assert_eq!(reasoning.integration, "claude");
     assert_eq!(
         reasoning.capabilities,
         vec![
@@ -90,14 +91,34 @@ fn bundled_example_configuration_loads() {
         ]
     );
 
-    let claude = &config.providers["claude"];
+    let claude = &config.integrations["claude"];
     assert_eq!(claude.adapter, "anthropic_messages");
     assert_eq!(claude.base_url, "https://api.anthropic.com");
+    assert_eq!(claude.timeout_seconds, Some(120));
     assert!(claude.api_key.is_some());
+
+    let filesystem = &config.filesystem;
+    assert_eq!(filesystem.project_root.as_deref(), Some("."));
+    assert_eq!(
+        filesystem.default_agent_isolation.as_deref(),
+        Some("per_task")
+    );
+    assert_eq!(filesystem.max_read_bytes, Some(2_000_000));
+    assert_eq!(filesystem.max_files_per_task, Some(500));
+    assert_eq!(filesystem.protect_vcs_metadata, Some(true));
+
+    let cargo_check = &config.commands["cargo_check"];
+    assert_eq!(cargo_check.executable, "cargo");
+    assert_eq!(
+        cargo_check.args,
+        vec!["check", "--offline", "--workspace", "--all-targets"]
+    );
+    assert_eq!(cargo_check.network, Some(false));
+    assert_eq!(cargo_check.timeout_seconds, Some(300));
 }
 
 #[test]
-fn local_provider_without_a_key_warns_but_loads() {
+fn local_integration_without_a_key_warns_but_loads() {
     let text = include_str!("../../../examples/axiom.yaml");
     let report = parse("examples/axiom.yaml", text);
     assert!(report.warning_count() >= 1);
@@ -105,11 +126,11 @@ fn local_provider_without_a_key_warns_but_loads() {
 }
 
 #[test]
-fn unknown_provider_is_reported() {
-    let text = fs::read_to_string(fixtures("invalid/unknown_provider.yaml")).unwrap();
-    let report = parse("unknown_provider.yaml", &text);
+fn unknown_integration_is_reported() {
+    let text = fs::read_to_string(fixtures("invalid/unknown_integration.yaml")).unwrap();
+    let report = parse("unknown_integration.yaml", &text);
     assert!(report.has_errors());
-    assert!(messages(&report).contains("unknown provider"));
+    assert!(messages(&report).contains("unknown integration"));
 }
 
 #[test]
@@ -123,7 +144,7 @@ fn unknown_model_default_is_reported() {
 fn unknown_key_is_reported() {
     let text = fs::read_to_string(fixtures("invalid/unknown_key.yaml")).unwrap();
     let report = parse("unknown_key.yaml", &text);
-    assert!(messages(&report).contains("unknown key `providors`"));
+    assert!(messages(&report).contains("unknown key `foo`"));
 }
 
 #[test]
@@ -208,12 +229,12 @@ fn every_invalid_fixture_reports_and_renders() {
 
 #[test]
 fn placeholder_defaults_are_used_when_variables_are_absent() {
-    let text = "version: 1\nproviders:\n  local:\n    adapter: openai_compatible\n    base_url: \"${AXIOM_LOCAL_BASE_URL:-http://localhost:11434/v1}\"\n    api_key_optional: true\n";
+    let text = "version: 1\nintegrations:\n  local:\n    adapter: openai_compatible\n    base_url: \"${AXIOM_LOCAL_BASE_URL:-http://localhost:11434/v1}\"\n    api_key_optional: true\n";
     let report = parse("inline.yaml", text);
     assert_eq!(report.error_count(), 0, "{}", messages(&report));
     let config = report.config.unwrap();
     assert_eq!(
-        config.providers["local"].base_url,
+        config.integrations["local"].base_url,
         "http://localhost:11434/v1"
     );
 }
@@ -223,7 +244,7 @@ fn secrets_are_redacted_in_debug_output() {
     let text = include_str!("../../../examples/axiom.yaml");
     let report = parse("examples/axiom.yaml", text);
     let config = report.config.unwrap();
-    let claude = &config.providers["claude"];
+    let claude = &config.integrations["claude"];
 
     let secret = claude.api_key.as_ref().expect("a resolved secret");
     assert_eq!(secret.expose(), "sk-ant-test-secret");
@@ -236,7 +257,7 @@ fn secrets_are_redacted_in_debug_output() {
 
 #[test]
 fn missing_api_key_without_optional_is_a_warning_not_an_error() {
-    let text = "version: 1\nproviders:\n  cloud:\n    adapter: openai_compatible\n    base_url: \"https://example.invalid\"\n";
+    let text = "version: 1\nintegrations:\n  cloud:\n    adapter: openai_compatible\n    base_url: \"https://example.invalid\"\n";
     let report = parse("inline.yaml", text);
     assert_eq!(report.error_count(), 0, "{}", messages(&report));
     assert!(report.warning_count() >= 1);

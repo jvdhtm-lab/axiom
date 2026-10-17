@@ -24,23 +24,33 @@ model changes. `Anthropic Messages` is an *adapter*; `claude_api` is an
 
 ## Status
 
+Axiom is re-baselined to the **Axiom 1.0** specification, but 1.0 is **not**
+implemented yet. The repository today is a working *pre-1.0* `.ax` front end plus
+a validated `axiom.yaml` (1.0 schema) loader. See
+[`docs/implementation-ledger.md`](docs/implementation-ledger.md) for the truthful
+phase-by-phase status; that file is the source of truth.
+
 | Phase | Scope | State |
 | --- | --- | --- |
-| 0 | Reconnaissance, architecture, ADRs, grammar draft, toolchain | done |
-| 1 | Lexer, parser, AST, diagnostics, `axiom check`; `axiom.yaml` loading + `axiom config check` | done |
-| 2 | Semantic analysis, symbols, types, contracts | not started |
-| 3 | IR and explain/dry-run | not started |
-| 4 | Provider integration layer and model profiles | not started |
-| 5 | Agent runtime, typed tools | not started |
-| 6 | Goals, contracts, hybrid workflow execution | not started |
-| 7 | Example application, docs, hardening | not started |
-| 8 | Optional future work | not started |
+| 0 | Reconnaissance, spec, grammar/EBNF, architecture, ADRs | partial |
+| 1 | Lexer, parser, AST, diagnostics (all 1.0 syntax) | partial — pre-1.0 grammar |
+| 2 | Modules, types, symbols, effects | not started |
+| 3 | Deterministic evaluator, typed IR, explain/plan | not started |
+| 4 | Configuration + model integration layer/adapter registry | partial — config only |
+| 5 | Tools, secure filesystem, workspaces, artifacts, commands | not started |
+| 6 | Agent runtime, teams, goals, contracts, invocation | not started |
+| 7 | Hybrid workflow engine | not started |
+| 8 | Durable state, recovery, observability | not started |
+| 9 | Standard library | not started |
+| 10 | CLI, formatter, linter, LSP | partial — `check`/`config check` |
+| 11 | Conformance, security, fuzzing, performance | not started |
+| 12 | Documentation, examples, packaging, compatibility | partial |
+| 13 | Release candidate / 1.0 sign-off | not started |
 
 See [`docs/development.md`](docs/development.md) for build/test commands and
-parity notes, [`docs/language-spec.md`](docs/language-spec.md) for the grammar,
-and [`docs/configuration.md`](docs/configuration.md) for `axiom.yaml`. This
-document labels what is **implemented**, **simulated**, and **future**; do not
-read further than that.
+parity notes, [`docs/language-spec.md`](docs/language-spec.md) for the language,
+[`docs/grammar.ebnf`](docs/grammar.ebnf) for the normative 1.0 grammar, and
+[`docs/configuration.md`](docs/configuration.md) for `axiom.yaml`.
 
 ## Layout
 
@@ -50,42 +60,32 @@ crates/
   axiom-config/   axiom.yaml loading, expansion, validation
   axiom-cli/      the `axiom` binary (check, config check, ...)
 examples/         .ax programs and axiom.yaml
-docs/             language spec, configuration, architecture, providers, security, ADRs
+docs/             language spec, grammar, configuration, architecture, providers,
+                  security, implementation ledger, ADRs
 ```
 
-## Example
+## Example (Axiom 1.0 target syntax)
 
 ```ts
-integration local_llm {
-  adapter: openai_compatible
-  base_url: env("AXIOM_LOCAL_BASE_URL", "http://localhost:11434/v1")
-  api_key: secret("AXIOM_LOCAL_API_KEY", optional: true)
-}
+module architect;
 
-model coding {
-  integration: "local_llm"
-  model: env("AXIOM_LOCAL_MODEL", "qwen3-coder:30b")
-  capabilities: [chat, structured_output]
-}
+import { FeatureSpec, ExecutionPlan } from "spec/types";
 
-agent Architect implements Agent<FeatureSpec, ExecutionPlan> {
-  model: "coding"
-  purpose: "Decompose requirements and design interfaces"
-  tools: [repository.read, documentation.search]
-
-  permissions {
-    read: ["src/**", "docs/**"]
-    write: []
-  }
-
+export agent Architect implements Agent<FeatureSpec, ExecutionPlan> {
+  purpose: "Decompose requirements and design interfaces.";
+  model: "reasoning";
+  tools: [repository.read, documentation.search];
+  workspace: ProjectReadOnly;
   constraints {
-    must: ["Define explicit interfaces"]
-    must_not: ["Implement application code directly"]
+    must: ["define explicit interfaces"];
+    must_not: ["implement application code directly"];
   }
 }
-
-let localArchitect = Architect.with { model: "coding" }
 ```
+
+Endpoints, credentials, and concrete model ids live in `axiom.yaml`; `model:
+"reasoning"` names a model profile. The current parser implements only a
+pre-1.0 subset of this syntax (see the ledger).
 
 ## Building
 

@@ -1,7 +1,51 @@
-# Axiom language specification (draft)
+# Axiom language specification (Axiom 1.0)
 
-This is the Phase 0/1 draft. It is intentionally small and is the contract the
-parser implements today. Grammar changes are recorded in `docs/decisions/`.
+Axiom is a TypeScript-inspired, domain-specific language for describing AI
+agents. A program is portable and environment-independent: it describes *what*
+agents are, what they may do, and how work flows. Deployment details (endpoints,
+credentials, model ids) live in `axiom.yaml`, never in `.ax` source.
+
+The **normative** grammar is `docs/grammar.ebnf`. This document is the human
+reading of it. Where they disagree, `grammar.ebnf` wins and this file is a bug.
+
+> **Implementation status.** The Axiom 1.0 grammar below is the target. The
+> current front end (`crates/axiom-syntax`) implements only a small, pre-1.0
+> subset: declarations without `module`/`import`/`export`, upper-case primitive
+> spellings, and blocks separated by newlines. Reworking the lexer, parser, and
+> AST to this full grammar is the next increment. See
+> `docs/implementation-ledger.md` for phase-by-phase truth.
+
+## Program structure
+
+```ts
+module reviewer.agents;
+
+import { FeatureSpec, Review } from "review/types";
+import { read_file } from "workspace/fs";
+
+export type AgentId = string;
+export type Verdict = "pass" | "fail" | "escalate";
+
+export interface FeatureSpec {
+  title: string;
+  criteria: string[];
+}
+
+export agent Reviewer implements Agent<FeatureSpec, Review> {
+  purpose: "Review a feature spec against its acceptance criteria.";
+  model: "reasoning";
+  tools: [workspace.read_file, workspace.write_file];
+  workspace: ProjectReadOnly;
+  constraints {
+    must: ["cite every criterion", "explain each failure"];
+    must_not: ["modify the project"];
+  }
+}
+```
+
+A file is a `module` header, an optional run of `import` statements, and a run of
+top-level declarations, each optionally prefixed with `export`. Statements are
+terminated by `;` or a newline.
 
 ## Lexical structure
 
@@ -9,88 +53,58 @@ parser implements today. Grammar changes are recorded in `docs/decisions/`.
 - **Line comments:** `// ...` to end of line.
 - **Block comments:** `/* ... */` (not nested). A block comment containing a line
   break acts as a line break.
-- **Whitespace:** spaces and tabs separate tokens. Line breaks are **significant**
-  as entry separators inside bodies (see below); consecutive breaks collapse.
 - **Strings:** double-quoted, with escapes `\" \\ \n \r \t`. An unknown escape is
-  a diagnostic. Strings may contain any other UTF-8 character.
-- **Numbers:** `123` (integer) or `0.2` (float).
+  a diagnostic.
+- **Numbers:** `123` (int) or `0.2` (float).
 - **Durations:** an integer immediately followed by `ms`, `s`, `m`, or `h`
-  (e.g. `120s`, `250ms`). Stored internally as milliseconds.
-- **Booleans:** the identifiers `true` and `false` in value position.
+  (e.g. `120s`). Stored internally as milliseconds.
+- **Booleans:** `true` and `false`.
+- **Terminator:** `;` or a newline.
 
-## Separators
+## Types
 
-Inside a declaration **body** (`{ ... }`), entries are separated by one or more
-line breaks, commas, or semicolons. Inside **value** literals (arrays, objects,
-call arguments) line breaks are insignificant and elements are separated by
-commas.
+The primitive type names are lower-case: `string`, `bool`, `int`, `float`,
+`duration`. Composite forms:
 
-## Grammar
+| Form | Meaning |
+| --- | --- |
+| `T[]` | array of `T` |
+| `A \| B` | union |
+| `{ name: T; ... }` | record / object type |
+| `ident` / `pkg.Name` | a named type reference |
+| `Foo<A, B>` | generic reference, e.g. `Agent<I, O>` |
 
-```ebnf
-source        = { declaration } EOF ;
+`export interface` and `export type` both introduce named types. An interface
+lists fields; a `type` alias introduces a name for any type expression
+(including unions and records).
 
-declaration   = integration_decl | model_decl | agent_decl | instance_decl
-              | type_decl | contract_decl | goal_decl | tool_decl
-              | runtime_decl | workflow_decl ;
+## Agents
 
-integration_decl = "integration" ident block ;
-model_decl       = "model" ident block ;
-goal_decl        = "goal" ident block ;
-contract_decl    = "contract" ident block ;
-tool_decl        = "tool" ident [ "(" params ")" ] block ;
-runtime_decl     = "runtime" [ ident ] block ;
-type_decl        = ( "type" | "interface" ) ident type_body ;
-
-block         = "{" { entry } "}" ;
-entry         = ident ":" value ;
-
-value         = string | number | duration | boolean | path | call
-              | array | object ;
-call          = ident "(" [ arg { "," arg } ] ")" ;
-arg           = [ ident ":" ] value ;
-array         = "[" [ value { "," value } ] "]" ;
-object        = "{" [ entry { "," entry } ] "}" ;
-
-type_body     = "{" { field } "}" ;
-field         = ident ":" type_ref ;
-type_ref      = path [ "<" type_ref { "," type_ref } ">" ] ;
-
-params        = param { "," param } ;
-param         = ident [ ":" type_ref ] ;
-
-agent_decl    = "agent" ident [ "implements" type_ref ] "{" { agent_item } "}" ;
-agent_item    = entry | permissions_block | constraints_block ;
-permissions_block = "permissions" block ;
-constraints_block = "constraints" block ;
-
-instance_decl = "let" ident "=" expr ;
-
-workflow_decl = "workflow" ident [ "(" params ")" ] "{" { workflow_item } "}" ;
-workflow_item = "let" ident "=" expr
-              | "return" [ expr ]
-              | "require" expr [ "," string ]
-              | "parallel" "{" { workflow_item } "}"
-              | if_item
-              | expr ;
-if_item       = "if" expr "{" { workflow_item } "}"
-                [ "else" ( if_item | "{" { workflow_item } "}" ) ] ;
-
-expr          = postfix ;
-postfix       = primary { "." ident | "." "with" object } ;
-primary       = path [ "(" [ expr { "," expr } ] ")" ]
-              | string | number | duration | boolean
-              | array_expr | object_expr | "(" expr ")" ;
-array_expr    = "[" [ expr { "," expr } ] "]" ;
-object_expr   = "{" [ entry { "," entry } ] "}" ;
-
-path          = ident { "." ident } ;
+```ts
+export agent X implements Agent<Input, Output> {
+  purpose: "…";
+  model: "reasoning";
+  tools: [a.b, c.d];
+  workspace: ProjectReadOnly;
+  constraints { must: [...]; must_not: [...] }
+}
 ```
 
-`env(...)` and `secret(...)` are ordinary calls. The lexer/parser do **not**
-special-case them; they are validated in Phase 2 and resolved in Phase 4. A
-secret argument is a *name*, never a value: secrets are never written into
-compiled plans, traces, or error messages.
+`purpose`, `model`, `tools`, and `workspace` are ordinary fields. The
+`constraints` block holds `must` / `must_not` natural-language lists. Natural-
+language constraints are **model-evaluated**, not statically verified; the
+language makes no claim otherwise.
+
+## Expressions and statements
+
+Expressions use the usual precedence tiers: calls, member access (`.name`),
+unary, multiplicative, additive, comparison, equality, `&&`, `||`. Statements
+include `let` bindings, `return`, `require`, `parallel` blocks, `if`/`else`, and
+expression statements. See `grammar.ebnf` for exact productions.
+
+`env(...)` and `secret(...)` are ordinary calls in source. A secret argument is a
+*name*, never a value: secrets are never written into compiled plans, traces, or
+error messages.
 
 ## Configuration precedence
 
@@ -99,17 +113,8 @@ per-invocation override > agent-instance override > agent declaration
   > project default > runtime default
 ```
 
-Example:
-
-```ts
-runtime { default_model: "reasoning" }
-
-agent Reviewer { /* model omitted → project/runtime default */ }
-agent Architect { model: "reasoning" }        // declaration override
-let localArchitect = Architect.with { model: "local_coding" }  // instance override
-
-// one-call override (Phase 4+):  run localArchitect(input, { model: "other" })
-```
+Model ids, endpoints, and limits all live in `axiom.yaml`; `model: "reasoning"`
+in source names a *model profile*, resolved by the runtime.
 
 ## Diagnostics
 
@@ -119,7 +124,7 @@ error recovery, so a file can yield multiple diagnostics in one pass.
 
 ## What is *not* here yet
 
+- The 1.0 grammar above is not yet implemented; the current parser handles a
+  pre-1.0 subset (see the implementation-status note).
 - No semantic analysis, symbol resolution, or type checking (Phase 2).
 - No IR, no `explain`/`plan`, no execution (Phase 3+).
-- Natural-language constraints (`must`, `must_not`) are **model-evaluated**, not
-  statically verified; the spec does not claim otherwise.
