@@ -5,10 +5,12 @@
 //! member shape). Phase 2 adds name resolution, type inference, effect
 //! propagation, and target compatibility. See `docs/implementation-ledger.md`.
 
+pub mod analyze;
 pub mod check;
 pub mod graph;
 pub mod symbols;
 
+pub use analyze::{Target, BUILTIN_TYPES, NAMESPACES, PRELUDE_VALUES};
 pub use check::{check_project, CheckOptions, ModuleDiagnostic, ISOLATION_MODES, KNOWN_EFFECTS};
 pub use graph::{load, GraphDiagnostic, Module, ModuleGraph, ModuleId, Project};
 pub use symbols::{Symbol, SymbolKind, SymbolTable};
@@ -20,6 +22,7 @@ pub fn check_options_from_config(config: &ProjectConfig) -> CheckOptions {
     CheckOptions {
         model_aliases: Some(config.models.keys().cloned().collect()),
         command_names: Some(config.commands.keys().cloned().collect()),
+        target: None,
     }
 }
 

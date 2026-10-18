@@ -47,6 +47,8 @@ pub struct CheckOptions {
     pub model_aliases: Option<BTreeSet<String>>,
     /// When set, `commands.run("name", ...)` must name a configured command.
     pub command_names: Option<BTreeSet<String>>,
+    /// When set, Phase 2 target-compatibility rules are applied.
+    pub target: Option<crate::analyze::Target>,
 }
 
 impl CheckOptions {
@@ -179,6 +181,8 @@ pub fn check_project(project: &Project, options: &CheckOptions) -> Vec<ModuleDia
             }
         }
     }
+
+    crate::analyze::analyze(project, options, &mut out);
 
     out
 }
