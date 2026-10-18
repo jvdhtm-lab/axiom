@@ -3,6 +3,13 @@
 version = 3
 
 [[package]]
+name = "axiom-artifacts"
+version = "0.1.0"
+dependencies = [
+ "axiom-hash",
+]
+
+[[package]]
 name = "axiom-browser-host"
 version = "0.1.0"
 dependencies = [
@@ -32,11 +39,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "axiom-filesystem"
+version = "0.1.0"
+dependencies = [
+ "axiom-hash",
+]
+
+[[package]]
 name = "axiom-format"
 version = "0.1.0"
 dependencies = [
  "axiom-syntax",
 ]
+
+[[package]]
+name = "axiom-hash"
+version = "0.1.0"
 
 [[package]]
 name = "axiom-ir"
@@ -83,6 +101,7 @@ dependencies = [
 name = "axiom-wasm"
 version = "0.1.0"
 dependencies = [
+ "axiom-hash",
  "axiom-ir",
  "axiom-syntax",
 ]

@@ -11,6 +11,10 @@ use std::fmt;
 
 use axiom_config::{CommandProfile, ProjectConfig};
 
+pub mod sandbox;
+
+pub use sandbox::{CommandOutcome, CommandPlan, CommandRequest, CommandRunner, MockCommandRunner};
+
 /// What a tool is allowed to touch, and therefore which effect it requires.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToolKind {
@@ -51,6 +55,10 @@ pub enum ToolError {
     UnknownTool(String),
     /// A command tool referenced a `commands.<name>` profile that does not exist.
     UnknownCommand(String),
+    /// A sandbox field (working directory or argument) is unsafe.
+    UnsafeInput(String),
+    /// Execution was requested from a runner that refuses to run commands.
+    ExecutionUnavailable(String),
 }
 
 impl fmt::Display for ToolError {
@@ -63,6 +71,12 @@ impl fmt::Display for ToolError {
                 f,
                 "unknown command profile `{name}`; declare it under `commands:`"
             ),
+            ToolError::UnsafeInput(detail) => {
+                write!(f, "unsafe command input: {detail}")
+            }
+            ToolError::ExecutionUnavailable(detail) => {
+                write!(f, "command execution unavailable: {detail}")
+            }
         }
     }
 }

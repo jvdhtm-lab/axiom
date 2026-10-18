@@ -1,7 +1,9 @@
 //! A small, dependency-free SHA-256 used for artifact content addresses.
 //!
-//! This is a straightforward FIPS 180-4 implementation; correctness is covered
-//! by the standard test vectors in `tests/wasm.rs`.
+//! This is a straightforward FIPS 180-4 implementation. It is the single
+//! content-hash source shared by the WASM backend and the artifact store so
+//! that identical bytes always yield identical addresses. Correctness is
+//! covered by the standard test vectors in `tests/vectors.rs`.
 
 const K: [u32; 64] = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,

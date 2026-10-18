@@ -4,6 +4,7 @@ members = [
     "crates/axiom-syntax",
     "crates/axiom-format",
     "crates/axiom-types",
+    "crates/axiom-hash",
     "crates/axiom-ir",
     "crates/axiom-runtime",
     "crates/axiom-wasm",
@@ -11,6 +12,8 @@ members = [
     "crates/axiom-config",
     "crates/axiom-providers",
     "crates/axiom-tools",
+    "crates/axiom-filesystem",
+    "crates/axiom-artifacts",
     "crates/axiom-cli",
 ]
 
@@ -25,6 +28,7 @@ repository = "https://example.invalid/axiom"
 axiom-syntax = { path = "crates/axiom-syntax", version = "0.1.0" }
 axiom-format = { path = "crates/axiom-format", version = "0.1.0" }
 axiom-types = { path = "crates/axiom-types", version = "0.1.0" }
+axiom-hash = { path = "crates/axiom-hash", version = "0.1.0" }
 axiom-ir = { path = "crates/axiom-ir", version = "0.1.0" }
 axiom-runtime = { path = "crates/axiom-runtime", version = "0.1.0" }
 axiom-wasm = { path = "crates/axiom-wasm", version = "0.1.0" }
@@ -32,6 +36,8 @@ axiom-browser-host = { path = "crates/axiom-browser-host", version = "0.1.0" }
 axiom-config = { path = "crates/axiom-config", version = "0.1.0" }
 axiom-providers = { path = "crates/axiom-providers", version = "0.1.0" }
 axiom-tools = { path = "crates/axiom-tools", version = "0.1.0" }
+axiom-filesystem = { path = "crates/axiom-filesystem", version = "0.1.0" }
+axiom-artifacts = { path = "crates/axiom-artifacts", version = "0.1.0" }
 yaml_serde = "0.10.7"
 
 [profile.release]

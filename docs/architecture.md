@@ -66,13 +66,16 @@ crates/
   axiom-syntax/      lexer, parser, AST, spans, diagnostics   (no dependencies)
   axiom-format/      deterministic formatter
   axiom-types/       module graph, symbols, type/effect/target/SQL checks
+  axiom-hash/        dependency-free SHA-256 content addressing
   axiom-ir/          shared typed IR, lowering, deterministic JSON
   axiom-runtime/     deterministic server evaluator
   axiom-wasm/        browser WASM backend + artifact manifest (Phase 4 partial)
   axiom-browser-host/ trusted host ABI + artifact verification
   axiom-config/      axiom.yaml loading, expansion, validation (§4 schema)
   axiom-providers/   model alias resolution + offline mock provider (Phase 5)
-  axiom-tools/       builtin + configured-command tool registry (Phase 5)
+  axiom-tools/       builtin + configured-command tool registry + sandbox plans (Phase 5/6)
+  axiom-filesystem/  secure workspaces: paths, policy, copy-on-write, patches (Phase 6)
+  axiom-artifacts/   content-addressed immutable artifact store (Phase 6)
   axiom-compiler/    target pipeline and code generation (planned)
   axiom-cli/         the `axiom` binary
 browser/             trusted minimal host shell + Node smoke harness

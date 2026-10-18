@@ -1,0 +1,7 @@
+[package]
+name = "axiom-hash"
+description = "Dependency-free SHA-256 for Axiom content addresses"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true

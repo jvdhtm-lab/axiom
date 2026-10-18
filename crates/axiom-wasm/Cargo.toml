@@ -9,6 +9,7 @@ repository.workspace = true
 
 [dependencies]
 axiom-ir = { workspace = true }
+axiom-hash = { workspace = true }
 
 [dev-dependencies]
 axiom-syntax = { workspace = true }

@@ -13,7 +13,9 @@
 
 use axiom_ir::{Program, Target};
 
-pub mod sha256;
+/// Content hashing, re-exported so callers keep one entry point. The shared
+/// implementation lives in `axiom-hash`.
+pub use axiom_hash as sha256;
 
 /// The host ABI version this backend targets.
 pub const ABI_VERSION: u32 = 1;

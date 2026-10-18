@@ -1,0 +1,10 @@
+[package]
+name = "axiom-artifacts"
+description = "Axiom immutable, content-addressed artifact store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+axiom-hash = { workspace = true }

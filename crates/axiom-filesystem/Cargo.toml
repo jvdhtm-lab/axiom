@@ -1,0 +1,10 @@
+[package]
+name = "axiom-filesystem"
+description = "Secure Axiom workspaces: path policy, isolation, overlays, patches"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+axiom-hash = { workspace = true }
