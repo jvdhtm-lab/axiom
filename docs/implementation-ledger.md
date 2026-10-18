@@ -4,7 +4,7 @@ Tracks Axiom 1.0 requirements against implementation status. **Do not mark an
 item complete without test evidence.** Statuses: `done` (implemented + tested),
 `partial`, `not started`. Phase numbers follow `agents.md` §15.
 
-Last updated: 2026-10-18 (Phase 2: resolution, effects, target, SQL policy).
+Last updated: 2026-10-18 (Phase 3: typed IR, deterministic evaluator, build/run CLI).
 
 ## Phase status
 
@@ -13,7 +13,7 @@ Last updated: 2026-10-18 (Phase 2: resolution, effects, target, SQL policy).
 | 0 | Design: small grammar, core types, effects, IR plan, API modifier, workspace model, target matrix, browser ABI, threat model | done — `docs/grammar.ebnf`, `docs/language-spec.md`, `docs/conformance.md`, `docs/security-model.md`, ADR-0014 |
 | 1 | Lexer, parser, AST, source maps, diagnostics, formatter skeleton | done — `axiom-syntax` + `axiom-format`; positive/negative fixtures |
 | 2 | Module resolution, types, generics, Option/Result, effect and target checking | partial — module graph, symbols, duplicates, name/type resolution, effect propagation, target checks, and SQL literal/placeholder policy done; expression type inference and match exhaustiveness pending |
-| 3 | Typed IR and deterministic server evaluator; basic compiler commands | not started |
+| 3 | Typed IR and deterministic server evaluator; basic compiler commands | done — `axiom-ir` (deterministic JSON IR with types/effects/capabilities/provenance), `axiom-runtime` evaluator, `axiom build/explain/run`; WASM emission explicitly refused until Phase 4 |
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | not started |
 | 5 | Config, model integrations, registered tools and commands | not started |
 | 6 | Filesystem, workspaces, patch/artifact APIs and command sandbox | not started |
@@ -44,7 +44,9 @@ Last updated: 2026-10-18 (Phase 2: resolution, effects, target, SQL policy).
 | Static type system, inference, match exhaustiveness | 2 | partial | Name/type resolution tested; expression inference and `match` exhaustiveness not implemented | `docs/language-spec.md` §4 | No structural typing yet |
 | Target compatibility (server vs wasm_browser) | 2 | partial | `browser_target_rejects_server_effects` (`AX0310`) | `docs/language-spec.md` §8 | Whole-project target option; per-module targets are Phase 4 |
 | SQL literal + placeholder policy | 2,7 | partial | `non_literal_sql_is_reported` (`AX0320`), `sql_placeholder_mismatch_is_reported` (`AX0321`) | `docs/language-spec.md` §7 | Covers `db.query`/`db.query_one`/`db.execute`; full DB subsystem is Phase 7 |
-| Typed IR + deterministic server evaluator | 3 | not started | — | — | — |
+| Typed IR (types, effects, capabilities, provenance, target) | 3 | done | `axiom-ir/tests/lower.rs`: determinism, effects, enum constructors, `api` | `docs/architecture.md` | Declared types only; no inference (Phase 2 gap) |
+| Deterministic server evaluator (pure subset, fail-closed effects) | 3 | done | `axiom-runtime/tests/eval.rs` (7): entry point, calls, `match`/`Option`, finite `for`, effectful-call rejection, no panics | `docs/language-spec.md` §6 | No host I/O; effectful calls require later phases |
+| CLI `build` / `explain` / `run` | 3 | done | `axiom run examples/src/deterministic.ax` → `"positive: 5 a"`; `build --target wasm_browser` refuses | `docs/development.md` | `lint`/`fmt` CLI wiring still Phase 11 |
 | WASM backend + host ABI + browser host | 4 | not started | — | `docs/architecture.md` | — |
 | Config (`axiom.yaml`), providers, tools | 5 | not started | — | `docs/configuration.md`, `docs/providers.md` | Config crate still parses the previous schema |
 | Filesystem/workspaces/artifacts | 6 | not started | — | `docs/security-model.md` | — |
@@ -60,8 +62,10 @@ Last updated: 2026-10-18 (Phase 2: resolution, effects, target, SQL policy).
 Axiom 1.0 is **not** complete. The repository implements the small-language front
 end (lexer, parser, AST, spans, diagnostics), a deterministic formatter, the
 module graph with symbol tables, name/type resolution, effect propagation with
-the caller-subset rule, target-compatibility and SQL-policy checks, and
-declaration-level checks. It does **not** infer expression types, report `match`
-exhaustiveness, emit IR, execute programs, compile WASM, or provide the runtime,
-database, filesystem, artifact, or browser subsystems. Nothing should be assumed
-to work unless the requirement ledger above cites a passing test.
+the caller-subset rule, target-compatibility and SQL-policy checks, a shared
+typed IR with deterministic JSON rendering, a deterministic server evaluator for
+the pure subset, and the `check`/`build`/`explain`/`run` CLI. It does **not**
+infer expression types, report `match` exhaustiveness, compile WASM, or provide
+the provider, tool, database, filesystem, artifact, browser, durability, or
+budget subsystems. Nothing should be assumed to work unless the requirement
+ledger above cites a passing test.

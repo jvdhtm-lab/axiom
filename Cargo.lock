@@ -7,6 +7,8 @@ name = "axiom-cli"
 version = "0.1.0"
 dependencies = [
  "axiom-config",
+ "axiom-ir",
+ "axiom-runtime",
  "axiom-syntax",
  "axiom-types",
 ]
@@ -23,6 +25,21 @@ dependencies = [
 name = "axiom-format"
 version = "0.1.0"
 dependencies = [
+ "axiom-syntax",
+]
+
+[[package]]
+name = "axiom-ir"
+version = "0.1.0"
+dependencies = [
+ "axiom-syntax",
+]
+
+[[package]]
+name = "axiom-runtime"
+version = "0.1.0"
+dependencies = [
+ "axiom-ir",
  "axiom-syntax",
 ]
 

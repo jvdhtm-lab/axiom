@@ -28,7 +28,7 @@ the current [`agents.md`](agents.md) specification. The phase numbers below foll
 | 0 | Design: small grammar, types, effects, target matrix, ABI, threat model | done |
 | 1 | Lexer, parser, AST, source maps, diagnostics, formatter skeleton | done |
 | 2 | Module resolution, types, generics, Option/Result, effect/target checking | partial |
-| 3 | Typed IR and deterministic server evaluator; compiler commands | not started |
+| 3 | Typed IR and deterministic server evaluator; compiler commands | done |
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | not started |
 | 5 | Config, model integrations, registered tools and commands | not started |
 | 6 | Filesystem, workspaces, patch/artifact APIs, command sandbox | not started |
@@ -60,6 +60,8 @@ crates/
   axiom-syntax/    lexer, parser, AST, spans, diagnostics
   axiom-format/    deterministic formatter
   axiom-types/     module graph, symbols, type/effect/target checks
+  axiom-ir/        shared typed IR, lowering, deterministic JSON
+  axiom-runtime/   deterministic server evaluator
   axiom-config/    axiom.yaml loading, expansion, validation
   axiom-cli/       the `axiom` binary
 examples/          axiom.yaml and src/ (the reference project)
@@ -78,6 +80,8 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo run -p axiom-cli -- check examples/src/*.ax
 cargo run -p axiom-cli -- config check examples/axiom.yaml
+cargo run -p axiom-cli -- explain examples/src/deterministic.ax
+cargo run -p axiom-cli -- run examples/src/deterministic.ax
 ```
 
 ## License

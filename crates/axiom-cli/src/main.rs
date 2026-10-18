@@ -1,14 +1,17 @@
 //! The `axiom` command-line interface.
 //!
-//! Phase 1 exposes `axiom check` for `.ax` source and `axiom config check` for
-//! `axiom.yaml`. Neither command contacts a model integration.
+//! Phase 1 added `axiom check` and `axiom config check`. Phase 3 adds
+//! `axiom build`, `axiom explain`, and `axiom run` over the typed IR and the
+//! deterministic server evaluator. No command contacts a model integration.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use axiom_config::parse_config;
+use axiom_ir::{lower, program_to_json, ModuleInput, Program, Target};
+use axiom_runtime::run;
 use axiom_syntax::{Source, VERSION};
-use axiom_types::{check_options_from_config, check_project, CheckOptions};
+use axiom_types::{check_options_from_config, check_project, CheckOptions, Project};
 
 const USAGE: &str = "\
 axiom - the Axiom language toolchain
@@ -17,15 +20,23 @@ USAGE:
     axiom <COMMAND> [OPTIONS]
 
 COMMANDS:
-    check <FILE>...            Load the module graph and report diagnostics
-    config check <FILE>...     Validate an axiom.yaml project configuration
-    version                    Print the version
-    help                       Print this message
+    check <FILE>...              Load the module graph and report diagnostics
+    build <FILE>... [--target server|wasm_browser] [--emit-ir]
+                                 Lower to typed IR for a target
+    explain <FILE>... [--target server|wasm_browser]
+                                 Print the typed IR as JSON
+    run <FILE>... [--fn NAME]    Evaluate an entry function deterministically
+    config check <FILE>...       Validate an axiom.yaml project configuration
+    version                      Print the version
+    help                         Print this message
 
 OPTIONS:
     -h, --help         Print help
     -V, --version      Print version
     --config <FILE>    Cross-validate source against an axiom.yaml (for `check`)
+    --target <T>       Build target: server (default) or wasm_browser
+    --emit-ir          Print the typed IR JSON (for `build`)
+    --fn <NAME>        Entry function for `run` (default: main)
 ";
 
 fn main() -> ExitCode {
@@ -44,6 +55,9 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("check") => run_check(&args[1..]),
+        Some("build") => run_build(&args[1..]),
+        Some("explain") => run_explain(&args[1..]),
+        Some("run") => run_run(&args[1..]),
         Some("config") => run_config(&args[1..]),
         Some(other) => {
             eprintln!("error: unknown command `{other}`\n");
@@ -177,6 +191,172 @@ fn run_check(arguments: &[String]) -> ExitCode {
 
     print_summary(files.len(), error_count, warning_count);
     exit_code(failed)
+}
+
+/// The value of `--name value` or `--name=value`.
+fn flag_value<'a>(arguments: &'a [String], name: &str) -> Option<&'a str> {
+    let prefix = format!("{name}=");
+    let mut iter = arguments.iter();
+    while let Some(arg) = iter.next() {
+        if arg == name {
+            return iter.next().map(String::as_str);
+        }
+        if let Some(value) = arg.strip_prefix(&prefix) {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn target_from(arguments: &[String]) -> Result<Target, String> {
+    match flag_value(arguments, "--target") {
+        None | Some("server") => Ok(Target::Server),
+        Some("wasm_browser") => Ok(Target::WasmBrowser),
+        Some(other) => Err(format!(
+            "unknown target `{other}` (expected `server` or `wasm_browser`)"
+        )),
+    }
+}
+
+/// Positional file arguments, skipping flags and the values of value-flags.
+fn positional_files(arguments: &[String]) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    let mut iter = arguments.iter();
+    while let Some(arg) = iter.next() {
+        if matches!(arg.as_str(), "--target" | "--fn" | "--config") {
+            iter.next();
+            continue;
+        }
+        if arg.starts_with('-') {
+            continue;
+        }
+        out.push(PathBuf::from(arg));
+    }
+    out
+}
+
+/// Load and check files, printing diagnostics. Returns the project and whether
+/// any error diagnostic was reported.
+fn load_and_check(files: &[PathBuf]) -> (Project, bool) {
+    let project = axiom_types::load(files);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    let sources: Vec<Source> = project
+        .graph
+        .modules
+        .iter()
+        .map(|module| Source::new(module.display.clone(), module.source.clone()))
+        .collect();
+    let graph_source = Source::new("(project)", String::new());
+    let mut failed = false;
+    for diagnostic in &diagnostics {
+        if diagnostic.diagnostic.is_error() {
+            failed = true;
+        }
+        match diagnostic.module {
+            Some(id) => eprint!("{}", diagnostic.diagnostic.render(&sources[id])),
+            None => eprint!("{}", diagnostic.diagnostic.render(&graph_source)),
+        }
+    }
+    (project, failed)
+}
+
+fn lower_project(project: &Project, target: Target) -> Program {
+    let inputs: Vec<ModuleInput> = project
+        .graph
+        .modules
+        .iter()
+        .map(|module| ModuleInput {
+            name: module
+                .module_path
+                .clone()
+                .unwrap_or_else(|| module.display.clone()),
+            display: module.display.clone(),
+            file: &module.file,
+        })
+        .collect();
+    lower(&inputs, target)
+}
+
+fn run_build(arguments: &[String]) -> ExitCode {
+    let target = match target_from(arguments) {
+        Ok(target) => target,
+        Err(message) => {
+            eprintln!("error: {message}\n");
+            eprint!("{USAGE}");
+            return ExitCode::from(2);
+        }
+    };
+    let emit_ir = arguments.iter().any(|arg| arg == "--emit-ir");
+    let files = positional_files(arguments);
+    if files.is_empty() {
+        eprintln!("error: `build` needs at least one .ax file\n");
+        eprint!("{USAGE}");
+        return ExitCode::from(2);
+    }
+
+    let (project, failed) = load_and_check(&files);
+    if failed {
+        return ExitCode::from(1);
+    }
+
+    if target == Target::WasmBrowser {
+        eprintln!(
+            "error: wasm_browser code generation is not implemented until Phase 4; \
+             refusing to emit a stub"
+        );
+        return ExitCode::from(1);
+    }
+
+    let program = lower_project(&project, target);
+    if emit_ir {
+        print!("{}", program_to_json(&program));
+    } else {
+        println!(
+            "built {} module(s) for target {} (IR v{})",
+            program.modules.len(),
+            target.as_str(),
+            axiom_ir::IR_VERSION
+        );
+    }
+    ExitCode::SUCCESS
+}
+
+fn run_explain(arguments: &[String]) -> ExitCode {
+    let mut arguments = arguments.to_vec();
+    if !arguments.iter().any(|arg| arg == "--emit-ir") {
+        arguments.push("--emit-ir".to_string());
+    }
+    run_build(&arguments)
+}
+
+fn run_run(arguments: &[String]) -> ExitCode {
+    let entry = flag_value(arguments, "--fn").unwrap_or("main").to_string();
+    let files = positional_files(arguments);
+    if files.is_empty() {
+        eprintln!("error: `run` needs at least one .ax file\n");
+        eprint!("{USAGE}");
+        return ExitCode::from(2);
+    }
+
+    let (project, failed) = load_and_check(&files);
+    if failed {
+        return ExitCode::from(1);
+    }
+
+    let program = lower_project(&project, Target::Server);
+    match run(&program, &entry, Vec::new()) {
+        Ok(value) => {
+            println!("{}", value.display());
+            ExitCode::SUCCESS
+        }
+        Err(err) => {
+            eprintln!(
+                "runtime error: {} (bytes {}..{})",
+                err.message, err.span.start, err.span.end
+            );
+            ExitCode::from(1)
+        }
+    }
 }
 
 fn run_config(arguments: &[String]) -> ExitCode {

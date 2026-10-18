@@ -1,0 +1,43 @@
+module examples.deterministic;
+
+export enum Sign { Negative; Zero; Positive; }
+
+export type Point = { x: int; y: int; };
+
+export fn add(a: int, b: int) -> int {
+  return a + b;
+}
+
+export fn classify(n: int) -> Sign {
+  if n > 0 { return Sign.Positive; }
+  if n < 0 { return Sign.Negative; }
+  return Sign.Zero;
+}
+
+export fn describe(n: int) -> string {
+  match classify(n) {
+    Sign.Positive => return "positive";
+    Sign.Negative => return "negative";
+    Sign.Zero => return "zero";
+  }
+}
+
+export fn first(xs: string[]) -> string {
+  for x in xs { return x; }
+  return "";
+}
+
+export fn maybe(flag: bool) -> Option<int> {
+  if flag { return Some(42); }
+  return None;
+}
+
+export fn total(xs: int[]) -> int {
+  let head = xs[0];
+  return add(head, 1);
+}
+
+export fn main() -> string {
+  let p = { x: add(2, 3), y: 0 };
+  return describe(p.x) + ": " + p.x.to_string() + " " + first(["a", "b"]);
+}

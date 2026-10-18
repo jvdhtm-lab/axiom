@@ -4,6 +4,8 @@ members = [
     "crates/axiom-syntax",
     "crates/axiom-format",
     "crates/axiom-types",
+    "crates/axiom-ir",
+    "crates/axiom-runtime",
     "crates/axiom-config",
     "crates/axiom-cli",
 ]
@@ -19,6 +21,8 @@ repository = "https://example.invalid/axiom"
 axiom-syntax = { path = "crates/axiom-syntax", version = "0.1.0" }
 axiom-format = { path = "crates/axiom-format", version = "0.1.0" }
 axiom-types = { path = "crates/axiom-types", version = "0.1.0" }
+axiom-ir = { path = "crates/axiom-ir", version = "0.1.0" }
+axiom-runtime = { path = "crates/axiom-runtime", version = "0.1.0" }
 axiom-config = { path = "crates/axiom-config", version = "0.1.0" }
 yaml_serde = "0.10.7"
 
