@@ -119,13 +119,18 @@ pub struct ModelConfig {
     pub capabilities: Vec<Capability>,
 }
 
-/// Project-level runtime defaults and limits.
+/// Project-level runtime defaults and hard limits (agents.md §4).
 #[derive(Debug, Clone, Default)]
 pub struct RuntimeConfig {
     pub default_model: Option<String>,
     pub max_parallel_agents: Option<u32>,
     pub max_retries: Option<u32>,
     pub request_timeout_seconds: Option<u64>,
+    pub max_model_calls: Option<u64>,
+    pub max_wall_clock_seconds: Option<u64>,
+    pub max_agent_attempts: Option<u32>,
+    /// `max_run_cost: null` means "no cost ceiling".
+    pub max_run_cost: Option<f64>,
 }
 
 /// Environment-independent filesystem operational limits.
@@ -138,6 +143,7 @@ pub struct FilesystemConfig {
     pub default_agent_isolation: Option<String>,
     pub max_read_bytes: Option<u64>,
     pub max_write_bytes: Option<u64>,
+    pub max_file_bytes: Option<u64>,
     pub max_files_per_task: Option<u64>,
     pub protect_vcs_metadata: Option<bool>,
 }
@@ -155,8 +161,95 @@ pub struct CommandProfile {
     pub network: Option<bool>,
 }
 
+/// A published API's policy (agents.md §4). The server enforces these on every
+/// call; they are configuration, not an authorization grant from the client.
+#[derive(Debug, Clone, Default)]
+pub struct ApiPolicyConfig {
+    pub version: Option<String>,
+    pub authentication: Option<String>,
+    pub requires: Vec<String>,
+    pub data_class: Option<String>,
+    pub cache: Option<String>,
+}
+
+/// Where a build target's entry points live.
+#[derive(Debug, Clone, Default)]
+pub struct EntryPointConfig {
+    pub target: String,
+    pub module: Option<String>,
+    pub init: Option<String>,
+    pub render: Option<String>,
+    pub handle_event: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct WasmConfig {
+    pub target: Option<String>,
+    pub host_api_version: Option<u32>,
+    pub max_module_bytes: Option<u64>,
+    pub reproducible: Option<bool>,
+}
+
+/// Which targets to build and their entry points.
+#[derive(Debug, Clone, Default)]
+pub struct CompilationConfig {
+    pub targets: Vec<String>,
+    pub entrypoints: BTreeMap<String, EntryPointConfig>,
+    pub wasm: WasmConfig,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct BrowserStateConfig {
+    pub default_scope: Option<String>,
+    pub default_persistence: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct DataCacheConfig {
+    pub enabled: Option<bool>,
+    pub max_entries: Option<u64>,
+    pub max_bytes: Option<u64>,
+    pub default_ttl_seconds: Option<u64>,
+    pub serve_stale_on_error: Option<bool>,
+}
+
+/// Browser-host quotas and state/cache defaults (agents.md §4).
+#[derive(Debug, Clone, Default)]
+pub struct BrowserConfig {
+    pub isolation: Option<String>,
+    pub max_memory_pages: Option<u64>,
+    pub max_compute_ms_per_event: Option<u64>,
+    pub max_ui_nodes: Option<u64>,
+    pub max_event_bytes: Option<u64>,
+    pub max_storage_bytes: Option<u64>,
+    pub max_snapshot_bytes: Option<u64>,
+    pub preserve_previous_release_on_failure: Option<bool>,
+    pub state: BrowserStateConfig,
+    pub data_cache: DataCacheConfig,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct RegistryConfig {
+    pub content_addressed: Option<bool>,
+    pub retain_accepted_versions: Option<u64>,
+    pub require_pinned_references: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct BuildCacheConfig {
+    pub enabled: Option<bool>,
+    pub max_bytes: Option<u64>,
+}
+
+/// Frontend artifact registry and build-cache policy (agents.md §4, §8.5).
+#[derive(Debug, Clone, Default)]
+pub struct FrontendConfig {
+    pub registry: RegistryConfig,
+    pub build_cache: BuildCacheConfig,
+}
+
 /// A validated `axiom.yaml` project configuration.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ProjectConfig {
     pub version: u32,
     /// The Axiom language version the project targets (e.g. `"1.0"`).
@@ -166,6 +259,10 @@ pub struct ProjectConfig {
     pub integrations: BTreeMap<String, IntegrationConfig>,
     pub models: BTreeMap<String, ModelConfig>,
     pub runtime: RuntimeConfig,
+    pub api_policies: BTreeMap<String, ApiPolicyConfig>,
+    pub compilation: CompilationConfig,
+    pub browser: BrowserConfig,
+    pub frontend: FrontendConfig,
     pub filesystem: FilesystemConfig,
     pub commands: BTreeMap<String, CommandProfile>,
 }
@@ -176,4 +273,7 @@ impl ProjectConfig {
 
     /// The Axiom language version this build understands.
     pub const SUPPORTED_LANGUAGE: &'static str = "1.0";
+
+    /// The valid build target names.
+    pub const TARGETS: [&'static str; 2] = ["server", "wasm_browser"];
 }

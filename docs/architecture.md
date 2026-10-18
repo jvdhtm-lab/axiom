@@ -70,7 +70,9 @@ crates/
   axiom-runtime/     deterministic server evaluator
   axiom-wasm/        browser WASM backend + artifact manifest (Phase 4 partial)
   axiom-browser-host/ trusted host ABI + artifact verification
-  axiom-config/      axiom.yaml loading, expansion, validation
+  axiom-config/      axiom.yaml loading, expansion, validation (§4 schema)
+  axiom-providers/   model alias resolution + offline mock provider (Phase 5)
+  axiom-tools/       builtin + configured-command tool registry (Phase 5)
   axiom-compiler/    target pipeline and code generation (planned)
   axiom-cli/         the `axiom` binary
 browser/             trusted minimal host shell + Node smoke harness

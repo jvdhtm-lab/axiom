@@ -77,8 +77,12 @@ fn bundled_example_configuration_loads() {
     assert_eq!(config.integrations.len(), 4);
     assert_eq!(config.models.len(), 4);
     assert_eq!(config.runtime.default_model.as_deref(), Some("reasoning"));
-    assert_eq!(config.runtime.max_parallel_agents, Some(8));
+    assert_eq!(config.runtime.max_parallel_agents, Some(4));
     assert_eq!(config.runtime.request_timeout_seconds, Some(120));
+    assert_eq!(config.runtime.max_model_calls, Some(100));
+    assert_eq!(config.runtime.max_wall_clock_seconds, Some(1800));
+    assert_eq!(config.runtime.max_agent_attempts, Some(4));
+    assert_eq!(config.runtime.max_run_cost, None);
 
     let reasoning = &config.models["reasoning"];
     assert_eq!(reasoning.integration, "claude");
@@ -104,6 +108,7 @@ fn bundled_example_configuration_loads() {
         Some("per_task")
     );
     assert_eq!(filesystem.max_read_bytes, Some(2_000_000));
+    assert_eq!(filesystem.max_file_bytes, Some(2_000_000));
     assert_eq!(filesystem.max_files_per_task, Some(500));
     assert_eq!(filesystem.protect_vcs_metadata, Some(true));
 
@@ -294,4 +299,84 @@ fn allowed_data_classes_default_and_validation() {
     let bad = "version: 1\nintegrations:\n  cloud:\n    adapter: openai_compatible\n    base_url: \"https://example.invalid\"\n    api_key_optional: true\n    allowed_data_classes: [public, secret]\n";
     let report = parse("inline.yaml", bad);
     assert!(messages(&report).contains("cannot contain `secret`"));
+}
+
+#[test]
+fn api_policies_compilation_browser_and_frontend_are_read() {
+    let text = include_str!("../../../examples/axiom.yaml");
+    let report = parse("examples/axiom.yaml", text);
+    assert_eq!(report.error_count(), 0, "{}", messages(&report));
+    let config = report.config.unwrap();
+
+    let policy = &config.api_policies["get_dashboard"];
+    assert_eq!(policy.version.as_deref(), Some("1.0.0"));
+    assert_eq!(policy.authentication.as_deref(), Some("required"));
+    assert_eq!(policy.requires, vec!["dashboard:read".to_string()]);
+    assert_eq!(policy.data_class.as_deref(), Some("internal"));
+    assert_eq!(policy.cache.as_deref(), Some("none"));
+
+    assert_eq!(
+        config.compilation.targets,
+        vec!["server".to_string(), "wasm_browser".to_string()]
+    );
+    let server = &config.compilation.entrypoints["server"];
+    assert_eq!(server.module.as_deref(), Some("src.server"));
+    assert_eq!(server.init, None);
+    let wasm = &config.compilation.entrypoints["wasm_browser"];
+    assert_eq!(wasm.module.as_deref(), Some("src.frontend"));
+    assert_eq!(wasm.init.as_deref(), Some("init"));
+    assert_eq!(wasm.render.as_deref(), Some("render"));
+    assert_eq!(wasm.handle_event.as_deref(), Some("handle_event"));
+
+    let wasm_cfg = &config.compilation.wasm;
+    assert_eq!(wasm_cfg.target.as_deref(), Some("wasm32-unknown-unknown"));
+    assert_eq!(wasm_cfg.host_api_version, Some(1));
+    assert_eq!(wasm_cfg.max_module_bytes, Some(8_388_608));
+    assert_eq!(wasm_cfg.reproducible, Some(true));
+
+    let browser = &config.browser;
+    assert_eq!(browser.isolation.as_deref(), Some("dedicated_worker"));
+    assert_eq!(browser.max_memory_pages, Some(256));
+    assert_eq!(browser.max_compute_ms_per_event, Some(50));
+    assert_eq!(browser.max_event_bytes, Some(65_536));
+    assert_eq!(browser.preserve_previous_release_on_failure, Some(true));
+    assert_eq!(browser.state.default_scope.as_deref(), Some("per_origin"));
+    assert_eq!(browser.state.default_persistence.as_deref(), Some("memory"));
+    assert_eq!(browser.data_cache.enabled, Some(true));
+    assert_eq!(browser.data_cache.max_entries, Some(128));
+
+    let registry = &config.frontend.registry;
+    assert_eq!(registry.content_addressed, Some(true));
+    assert_eq!(registry.retain_accepted_versions, Some(5));
+    assert_eq!(registry.require_pinned_references, Some(true));
+    assert_eq!(config.frontend.build_cache.enabled, Some(true));
+    assert_eq!(config.frontend.build_cache.max_bytes, Some(268_435_456));
+}
+
+#[test]
+fn unknown_compilation_target_is_reported() {
+    let text = "version: 1\ncompilation:\n  targets: [server, native]\n";
+    let report = parse("inline.yaml", text);
+    assert!(messages(&report).contains("unknown target `native`"));
+}
+
+#[test]
+fn unsupported_host_api_version_is_reported() {
+    let text = "version: 1\ncompilation:\n  wasm:\n    host_api_version: 9\n";
+    let report = parse("inline.yaml", text);
+    assert!(messages(&report).contains("unsupported `host_api_version` 9"));
+}
+
+#[test]
+fn entrypoint_missing_module_is_reported() {
+    let text = "version: 1\ncompilation:\n  entrypoints:\n    server: {}\n";
+    let report = parse("inline.yaml", text);
+    assert!(messages(&report).contains("missing required field `module`"));
+}
+
+#[test]
+fn unknown_browser_key_is_reported() {
+    let text = "version: 1\nbrowser:\n  max_cpu: 4\n";
+    let report = parse("inline.yaml", text);
+    assert!(messages(&report).contains("unknown key `max_cpu`"));
 }

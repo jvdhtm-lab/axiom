@@ -11,8 +11,10 @@ pub mod model;
 pub use expand::{expand, ExpandError};
 pub use load::{parse_config, parse_config_with, ConfigReport};
 pub use model::{
-    Capability, CommandProfile, FilesystemConfig, IntegrationConfig, ModelConfig, ProjectConfig,
-    RuntimeConfig, Secret,
+    ApiPolicyConfig, BrowserConfig, BrowserStateConfig, BuildCacheConfig, Capability,
+    CommandProfile, CompilationConfig, DataCacheConfig, EntryPointConfig, FilesystemConfig,
+    FrontendConfig, IntegrationConfig, ModelConfig, ProjectConfig, RegistryConfig, RuntimeConfig,
+    Secret, WasmConfig,
 };
 
 /// The crate version, surfaced by the CLI.

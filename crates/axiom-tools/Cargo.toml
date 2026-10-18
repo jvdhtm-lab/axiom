@@ -1,0 +1,10 @@
+[package]
+name = "axiom-tools"
+description = "Axiom tool registry: builtin tools and configured command profiles"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+axiom-config = { workspace = true }

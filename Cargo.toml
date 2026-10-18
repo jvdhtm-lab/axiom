@@ -9,6 +9,8 @@ members = [
     "crates/axiom-wasm",
     "crates/axiom-browser-host",
     "crates/axiom-config",
+    "crates/axiom-providers",
+    "crates/axiom-tools",
     "crates/axiom-cli",
 ]
 
@@ -28,6 +30,8 @@ axiom-runtime = { path = "crates/axiom-runtime", version = "0.1.0" }
 axiom-wasm = { path = "crates/axiom-wasm", version = "0.1.0" }
 axiom-browser-host = { path = "crates/axiom-browser-host", version = "0.1.0" }
 axiom-config = { path = "crates/axiom-config", version = "0.1.0" }
+axiom-providers = { path = "crates/axiom-providers", version = "0.1.0" }
+axiom-tools = { path = "crates/axiom-tools", version = "0.1.0" }
 yaml_serde = "0.10.7"
 
 [profile.release]

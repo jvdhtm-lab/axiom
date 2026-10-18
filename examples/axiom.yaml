@@ -65,15 +65,76 @@ models:
 
 runtime:
   default_model: reasoning
-  max_parallel_agents: 8
+  max_parallel_agents: 4
   max_retries: 3
   request_timeout_seconds: 120
+  # Hard ceilings for a single run (agents.md §4). `max_run_cost: null` means
+  # "no cost ceiling"; the other budgets always apply.
+  max_model_calls: 100
+  max_wall_clock_seconds: 1800
+  max_agent_attempts: 4
+  max_run_cost: null
+
+# Per-API policy. The server enforces these on every call; `requires` lists the
+# capability identifiers checked against the compiled plan (agents.md §4).
+api_policies:
+  get_dashboard:
+    version: "1.0.0"
+    authentication: required
+    requires: ["dashboard:read"]
+    data_class: internal
+    cache: none
+
+compilation:
+  targets: [server, wasm_browser]
+  entrypoints:
+    server:
+      module: src.server
+    wasm_browser:
+      module: src.frontend
+      init: init
+      render: render
+      handle_event: handle_event
+  wasm:
+    target: wasm32-unknown-unknown
+    host_api_version: 1
+    max_module_bytes: 8388608
+    reproducible: true
+
+browser:
+  isolation: dedicated_worker
+  max_memory_pages: 256
+  max_compute_ms_per_event: 50
+  max_ui_nodes: 10000
+  max_event_bytes: 65536
+  max_storage_bytes: 1048576
+  max_snapshot_bytes: 4194304
+  preserve_previous_release_on_failure: true
+  state:
+    default_scope: per_origin
+    default_persistence: memory
+  data_cache:
+    enabled: true
+    max_entries: 128
+    max_bytes: 4194304
+    default_ttl_seconds: 60
+    serve_stale_on_error: true
+
+frontend:
+  registry:
+    content_addressed: true
+    retain_accepted_versions: 5
+    require_pinned_references: true
+  build_cache:
+    enabled: true
+    max_bytes: 268435456
 
 filesystem:
   project_root: "."
   default_agent_isolation: per_task
   max_read_bytes: 2000000
   max_write_bytes: 1000000
+  max_file_bytes: 2000000
   max_files_per_task: 500
   protect_vcs_metadata: true
 

@@ -1,0 +1,10 @@
+[package]
+name = "axiom-providers"
+description = "Axiom model provider registry, alias resolution, and offline mock provider"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+axiom-config = { workspace = true }

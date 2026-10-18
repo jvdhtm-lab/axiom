@@ -14,8 +14,10 @@ use yaml_serde::Value;
 
 use crate::expand::expand;
 use crate::model::{
-    Capability, CommandProfile, FilesystemConfig, IntegrationConfig, ModelConfig, ProjectConfig,
-    RuntimeConfig, Secret,
+    ApiPolicyConfig, BrowserConfig, BrowserStateConfig, BuildCacheConfig, Capability,
+    CommandProfile, CompilationConfig, DataCacheConfig, EntryPointConfig, FilesystemConfig,
+    FrontendConfig, IntegrationConfig, ModelConfig, ProjectConfig, RegistryConfig, RuntimeConfig,
+    Secret, WasmConfig,
 };
 
 /// The outcome of loading a configuration file.
@@ -78,6 +80,10 @@ fn default_config() -> ProjectConfig {
         integrations: BTreeMap::new(),
         models: BTreeMap::new(),
         runtime: RuntimeConfig::default(),
+        api_policies: BTreeMap::new(),
+        compilation: CompilationConfig::default(),
+        browser: BrowserConfig::default(),
+        frontend: FrontendConfig::default(),
         filesystem: FilesystemConfig::default(),
         commands: BTreeMap::new(),
     }
@@ -160,6 +166,10 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
             "integrations",
             "models",
             "runtime",
+            "api_policies",
+            "compilation",
+            "browser",
+            "frontend",
             "filesystem",
             "commands",
         ],
@@ -173,6 +183,10 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
     let integrations = build_integrations(mapping, builder);
     let models = build_models(mapping, builder);
     let runtime = build_runtime(mapping, builder);
+    let api_policies = build_api_policies(mapping, builder);
+    let compilation = build_compilation(mapping, builder);
+    let browser = build_browser(mapping, builder);
+    let frontend = build_frontend(mapping, builder);
     let filesystem = build_filesystem(mapping, builder);
     let commands = build_commands(mapping, builder);
 
@@ -203,6 +217,10 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
         integrations,
         models,
         runtime,
+        api_policies,
+        compilation,
+        browser,
+        frontend,
         filesystem,
         commands,
     })
@@ -533,6 +551,10 @@ fn build_runtime(mapping: &Mapping, builder: &mut Builder<'_>) -> RuntimeConfig 
             "max_parallel_agents",
             "max_retries",
             "request_timeout_seconds",
+            "max_model_calls",
+            "max_wall_clock_seconds",
+            "max_agent_attempts",
+            "max_run_cost",
         ],
         "runtime",
         builder,
@@ -544,6 +566,12 @@ fn build_runtime(mapping: &Mapping, builder: &mut Builder<'_>) -> RuntimeConfig 
     runtime.max_retries = optional_u32(entries, "runtime", "max_retries", builder);
     runtime.request_timeout_seconds =
         optional_u64(entries, "runtime", "request_timeout_seconds", builder);
+    runtime.max_model_calls = optional_u64(entries, "runtime", "max_model_calls", builder);
+    runtime.max_wall_clock_seconds =
+        optional_u64(entries, "runtime", "max_wall_clock_seconds", builder);
+    runtime.max_agent_attempts =
+        optional_bounded_u32(entries, "runtime", "max_agent_attempts", 1, builder);
+    runtime.max_run_cost = optional_f64(entries, "runtime", "max_run_cost", builder);
     runtime
 }
 
@@ -562,6 +590,7 @@ fn build_filesystem(mapping: &Mapping, builder: &mut Builder<'_>) -> FilesystemC
             "default_agent_isolation",
             "max_read_bytes",
             "max_write_bytes",
+            "max_file_bytes",
             "max_files_per_task",
             "protect_vcs_metadata",
         ],
@@ -574,11 +603,374 @@ fn build_filesystem(mapping: &Mapping, builder: &mut Builder<'_>) -> FilesystemC
         optional_string(entries, "filesystem", "default_agent_isolation", builder);
     filesystem.max_read_bytes = optional_u64(entries, "filesystem", "max_read_bytes", builder);
     filesystem.max_write_bytes = optional_u64(entries, "filesystem", "max_write_bytes", builder);
+    filesystem.max_file_bytes = optional_u64(entries, "filesystem", "max_file_bytes", builder);
     filesystem.max_files_per_task =
         optional_u64(entries, "filesystem", "max_files_per_task", builder);
     filesystem.protect_vcs_metadata =
         optional_bool_value(entries, "filesystem", "protect_vcs_metadata", builder);
     filesystem
+}
+
+fn build_api_policies(
+    mapping: &Mapping,
+    builder: &mut Builder<'_>,
+) -> BTreeMap<String, ApiPolicyConfig> {
+    let mut policies = BTreeMap::new();
+    let Some(value) = mapping_field(mapping, "api_policies") else {
+        return policies;
+    };
+    let Some(entries) = expect_mapping(value, "api_policies", builder) else {
+        return policies;
+    };
+
+    for (key, entry) in entries {
+        let Some(id) = key.as_str() else {
+            builder.error("api_policies", "API policy names must be strings");
+            continue;
+        };
+        let label = format!("api_policies.{id}");
+        if let Some(policy) = build_api_policy(entry, &label, builder) {
+            policies.insert(id.to_string(), policy);
+        }
+    }
+    policies
+}
+
+fn build_api_policy(
+    value: &Value,
+    label: &str,
+    builder: &mut Builder<'_>,
+) -> Option<ApiPolicyConfig> {
+    let mapping = expect_mapping(value, label, builder)?;
+    check_allowed(
+        mapping,
+        &[
+            "version",
+            "authentication",
+            "requires",
+            "data_class",
+            "cache",
+        ],
+        label,
+        builder,
+    );
+
+    let policy = ApiPolicyConfig {
+        version: optional_string(mapping, label, "version", builder),
+        authentication: optional_string(mapping, label, "authentication", builder),
+        requires: build_string_list(mapping, label, "requires", builder),
+        data_class: optional_string(mapping, label, "data_class", builder),
+        cache: optional_string(mapping, label, "cache", builder),
+    };
+    if let Some(data_class) = &policy.data_class {
+        if !matches!(data_class.as_str(), "public" | "internal" | "pii") {
+            builder.error(
+                label,
+                format!("unknown data class `{data_class}` (known: public, internal, pii)"),
+            );
+        }
+    }
+    Some(policy)
+}
+
+fn build_compilation(mapping: &Mapping, builder: &mut Builder<'_>) -> CompilationConfig {
+    let mut compilation = CompilationConfig::default();
+    let Some(value) = mapping_field(mapping, "compilation") else {
+        return compilation;
+    };
+    let Some(entries) = expect_mapping(value, "compilation", builder) else {
+        return compilation;
+    };
+    check_allowed(
+        entries,
+        &["targets", "entrypoints", "wasm"],
+        "compilation",
+        builder,
+    );
+
+    compilation.targets = build_string_list(entries, "compilation", "targets", builder);
+    for target in &compilation.targets {
+        if !ProjectConfig::TARGETS.contains(&target.as_str()) {
+            builder.error(
+                "compilation",
+                format!(
+                    "unknown target `{target}` (known: {})",
+                    ProjectConfig::TARGETS.join(", ")
+                ),
+            );
+        }
+    }
+    compilation.entrypoints = build_entrypoints(entries, builder);
+    compilation.wasm = build_wasm(entries, builder);
+    compilation
+}
+
+fn build_entrypoints(
+    entries: &Mapping,
+    builder: &mut Builder<'_>,
+) -> BTreeMap<String, EntryPointConfig> {
+    let mut entrypoints = BTreeMap::new();
+    let Some(value) = mapping_field(entries, "entrypoints") else {
+        return entrypoints;
+    };
+    let Some(map) = expect_mapping(value, "compilation.entrypoints", builder) else {
+        return entrypoints;
+    };
+
+    for (key, entry) in map {
+        let Some(target) = key.as_str() else {
+            builder.error("compilation.entrypoints", "target names must be strings");
+            continue;
+        };
+        let label = format!("compilation.entrypoints.{target}");
+        if !ProjectConfig::TARGETS.contains(&target) {
+            builder.error(
+                &label,
+                format!(
+                    "unknown target `{target}` (known: {})",
+                    ProjectConfig::TARGETS.join(", ")
+                ),
+            );
+            continue;
+        }
+        let Some(mapping) = expect_mapping(entry, &label, builder) else {
+            continue;
+        };
+        let allowed: &[&str] = if target == "server" {
+            &["module"]
+        } else {
+            &["module", "init", "render", "handle_event"]
+        };
+        check_allowed(mapping, allowed, &label, builder);
+
+        entrypoints.insert(
+            target.to_string(),
+            EntryPointConfig {
+                target: target.to_string(),
+                module: required_string(mapping, &label, "module", builder),
+                init: optional_string(mapping, &label, "init", builder),
+                render: optional_string(mapping, &label, "render", builder),
+                handle_event: optional_string(mapping, &label, "handle_event", builder),
+            },
+        );
+    }
+    entrypoints
+}
+
+fn build_wasm(entries: &Mapping, builder: &mut Builder<'_>) -> WasmConfig {
+    let mut wasm = WasmConfig::default();
+    let Some(value) = mapping_field(entries, "wasm") else {
+        return wasm;
+    };
+    let Some(mapping) = expect_mapping(value, "compilation.wasm", builder) else {
+        return wasm;
+    };
+    check_allowed(
+        mapping,
+        &[
+            "target",
+            "host_api_version",
+            "max_module_bytes",
+            "reproducible",
+        ],
+        "compilation.wasm",
+        builder,
+    );
+
+    wasm.target = optional_string(mapping, "compilation.wasm", "target", builder);
+    wasm.host_api_version = optional_u32(mapping, "compilation.wasm", "host_api_version", builder);
+    if let Some(version) = wasm.host_api_version {
+        if version != axiom_browser_host_version() {
+            builder.error(
+                "compilation.wasm",
+                format!(
+                    "unsupported `host_api_version` {version}; this build supports {}",
+                    axiom_browser_host_version()
+                ),
+            );
+        }
+    }
+    wasm.max_module_bytes = optional_u64(mapping, "compilation.wasm", "max_module_bytes", builder);
+    wasm.reproducible = optional_bool_value(mapping, "compilation.wasm", "reproducible", builder);
+    wasm
+}
+
+/// The host ABI version this build implements; kept in one place so config and
+/// the browser host stay in sync without a dependency edge.
+fn axiom_browser_host_version() -> u32 {
+    1
+}
+
+fn build_browser(mapping: &Mapping, builder: &mut Builder<'_>) -> BrowserConfig {
+    let mut browser = BrowserConfig::default();
+    let Some(value) = mapping_field(mapping, "browser") else {
+        return browser;
+    };
+    let Some(entries) = expect_mapping(value, "browser", builder) else {
+        return browser;
+    };
+    check_allowed(
+        entries,
+        &[
+            "isolation",
+            "max_memory_pages",
+            "max_compute_ms_per_event",
+            "max_ui_nodes",
+            "max_event_bytes",
+            "max_storage_bytes",
+            "max_snapshot_bytes",
+            "preserve_previous_release_on_failure",
+            "state",
+            "data_cache",
+        ],
+        "browser",
+        builder,
+    );
+
+    browser.isolation = optional_string(entries, "browser", "isolation", builder);
+    browser.max_memory_pages = optional_u64(entries, "browser", "max_memory_pages", builder);
+    browser.max_compute_ms_per_event =
+        optional_u64(entries, "browser", "max_compute_ms_per_event", builder);
+    browser.max_ui_nodes = optional_u64(entries, "browser", "max_ui_nodes", builder);
+    browser.max_event_bytes = optional_u64(entries, "browser", "max_event_bytes", builder);
+    browser.max_storage_bytes = optional_u64(entries, "browser", "max_storage_bytes", builder);
+    browser.max_snapshot_bytes = optional_u64(entries, "browser", "max_snapshot_bytes", builder);
+    browser.preserve_previous_release_on_failure = optional_bool_value(
+        entries,
+        "browser",
+        "preserve_previous_release_on_failure",
+        builder,
+    );
+    browser.state = build_browser_state(entries, builder);
+    browser.data_cache = build_data_cache(entries, builder);
+    browser
+}
+
+fn build_browser_state(entries: &Mapping, builder: &mut Builder<'_>) -> BrowserStateConfig {
+    let mut state = BrowserStateConfig::default();
+    let Some(value) = mapping_field(entries, "state") else {
+        return state;
+    };
+    let Some(mapping) = expect_mapping(value, "browser.state", builder) else {
+        return state;
+    };
+    check_allowed(
+        mapping,
+        &["default_scope", "default_persistence"],
+        "browser.state",
+        builder,
+    );
+    state.default_scope = optional_string(mapping, "browser.state", "default_scope", builder);
+    state.default_persistence =
+        optional_string(mapping, "browser.state", "default_persistence", builder);
+    state
+}
+
+fn build_data_cache(entries: &Mapping, builder: &mut Builder<'_>) -> DataCacheConfig {
+    let mut cache = DataCacheConfig::default();
+    let Some(value) = mapping_field(entries, "data_cache") else {
+        return cache;
+    };
+    let Some(mapping) = expect_mapping(value, "browser.data_cache", builder) else {
+        return cache;
+    };
+    check_allowed(
+        mapping,
+        &[
+            "enabled",
+            "max_entries",
+            "max_bytes",
+            "default_ttl_seconds",
+            "serve_stale_on_error",
+        ],
+        "browser.data_cache",
+        builder,
+    );
+    cache.enabled = optional_bool_value(mapping, "browser.data_cache", "enabled", builder);
+    cache.max_entries = optional_u64(mapping, "browser.data_cache", "max_entries", builder);
+    cache.max_bytes = optional_u64(mapping, "browser.data_cache", "max_bytes", builder);
+    cache.default_ttl_seconds = optional_u64(
+        mapping,
+        "browser.data_cache",
+        "default_ttl_seconds",
+        builder,
+    );
+    cache.serve_stale_on_error = optional_bool_value(
+        mapping,
+        "browser.data_cache",
+        "serve_stale_on_error",
+        builder,
+    );
+    cache
+}
+
+fn build_frontend(mapping: &Mapping, builder: &mut Builder<'_>) -> FrontendConfig {
+    let mut frontend = FrontendConfig::default();
+    let Some(value) = mapping_field(mapping, "frontend") else {
+        return frontend;
+    };
+    let Some(entries) = expect_mapping(value, "frontend", builder) else {
+        return frontend;
+    };
+    check_allowed(entries, &["registry", "build_cache"], "frontend", builder);
+
+    frontend.registry = build_registry(entries, builder);
+    frontend.build_cache = build_build_cache(entries, builder);
+    frontend
+}
+
+fn build_registry(entries: &Mapping, builder: &mut Builder<'_>) -> RegistryConfig {
+    let mut registry = RegistryConfig::default();
+    let Some(value) = mapping_field(entries, "registry") else {
+        return registry;
+    };
+    let Some(mapping) = expect_mapping(value, "frontend.registry", builder) else {
+        return registry;
+    };
+    check_allowed(
+        mapping,
+        &[
+            "content_addressed",
+            "retain_accepted_versions",
+            "require_pinned_references",
+        ],
+        "frontend.registry",
+        builder,
+    );
+    registry.content_addressed =
+        optional_bool_value(mapping, "frontend.registry", "content_addressed", builder);
+    registry.retain_accepted_versions = optional_u64(
+        mapping,
+        "frontend.registry",
+        "retain_accepted_versions",
+        builder,
+    );
+    registry.require_pinned_references = optional_bool_value(
+        mapping,
+        "frontend.registry",
+        "require_pinned_references",
+        builder,
+    );
+    registry
+}
+
+fn build_build_cache(entries: &Mapping, builder: &mut Builder<'_>) -> BuildCacheConfig {
+    let mut cache = BuildCacheConfig::default();
+    let Some(value) = mapping_field(entries, "build_cache") else {
+        return cache;
+    };
+    let Some(mapping) = expect_mapping(value, "frontend.build_cache", builder) else {
+        return cache;
+    };
+    check_allowed(
+        mapping,
+        &["enabled", "max_bytes"],
+        "frontend.build_cache",
+        builder,
+    );
+    cache.enabled = optional_bool_value(mapping, "frontend.build_cache", "enabled", builder);
+    cache.max_bytes = optional_u64(mapping, "frontend.build_cache", "max_bytes", builder);
+    cache
 }
 
 fn build_commands(
@@ -796,6 +1188,36 @@ fn optional_u64(
             builder.error(
                 label,
                 format!("`{field}` must be an integer, found {}", type_name(other)),
+            );
+            None
+        }
+    }
+}
+
+/// Reads an optional non-negative number (`null` disables the ceiling).
+fn optional_f64(
+    mapping: &Mapping,
+    label: &str,
+    field: &str,
+    builder: &mut Builder<'_>,
+) -> Option<f64> {
+    match mapping_field(mapping, field) {
+        None | Some(Value::Null) => None,
+        Some(Value::Number(number)) => match number.as_f64() {
+            Some(value) if value >= 0.0 => Some(value),
+            Some(_) => {
+                builder.error(label, format!("`{field}` must be non-negative"));
+                None
+            }
+            None => {
+                builder.error(label, format!("`{field}` must be a number"));
+                None
+            }
+        },
+        Some(other) => {
+            builder.error(
+                label,
+                format!("`{field}` must be a number, found {}", type_name(other)),
             );
             None
         }

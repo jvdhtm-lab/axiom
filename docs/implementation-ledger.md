@@ -4,7 +4,7 @@ Tracks Axiom 1.0 requirements against implementation status. **Do not mark an
 item complete without test evidence.** Statuses: `done` (implemented + tested),
 `partial`, `not started`. Phase numbers follow `agents.md` §15.
 
-Last updated: 2026-10-18 (Phase 4 partial: WASM artifact + host ABI + Node smoke harness).
+Last updated: 2026-10-18 (Phase 5 partial: full `axiom.yaml` schema, mock providers, tool registry).
 
 ## Phase status
 
@@ -15,7 +15,7 @@ Last updated: 2026-10-18 (Phase 4 partial: WASM artifact + host ABI + Node smoke
 | 2 | Module resolution, types, generics, Option/Result, effect and target checking | partial — module graph, symbols, duplicates, name/type resolution, effect propagation, target checks, and SQL literal/placeholder policy done; expression type inference and match exhaustiveness pending |
 | 3 | Typed IR and deterministic server evaluator; basic compiler commands | done — `axiom-ir` (deterministic JSON IR with types/effects/capabilities/provenance), `axiom-runtime` evaluator, `axiom build/explain/run`; WASM emission explicitly refused until Phase 4 |
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | partial — `axiom-wasm` emits a valid, content-addressed WASM module embedding the checked IR; `axiom-browser-host` verifies header/ABI/hash/imports; Node integration smoke harness passes. **Missing:** function-level WASM codegen, the DOM renderer/event loop, and the real headless-browser smoke test |
-| 5 | Config, model integrations, registered tools and commands | not started |
+| 5 | Config, model integrations, registered tools and commands | partial — `axiom.yaml` now matches the §4 schema (integrations, models, runtime budgets, `api_policies`, `compilation`/`entrypoints`/`wasm`, `browser`, `frontend`, `filesystem`, `commands`) with strict unknown-key checks; `axiom-providers` resolves model aliases to a vendor-neutral spec and builds an offline mock provider; `axiom-tools` registers builtins + configured commands. **Missing:** networked adapters and real tool execution/sandbox (Phase 6) |
 | 6 | Filesystem, workspaces, patch/artifact APIs and command sandbox | not started |
 | 7 | Database APIs, roles, parameter checks, approval/audit and migrations | not started |
 | 8 | Agent calls, iteration/validation APIs, budgets, typed results | not started |
@@ -50,7 +50,9 @@ Last updated: 2026-10-18 (Phase 4 partial: WASM artifact + host ABI + Node smoke
 | WASM artifact (content-addressed, IR-embedding) + fail-closed portability | 4 | partial | `axiom-wasm/tests/wasm.rs`: SHA-256 vectors, valid `\0asm` module, determinism, non-browser effect rejection | `docs/architecture.md` | Codegen embeds IR; no per-function WASM functions yet |
 | Host ABI + artifact verification + Node integration harness | 4 | partial | `axiom-browser-host/tests/host.rs`; `node browser/host-smoke.mjs` → `ok: sha256 … abi v1 ir v1` | `docs/security-model.md` | Integration test, not a real browser test |
 | Real headless-browser smoke test (render `UiTree`, forward event) | 4 | not started | — | `docs/architecture.md` | Requires browser harness + function codegen |
-| Config (`axiom.yaml`), providers, tools | 5 | not started | — | `docs/configuration.md`, `docs/providers.md` | Config crate still parses the previous schema |
+| Config schema (`axiom.yaml`) for §4 sections + strict unknown-key/placeholder checks | 5 | done | `axiom-config/tests/config.rs` (25): bundled example, api_policies/compilation/browser/frontend, unknown target/host-api/key, placeholder + redaction | `docs/configuration.md` | Value spans still approximate |
+| Model alias resolution + mock provider | 5 | partial | `axiom-providers/tests/providers.rs` (7): spec resolution, alias switch without source edits, unknown alias, no secret leakage, mock determinism | `docs/configuration.md` | Only offline mocks; no networked adapters |
+| Tool registry (builtins + configured commands) | 5 | partial | `axiom-tools/tests/tools.rs` (5): builtin kinds/effects, command tools, unknown tool/command refusal | `docs/configuration.md` | Registry only; execution/sandbox is Phase 6 |
 | Filesystem/workspaces/artifacts | 6 | not started | — | `docs/security-model.md` | — |
 | Database subsystem | 7 | not started | — | `docs/language-spec.md` §7 | — |
 | Agents/validation/budgets | 8 | not started | — | — | — |
@@ -68,8 +70,11 @@ the caller-subset rule, target-compatibility and SQL-policy checks, a shared
 typed IR with deterministic JSON rendering, a deterministic server evaluator for
 the pure subset, the `check`/`build`/`explain`/`run` CLI, and a partial browser
 backend that emits a content-addressed WASM module embedding the checked IR with
-a verifying host ABI (Node integration smoke test only). It does **not** infer
-expression types, report `match` exhaustiveness, generate function-level WASM or
-a DOM renderer, run a real browser test, or provide the provider, tool, database,
-filesystem, artifact, durability, or budget subsystems. Nothing should be assumed
-to work unless the requirement ledger above cites a passing test.
+a verifying host ABI (Node integration smoke test only). It loads and validates
+the full §4 `axiom.yaml` schema, resolves model aliases to a provider-neutral
+spec with an offline mock provider, and registers builtin and command tools. It
+does **not** infer expression types, report `match` exhaustiveness, generate
+function-level WASM or a DOM renderer, run a real browser test, talk to a
+networked model provider, execute/sandbox tools, or provide the database,
+filesystem, artifact, durability, or budget subsystems. Nothing should be
+assumed to work unless the requirement ledger above cites a passing test.

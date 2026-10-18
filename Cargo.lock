@@ -46,6 +46,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "axiom-providers"
+version = "0.1.0"
+dependencies = [
+ "axiom-config",
+]
+
+[[package]]
 name = "axiom-runtime"
 version = "0.1.0"
 dependencies = [
@@ -56,6 +63,13 @@ dependencies = [
 [[package]]
 name = "axiom-syntax"
 version = "0.1.0"
+
+[[package]]
+name = "axiom-tools"
+version = "0.1.0"
+dependencies = [
+ "axiom-config",
+]
 
 [[package]]
 name = "axiom-types"
