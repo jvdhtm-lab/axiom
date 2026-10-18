@@ -1,4 +1,0 @@
-module x;
-
-agent A implements Agent<Input, Output> {
-  purpose: "unclosed"

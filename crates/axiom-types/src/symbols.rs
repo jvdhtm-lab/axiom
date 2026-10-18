@@ -1,75 +1,42 @@
 //! Symbol tables for a single module.
 //!
-//! Phase 2 collects one namespace of top-level declarations per module. The
-//! table records each declaration's kind, whether it is exported, and where it
-//! was declared, and preserves duplicates so the checker can report them.
+//! One namespace of top-level declarations per module. The table records each
+//! declaration's kind, whether it is exported, and where it was declared, and
+//! preserves duplicate pairs so the checker can report them.
 
 use std::collections::BTreeMap;
 
-use axiom_syntax::ast::{Item, ItemKind, SourceFile};
+use axiom_syntax::ast::{DeclKind, Declaration, File};
 use axiom_syntax::span::Span;
 
 /// The kind of a top-level declaration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SymbolKind {
     Type,
-    Interface,
     Enum,
-    Const,
     Function,
     Agent,
-    Team,
-    Tool,
-    Query,
-    Operation,
-    Contract,
-    Goal,
-    Policy,
     Workspace,
-    Workflow,
 }
 
 impl SymbolKind {
     pub fn as_str(self) -> &'static str {
         match self {
             SymbolKind::Type => "type",
-            SymbolKind::Interface => "interface",
             SymbolKind::Enum => "enum",
-            SymbolKind::Const => "const",
             SymbolKind::Function => "fn",
             SymbolKind::Agent => "agent",
-            SymbolKind::Team => "team",
-            SymbolKind::Tool => "tool",
-            SymbolKind::Query => "query",
-            SymbolKind::Operation => "operation",
-            SymbolKind::Contract => "contract",
-            SymbolKind::Goal => "goal",
-            SymbolKind::Policy => "policy",
             SymbolKind::Workspace => "workspace",
-            SymbolKind::Workflow => "workflow",
         }
     }
 
-    fn classify(kind: &ItemKind) -> SymbolKind {
+    fn classify(kind: &DeclKind) -> SymbolKind {
         match kind {
-            ItemKind::Type(_) => SymbolKind::Type,
-            ItemKind::Interface(_) => SymbolKind::Interface,
-            ItemKind::Enum(_) => SymbolKind::Enum,
-            ItemKind::Const(_) => SymbolKind::Const,
-            ItemKind::Function(_) => SymbolKind::Function,
-            ItemKind::Agent(_) => SymbolKind::Agent,
-            ItemKind::Tool(_) => SymbolKind::Tool,
-            ItemKind::Query(_) => SymbolKind::Query,
-            ItemKind::Operation(_) => SymbolKind::Operation,
-            ItemKind::Goal(_) => SymbolKind::Goal,
-            ItemKind::Workflow(_) => SymbolKind::Workflow,
-            ItemKind::MemberBlock(d) => match d.kind {
-                "team" => SymbolKind::Team,
-                "contract" => SymbolKind::Contract,
-                "policy" => SymbolKind::Policy,
-                "workspace" => SymbolKind::Workspace,
-                _ => SymbolKind::Type,
-            },
+            DeclKind::Type(_) => SymbolKind::Type,
+            DeclKind::Enum(_) => SymbolKind::Enum,
+            DeclKind::Function(_) => SymbolKind::Function,
+            DeclKind::Agent(_) => SymbolKind::Agent,
+            DeclKind::Workspace(_) => SymbolKind::Workspace,
         }
     }
 }
@@ -91,24 +58,23 @@ pub struct SymbolTable {
 }
 
 impl SymbolTable {
-    /// Collect the top-level declarations of a parsed file.
-    pub fn from_file(file: &SourceFile) -> SymbolTable {
+    pub fn from_file(file: &File) -> SymbolTable {
         let mut table = SymbolTable::default();
-        for item in &file.items {
-            table.insert(item);
+        for decl in &file.declarations {
+            table.insert(decl);
         }
         table
     }
 
-    fn insert(&mut self, item: &Item) {
-        let Some(name) = item.name() else {
+    fn insert(&mut self, decl: &Declaration) {
+        let Some((name, span)) = declaration_name(decl) else {
             return;
         };
         let symbol = Symbol {
-            name: name.text.clone(),
-            kind: SymbolKind::classify(&item.kind),
-            exported: item.exported,
-            span: name.span,
+            name,
+            kind: SymbolKind::classify(&decl.kind),
+            exported: decl.exported,
+            span,
         };
         match self.by_name.get(&symbol.name).cloned() {
             Some(existing) => {
@@ -137,8 +103,19 @@ impl SymbolTable {
     }
 
     /// Declarations that share a name with an earlier declaration, as
-    /// `(first, duplicate)` pairs ordered by source position.
+    /// `(first, duplicate)` pairs.
     pub fn duplicates(&self) -> &[(Symbol, Symbol)] {
         &self.duplicates
+    }
+}
+
+/// The declared name and its span, for any declaration kind.
+pub fn declaration_name(decl: &Declaration) -> Option<(String, Span)> {
+    match &decl.kind {
+        DeclKind::Type(d) => Some((d.name.clone(), d.span)),
+        DeclKind::Enum(d) => Some((d.name.clone(), d.span)),
+        DeclKind::Function(d) => Some((d.name.clone(), d.span)),
+        DeclKind::Agent(d) => Some((d.name.clone(), d.span)),
+        DeclKind::Workspace(d) => Some((d.name.clone(), d.span)),
     }
 }

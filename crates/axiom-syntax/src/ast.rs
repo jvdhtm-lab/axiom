@@ -1,366 +1,216 @@
-//! Abstract syntax tree for the Axiom 1.0 surface language.
+//! The Axiom 1.0 abstract syntax tree.
 //!
-//! These nodes model the *syntax* only. Semantic meaning (resolving `model:` to a
-//! declared profile, checking types, validating contracts) is Phase 2.
-//!
-//! Per `agents.md` v4 §5.1: statements and member entries end with `;` and
-//! newlines are insignificant whitespace (the lexer emits `Newline` tokens, but
-//! the parser discards them). Declaration bodies are *member blocks*:
-//! `name { key: value; ... }`.
+//! The surface is deliberately small: the only declaration forms are `type`,
+//! `enum`, `fn` (with `api`/`async` modifiers and an optional `effects` clause),
+//! `agent`, and `workspace`. Runtime concepts such as iteration, validation,
+//! caching, persistence, retries, checkpoints, database queries, tools, and
+//! artifact publishing are ordinary calls, not AST nodes.
 
 use crate::span::Span;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Ident {
-    pub text: String,
-    pub span: Span,
-}
-
+/// A parsed `.ax` file: one `module` header, its imports, and its declarations.
 #[derive(Debug, Clone, PartialEq)]
-pub struct StringLit {
-    pub value: String,
-    pub span: Span,
-}
-
-/// A parsed module: an optional `module` header, imports, then items.
-#[derive(Debug, Clone, PartialEq)]
-pub struct SourceFile {
+pub struct File {
     pub module: Option<ModuleDecl>,
     pub imports: Vec<ImportDecl>,
-    pub items: Vec<Item>,
-    pub span: Span,
-}
-
-impl SourceFile {
-    pub fn new(
-        module: Option<ModuleDecl>,
-        imports: Vec<ImportDecl>,
-        items: Vec<Item>,
-        span: Span,
-    ) -> Self {
-        SourceFile {
-            module,
-            imports,
-            items,
-            span,
-        }
-    }
+    pub declarations: Vec<Declaration>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModuleDecl {
-    pub path: Vec<Ident>,
+    /// Dotted module path, e.g. `["examples", "frontend"]`.
+    pub path: Vec<String>,
     pub span: Span,
+}
+
+impl ModuleDecl {
+    pub fn dotted(&self) -> String {
+        self.path.join(".")
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImportDecl {
-    pub names: Vec<Ident>,
-    pub from: StringLit,
+    /// Imported names, e.g. `["DashboardInput", "AppError"]`.
+    pub names: Vec<String>,
+    /// The source string literal, e.g. `"./shared.ax"`.
+    pub from: String,
     pub span: Span,
 }
 
-/// A top-level (or nested) declaration, with its optional `export` prefix.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Item {
+pub struct Declaration {
     pub exported: bool,
-    pub kind: ItemKind,
+    pub kind: DeclKind,
     pub span: Span,
 }
 
-impl Item {
-    pub fn kind_name(&self) -> &'static str {
-        self.kind.kind_name()
-    }
-
-    pub fn name(&self) -> Option<&Ident> {
-        self.kind.name()
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
-pub enum ItemKind {
+pub enum DeclKind {
     Type(TypeDecl),
-    Interface(InterfaceDecl),
     Enum(EnumDecl),
-    Const(ConstDecl),
     Function(FunctionDecl),
     Agent(AgentDecl),
-    Tool(ToolDecl),
-    Query(QueryDecl),
-    Operation(OperationDecl),
-    Goal(GoalDecl),
-    Workflow(WorkflowDecl),
-    /// `team` / `contract` / `policy` / `workspace`: a named member block.
-    MemberBlock(MemberBlockDecl),
+    Workspace(WorkspaceDecl),
 }
-
-impl ItemKind {
-    pub fn kind_name(&self) -> &'static str {
-        match self {
-            ItemKind::Type(_) => "type",
-            ItemKind::Interface(_) => "interface",
-            ItemKind::Enum(_) => "enum",
-            ItemKind::Const(_) => "const",
-            ItemKind::Function(_) => "fn",
-            ItemKind::Agent(_) => "agent",
-            ItemKind::Tool(_) => "tool",
-            ItemKind::Query(_) => "query",
-            ItemKind::Operation(_) => "operation",
-            ItemKind::Goal(_) => "goal",
-            ItemKind::Workflow(_) => "workflow",
-            ItemKind::MemberBlock(d) => d.kind,
-        }
-    }
-
-    pub fn name(&self) -> Option<&Ident> {
-        match self {
-            ItemKind::Type(d) => Some(&d.name),
-            ItemKind::Interface(d) => Some(&d.name),
-            ItemKind::Enum(d) => Some(&d.name),
-            ItemKind::Const(d) => Some(&d.name),
-            ItemKind::Function(d) => Some(&d.name),
-            ItemKind::Agent(d) => Some(&d.name),
-            ItemKind::Tool(d) => Some(&d.name),
-            ItemKind::Query(d) => Some(&d.name),
-            ItemKind::Operation(d) => Some(&d.name),
-            ItemKind::Goal(d) => Some(&d.name),
-            ItemKind::Workflow(d) => Some(&d.name),
-            ItemKind::MemberBlock(d) => Some(&d.name),
-        }
-    }
-}
-
-// --- declarations ---------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeDecl {
-    pub name: Ident,
-    pub type_params: Vec<Ident>,
-    pub value: TypeExpr,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct InterfaceDecl {
-    pub name: Ident,
-    pub type_params: Vec<Ident>,
-    pub properties: Vec<PropertyType>,
+    pub name: String,
+    pub generics: Vec<String>,
+    pub ty: TypeExpr,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumDecl {
-    pub name: Ident,
-    pub members: Vec<EnumMember>,
+    pub name: String,
+    pub variants: Vec<EnumVariant>,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct EnumMember {
-    pub name: Ident,
-    pub value: Option<Expr>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ConstDecl {
-    pub name: Ident,
-    pub mutable: bool,
-    pub ty: Option<TypeExpr>,
-    pub value: Expr,
+pub struct EnumVariant {
+    pub name: String,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionDecl {
-    pub pure: bool,
-    pub name: Ident,
-    pub type_params: Vec<Ident>,
+    /// `api` — published as a typed server operation.
+    pub api: bool,
+    /// `async` — may use `await`.
+    pub is_async: bool,
+    pub name: String,
+    pub generics: Vec<String>,
     pub params: Vec<Param>,
     pub ret: Option<TypeExpr>,
-    pub effects: Option<Vec<Ident>>,
-    pub body: Vec<Stmt>,
+    /// `None` when no `effects` clause is present (a pure function);
+    /// `Some(list)` otherwise.
+    pub effects: Option<Vec<EffectName>>,
+    pub body: Block,
     pub span: Span,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct AgentDecl {
-    pub name: Ident,
-    pub implements: TypeExpr,
-    pub members: Vec<Member>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ToolDecl {
-    pub name: Ident,
-    pub params: Vec<Param>,
-    pub ret: TypeExpr,
-    pub effects: Vec<Ident>,
-    /// Metadata member block: `timeout`, `idempotent`, `max_output_bytes`,
-    /// `binding`, ...
-    pub members: Vec<Member>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct GoalDecl {
-    pub name: Ident,
-    pub params: Vec<Param>,
-    pub ret: TypeExpr,
-    pub members: Vec<Member>,
-    pub span: Span,
-}
-
-/// A typed, named, callable SQL operation (`query Name(params) -> T { ... }`).
-#[derive(Debug, Clone, PartialEq)]
-pub struct QueryDecl {
-    pub name: Ident,
-    pub params: Vec<Param>,
-    pub ret: TypeExpr,
-    pub members: Vec<Member>,
-    pub span: Span,
-}
-
-/// A versioned, server-authorized API boundary
-/// (`operation Name(input: T) -> R { version: ...; handler: ...; }`).
-#[derive(Debug, Clone, PartialEq)]
-pub struct OperationDecl {
-    pub name: Ident,
-    pub params: Vec<Param>,
-    pub ret: TypeExpr,
-    pub members: Vec<Member>,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct WorkflowDecl {
-    pub name: Ident,
-    pub params: Vec<Param>,
-    pub ret: Option<TypeExpr>,
-    pub body: Vec<Stmt>,
-    pub span: Span,
-}
-
-/// `team` / `contract` / `policy` / `workspace` declaration.
-#[derive(Debug, Clone, PartialEq)]
-pub struct MemberBlockDecl {
-    pub kind: &'static str,
-    pub name: Ident,
-    pub members: Vec<Member>,
-    pub span: Span,
-}
-
-/// An entry inside a member block.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Member {
-    pub name: Ident,
-    /// Optional secondary label: `postcondition non_empty: ...;`,
-    /// `criterion "…": ...;`.
-    pub label: Option<MemberLabel>,
-    pub value: MemberValue,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum MemberLabel {
-    Ident(Ident),
-    String(StringLit),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum MemberValue {
-    /// `name: expr;` (or `name label: expr;`).
-    Expr(Expr),
-    /// `name { ... }` — a nested member block (`limits { ... }`).
-    Block(Vec<Member>),
-    /// `Type -> Member;` — routing entries.
-    Arrow(Expr),
+impl FunctionDecl {
+    pub fn is_pure(&self) -> bool {
+        self.effects.is_none()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Param {
-    pub name: Ident,
-    pub optional: bool,
-    /// `None` for inferred lambda parameters (`x => ...`); `Some` when annotated.
-    pub ty: Option<TypeExpr>,
-    pub default: Option<Expr>,
+    pub name: String,
+    pub ty: TypeExpr,
     pub span: Span,
 }
 
-// --- types ----------------------------------------------------------------
+#[derive(Debug, Clone, PartialEq)]
+pub struct EffectName {
+    /// Dotted effect path, e.g. `["db", "read"]`.
+    pub path: Vec<String>,
+    pub span: Span,
+}
+
+impl EffectName {
+    pub fn dotted(&self) -> String {
+        self.path.join(".")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AgentDecl {
+    pub name: String,
+    pub params: Vec<Param>,
+    pub ret: TypeExpr,
+    pub members: Vec<Member>,
+    pub span: Span,
+}
+
+impl AgentDecl {
+    /// The last member with `name` wins, matching record-like metadata.
+    pub fn member(&self, name: &str) -> Option<&Expr> {
+        self.members
+            .iter()
+            .rev()
+            .find(|m| m.name == name)
+            .map(|m| &m.value)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WorkspaceDecl {
+    pub name: String,
+    pub members: Vec<Member>,
+    pub span: Span,
+}
+
+impl WorkspaceDecl {
+    pub fn member(&self, name: &str) -> Option<&Expr> {
+        self.members
+            .iter()
+            .rev()
+            .find(|m| m.name == name)
+            .map(|m| &m.value)
+    }
+}
+
+/// A `name: value` entry inside an agent/workspace member block.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Member {
+    pub name: String,
+    pub value: Expr,
+    pub span: Span,
+}
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeExpr {
-    pub kind: TypeExprKind,
+    pub kind: TypeKind,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TypeExprKind {
-    Ref {
-        path: Vec<Ident>,
+pub enum TypeKind {
+    /// A named type reference, possibly generic: `int`, `Option<T>`, `pkg.Name`.
+    Named {
+        path: Vec<String>,
         args: Vec<TypeExpr>,
     },
-    Array(Box<TypeExpr>),
-    Union(Vec<TypeExpr>),
-    Record(Vec<PropertyType>),
-    Tuple(Vec<TypeExpr>),
-    /// A string-literal type such as `"unit_test"` (used in string unions).
-    Str(StringLit),
+    /// `T[]`.
+    List(Box<TypeExpr>),
+    /// `{ a: T; b: U }`.
+    Record(Vec<FieldType>),
 }
 
 impl TypeExpr {
-    /// Render as a dotted name; composites render structurally.
-    pub fn display_name(&self) -> String {
+    pub fn dotted(&self) -> Option<String> {
         match &self.kind {
-            TypeExprKind::Ref { path, .. } => path
-                .iter()
-                .map(|i| i.text.as_str())
-                .collect::<Vec<_>>()
-                .join("."),
-            TypeExprKind::Array(inner) => format!("{}[]", inner.display_name()),
-            TypeExprKind::Union(parts) => parts
-                .iter()
-                .map(TypeExpr::display_name)
-                .collect::<Vec<_>>()
-                .join(" | "),
-            TypeExprKind::Record(_) => "{...}".to_string(),
-            TypeExprKind::Str(s) => format!("\"{}\"", s.value),
-            TypeExprKind::Tuple(parts) => format!(
-                "({})",
-                parts
-                    .iter()
-                    .map(TypeExpr::display_name)
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
-        }
-    }
-
-    pub fn as_ref_path(&self) -> Option<String> {
-        match &self.kind {
-            TypeExprKind::Ref { path, .. } => Some(
-                path.iter()
-                    .map(|i| i.text.as_str())
-                    .collect::<Vec<_>>()
-                    .join("."),
-            ),
+            TypeKind::Named { path, .. } => Some(path.join(".")),
             _ => None,
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct PropertyType {
-    pub name: Ident,
-    pub optional: bool,
+pub struct FieldType {
+    pub name: String,
     pub ty: TypeExpr,
     pub span: Span,
 }
 
-// --- statements -----------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Statements
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Block {
+    pub stmts: Vec<Stmt>,
+    pub span: Span,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Stmt {
@@ -368,113 +218,25 @@ pub struct Stmt {
     pub span: Span,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AssignOp {
-    Assign,
-    Add,
-    Sub,
-    Mul,
-    Div,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct CatchClause {
-    pub binding: Option<Ident>,
-    pub body: Vec<Stmt>,
-    pub span: Span,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum StmtKind {
-    Const(ConstDecl),
-    Assignment {
-        target: Expr,
-        op: AssignOp,
+    Let {
+        name: String,
+        ty: Option<TypeExpr>,
         value: Expr,
     },
-    If {
-        cond: Expr,
-        then_body: Vec<Stmt>,
-        else_body: Vec<Stmt>,
-    },
-    Match {
-        scrutinee: Expr,
-        arms: Vec<MatchArm>,
-    },
     For {
-        var: Ident,
+        var: String,
         iter: Expr,
-        body: Vec<Stmt>,
-    },
-    While {
-        cond: Expr,
-        max: Option<Expr>,
-        body: Vec<Stmt>,
+        body: Block,
     },
     Return(Option<Expr>),
-    Yield(Option<Expr>),
-    Break,
-    Continue,
-    Throw(Expr),
-    Try {
-        body: Vec<Stmt>,
-        catches: Vec<CatchClause>,
-        finally: Vec<Stmt>,
-    },
-    Require {
-        cond: Expr,
-        else_expr: Option<Expr>,
-        escalate: Option<Expr>,
-    },
-    Parallel {
-        var: Ident,
-        iter: Expr,
-        max: Option<Expr>,
-        body: Vec<Stmt>,
-    },
-    Retry {
-        attempts: Expr,
-        body: Vec<Stmt>,
-    },
-    Timeout {
-        duration: Expr,
-        body: Vec<Stmt>,
-    },
-    OnError {
-        param: Param,
-        body: Vec<Stmt>,
-    },
-    Checkpoint(Option<Expr>),
-    Emit(Expr),
     Expr(Expr),
-    /// A nested declaration inside a block.
-    Item(Box<Item>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct MatchArm {
-    pub pattern: Pattern,
-    pub body: MatchBody,
-    pub span: Span,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum MatchBody {
-    Expr(Expr),
-    Block(Vec<Stmt>),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Pattern {
-    Wildcard(Span),
-    Binding(Ident),
-    Literal(Literal, Span),
-    /// A dotted enum-case or qualified pattern such as `DashboardEvent.Refresh`.
-    Path(Vec<Ident>, Span),
-    Tuple(Vec<Pattern>, Span),
-}
-
-// --- expressions ----------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Expressions
+// ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expr {
@@ -484,31 +246,33 @@ pub struct Expr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
-    Literal(Literal),
-    Path(Vec<Ident>),
-    List(Vec<Expr>),
-    Object(Vec<ObjectEntry>),
-    Lambda {
-        params: Vec<Param>,
-        body: LambdaBody,
+    Int(i64),
+    Float(f64),
+    Str(String),
+    Bool(bool),
+    Duration {
+        millis: u64,
+        unit: String,
     },
-    Await(Box<Expr>),
-    Delegate {
-        agent: Vec<Ident>,
-        method: Ident,
+    Size {
+        bytes: u64,
+        unit: String,
+    },
+    /// A bare identifier (including prelude constructors such as `None`).
+    Ident(String),
+    /// `[a, b, c]`.
+    List(Vec<Argument>),
+    /// `{ a: 1, b: 2 }`.
+    Record(Vec<Member>),
+    /// `expr.name`.
+    Field(Box<Expr>, String),
+    /// `expr[expr]`.
+    Index(Box<Expr>, Box<Expr>),
+    /// `callee(args)` or `callee<T>(args)`.
+    Call {
+        callee: Box<Expr>,
+        type_args: Vec<TypeExpr>,
         args: Vec<Argument>,
-    },
-    Parallel {
-        var: Ident,
-        iter: Box<Expr>,
-        max: Option<Box<Expr>>,
-        body: Vec<Stmt>,
-    },
-    /// `iterate Agent.execute(input) { max_iterations: N; validate: [...]; ... }`
-    /// — a bounded generate/validate/repair expression.
-    Iterate {
-        call: Box<Expr>,
-        members: Vec<Member>,
     },
     Unary {
         op: UnaryOp,
@@ -516,52 +280,43 @@ pub enum ExprKind {
     },
     Binary {
         op: BinaryOp,
-        left: Box<Expr>,
-        right: Box<Expr>,
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
     },
-    Conditional {
+    /// `await expr`.
+    Await(Box<Expr>),
+    /// `if cond { .. } else { .. }`, usable in statement position.
+    If {
         cond: Box<Expr>,
-        then_expr: Box<Expr>,
-        else_expr: Box<Expr>,
+        then: Block,
+        otherwise: Option<Box<Expr>>,
     },
-    Member {
-        base: Box<Expr>,
-        name: Ident,
+    /// `match scrutinee { arms }`.
+    Match {
+        scrutinee: Box<Expr>,
+        arms: Vec<MatchArm>,
     },
-    Index {
-        base: Box<Expr>,
-        index: Box<Expr>,
-    },
-    Call {
-        callee: Box<Expr>,
-        args: Vec<Argument>,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum LambdaBody {
-    Expr(Box<Expr>),
-    Block(Vec<Stmt>),
+    /// A braced block used as a value.
+    Block(Block),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnaryOp {
     Not,
     Neg,
-    Plus,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOp {
     Mul,
     Div,
-    Mod,
+    Rem,
     Add,
     Sub,
     Lt,
-    LtEq,
+    Le,
     Gt,
-    GtEq,
+    Ge,
     Eq,
     Ne,
     And,
@@ -569,41 +324,35 @@ pub enum BinaryOp {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Literal {
-    Int(i64),
-    Float(f64),
-    Duration { millis: u64, unit: String },
-    Size { bytes: u64, unit: String },
-    String(String),
-    Bool(bool),
-    Null,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct Argument {
-    pub name: Option<Ident>,
+    /// A named argument such as `database: "app"`, or `None` for a positional arg.
+    pub name: Option<String>,
     pub value: Expr,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchArm {
+    pub pattern: Pattern,
+    /// A bare body is wrapped in a single-statement block.
+    pub body: Block,
     pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ObjectKey {
-    Ident(Ident),
-    String(StringLit),
+pub enum Pattern {
+    Wildcard,
+    Binding(String),
+    Literal(PatternLiteral),
+    /// `Ok(x)` / `Err(_)` / `DashboardEventKind.Refresh`.
+    Constructor {
+        path: Vec<String>,
+        inner: Option<Vec<Pattern>>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ObjectEntry {
-    pub key: ObjectKey,
-    pub value: Expr,
-    pub span: Span,
-}
-
-impl ObjectEntry {
-    pub fn key_text(&self) -> &str {
-        match &self.key {
-            ObjectKey::Ident(i) => &i.text,
-            ObjectKey::String(s) => &s.value,
-        }
-    }
+pub enum PatternLiteral {
+    Int(i64),
+    Str(String),
+    Bool(bool),
 }

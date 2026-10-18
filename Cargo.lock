@@ -20,6 +20,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "axiom-format"
+version = "0.1.0"
+dependencies = [
+ "axiom-syntax",
+]
+
+[[package]]
 name = "axiom-syntax"
 version = "0.1.0"
 

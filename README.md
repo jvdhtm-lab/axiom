@@ -25,9 +25,9 @@ the current [`agents.md`](agents.md) specification. The phase numbers below foll
 
 | # | Phase | State |
 | --- | --- | --- |
-| 0 | Design: small grammar, types, effects, target matrix, ABI, threat model | in progress |
-| 1 | Lexer, parser, AST, source maps, diagnostics, formatter skeleton | not started |
-| 2 | Module resolution, types, generics, Option/Result, effect/target checking | not started |
+| 0 | Design: small grammar, types, effects, target matrix, ABI, threat model | done |
+| 1 | Lexer, parser, AST, source maps, diagnostics, formatter skeleton | done |
+| 2 | Module resolution, types, generics, Option/Result, effect/target checking | partial |
 | 3 | Typed IR and deterministic server evaluator; compiler commands | not started |
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | not started |
 | 5 | Config, model integrations, registered tools and commands | not started |
@@ -58,6 +58,7 @@ unless the ledger cites a passing test.
 ```
 crates/
   axiom-syntax/    lexer, parser, AST, spans, diagnostics
+  axiom-format/    deterministic formatter
   axiom-types/     module graph, symbols, type/effect/target checks
   axiom-config/    axiom.yaml loading, expansion, validation
   axiom-cli/       the `axiom` binary

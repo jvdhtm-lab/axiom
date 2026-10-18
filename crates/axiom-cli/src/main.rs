@@ -168,9 +168,9 @@ fn run_check(arguments: &[String]) -> ExitCode {
         if !modules_with_errors.contains(&root) {
             let module = &project.graph.modules[root];
             println!(
-                "ok: {} ({} item(s))",
+                "ok: {} ({} declaration(s))",
                 module.display,
-                module.file.items.len()
+                module.file.declarations.len()
             );
         }
     }

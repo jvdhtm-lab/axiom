@@ -26,6 +26,8 @@ impl Severity {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagnostic {
     pub severity: Severity,
+    /// A stable machine-readable code, e.g. `AX0001`.
+    pub code: Option<&'static str>,
     pub message: String,
     pub span: Span,
     pub notes: Vec<String>,
@@ -35,6 +37,17 @@ impl Diagnostic {
     pub fn error(span: Span, message: impl Into<String>) -> Self {
         Diagnostic {
             severity: Severity::Error,
+            code: None,
+            message: message.into(),
+            span,
+            notes: Vec::new(),
+        }
+    }
+
+    pub fn error_code(span: Span, code: &'static str, message: impl Into<String>) -> Self {
+        Diagnostic {
+            severity: Severity::Error,
+            code: Some(code),
             message: message.into(),
             span,
             notes: Vec::new(),
@@ -44,6 +57,17 @@ impl Diagnostic {
     pub fn warning(span: Span, message: impl Into<String>) -> Self {
         Diagnostic {
             severity: Severity::Warning,
+            code: None,
+            message: message.into(),
+            span,
+            notes: Vec::new(),
+        }
+    }
+
+    pub fn warning_code(span: Span, code: &'static str, message: impl Into<String>) -> Self {
+        Diagnostic {
+            severity: Severity::Warning,
+            code: Some(code),
             message: message.into(),
             span,
             notes: Vec::new(),
@@ -62,7 +86,20 @@ impl Diagnostic {
     /// Render with a `file:line:col` header and a source excerpt.
     pub fn render(&self, source: &Source) -> String {
         let mut out = String::new();
-        let _ = writeln!(out, "{}: {}", self.severity.as_str(), self.message);
+        match self.code {
+            Some(code) => {
+                let _ = writeln!(
+                    out,
+                    "{}[{}]: {}",
+                    self.severity.as_str(),
+                    code,
+                    self.message
+                );
+            }
+            None => {
+                let _ = writeln!(out, "{}: {}", self.severity.as_str(), self.message);
+            }
+        }
         let (line, col) = source.line_col(self.span.start);
         let _ = writeln!(out, "  --> {}:{}:{}", source.name, line, col);
 

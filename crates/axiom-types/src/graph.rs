@@ -1,23 +1,18 @@
 //! The module graph: deterministic multi-file resolution.
 //!
 //! A [`Project`] is built from one or more root `.ax` files. Imports
-//! (`import { A, B } from "./x.ax";`) are resolved relative to the importing
-//! file's directory, lexically normalized so resolution is identical on every
-//! platform. Loading is a depth-first walk that:
-//!
-//! - parses each file once and collects its [`SymbolTable`],
-//! - rejects imports that do not resolve, name an unknown declaration, or name
-//!   a declaration the target module does not export,
-//! - reports import cycles.
-//!
-//! No file is loaded twice, even across diamond imports.
+//! (`import { A, B } from "./x.ax";`) resolve relative to the importing file's
+//! directory, lexically normalized so resolution is identical on every platform.
+//! Loading is depth-first: each file is parsed once, imports are validated
+//! (unknown names, non-exported names, cycles), and no file loads twice — even
+//! across diamond imports.
 
 use std::collections::BTreeMap;
 use std::path::{Component, Path, PathBuf};
 
-use axiom_syntax::ast::{ImportDecl, SourceFile};
+use axiom_syntax::ast::{File, ImportDecl};
 use axiom_syntax::diagnostic::Diagnostic;
-use axiom_syntax::parse;
+use axiom_syntax::{parse, Span};
 
 use crate::symbols::SymbolTable;
 
@@ -28,12 +23,10 @@ pub type ModuleId = usize;
 #[derive(Debug)]
 pub struct Module {
     pub id: ModuleId,
-    /// The path used to load the file (as resolved on disk).
     pub path: PathBuf,
-    /// A human-readable name for diagnostics.
     pub display: String,
     pub source: String,
-    pub file: SourceFile,
+    pub file: File,
     pub parse_diagnostics: Vec<Diagnostic>,
     pub symbols: SymbolTable,
     pub imports: Vec<ResolvedImport>,
@@ -51,7 +44,6 @@ pub struct ResolvedImport {
 #[derive(Debug)]
 pub struct ModuleGraph {
     pub modules: Vec<Module>,
-    /// The modules that were requested explicitly.
     pub roots: Vec<ModuleId>,
 }
 
@@ -87,7 +79,7 @@ pub fn load(roots: &[PathBuf]) -> Project {
             }
             Err(message) => loader.diagnostics.push(GraphDiagnostic {
                 module: None,
-                diagnostic: Diagnostic::error(axiom_syntax::Span::empty(0), message),
+                diagnostic: Diagnostic::error(Span::empty(0), message),
             }),
         }
     }
@@ -124,13 +116,7 @@ impl Loader {
             .map_err(|err| format!("cannot read `{}`: {err}", norm.display()))?;
         let parsed = parse(&source);
         let symbols = SymbolTable::from_file(&parsed.file);
-        let module_path = parsed.file.module.as_ref().map(|m| {
-            m.path
-                .iter()
-                .map(|i| i.text.as_str())
-                .collect::<Vec<_>>()
-                .join(".")
-        });
+        let module_path = parsed.file.module.as_ref().map(|m| m.dotted());
         let display = norm.display().to_string();
 
         let id = self.modules.len();
@@ -155,18 +141,21 @@ impl Loader {
         let base = norm.parent().map(Path::to_path_buf).unwrap_or_default();
         let mut resolved = Vec::with_capacity(imports.len());
         for decl in imports {
-            let target_path = normalize(&base.join(&decl.from.value));
+            let target_path = normalize(&base.join(&decl.from));
             match self.load_file(&target_path) {
                 Ok(target) => {
                     if self.stack.contains(&target) {
                         let target_display = self.modules[target].display.clone();
                         self.diagnostics.push(GraphDiagnostic {
                             module: Some(id),
-                            diagnostic: Diagnostic::error(decl.from.span, "import cycle detected")
-                                .with_note(format!(
-                                    "`{}` is already being loaded and imports this module back",
-                                    target_display
-                                )),
+                            diagnostic: Diagnostic::error_code(
+                                decl.span,
+                                "AX0201",
+                                "import cycle detected",
+                            )
+                            .with_note(format!(
+                                "`{target_display}` is already being loaded and imports this module back"
+                            )),
                         });
                     } else {
                         self.validate_import(id, &decl, target);
@@ -179,9 +168,10 @@ impl Loader {
                 Err(message) => {
                     self.diagnostics.push(GraphDiagnostic {
                         module: Some(id),
-                        diagnostic: Diagnostic::error(
-                            decl.from.span,
-                            format!("cannot resolve import `{}`: {message}", decl.from.value),
+                        diagnostic: Diagnostic::error_code(
+                            decl.span,
+                            "AX0202",
+                            format!("cannot resolve import `{}`: {message}", decl.from),
                         ),
                     });
                     resolved.push(ResolvedImport { decl, target: None });
@@ -195,15 +185,16 @@ impl Loader {
 
     fn validate_import(&mut self, from: ModuleId, decl: &ImportDecl, target: ModuleId) {
         for name in &decl.names {
-            match self.modules[target].symbols.get(&name.text) {
+            match self.modules[target].symbols.get(name) {
                 Some(symbol) if symbol.exported => {}
                 Some(_) => {
                     let target_display = self.modules[target].display.clone();
                     self.diagnostics.push(GraphDiagnostic {
                         module: Some(from),
-                        diagnostic: Diagnostic::error(
-                            name.span,
-                            format!("`{}` is not exported by `{}`", name.text, target_display),
+                        diagnostic: Diagnostic::error_code(
+                            decl.span,
+                            "AX0203",
+                            format!("`{name}` is not exported by `{target_display}`"),
                         )
                         .with_note("only `export`ed declarations can be imported"),
                     });
@@ -212,9 +203,10 @@ impl Loader {
                     let target_display = self.modules[target].display.clone();
                     self.diagnostics.push(GraphDiagnostic {
                         module: Some(from),
-                        diagnostic: Diagnostic::error(
-                            name.span,
-                            format!("`{}` is not declared in `{}`", name.text, target_display),
+                        diagnostic: Diagnostic::error_code(
+                            decl.span,
+                            "AX0204",
+                            format!("`{name}` is not declared in `{target_display}`"),
                         ),
                     });
                 }

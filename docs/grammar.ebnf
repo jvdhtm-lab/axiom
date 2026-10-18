@@ -114,7 +114,7 @@ argument_list    = argument, { ",", argument }, [ "," ] ;
 argument         = [ identifier, ":" ], expression ;
 
 (* ---------- types ---------- *)
-type_expr        = primary_type, { "|", primary_type } ;
+type_expr        = primary_type ;
 primary_type     = ref_type, { "[", "]" } | record_type | "(", type_expr, ")" ;
 ref_type         = qualified_name, [ "<", type_argument_list, ">" ] ;
 record_type      = "{", [ field_type_list ], "}" ;

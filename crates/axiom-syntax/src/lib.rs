@@ -9,7 +9,7 @@ pub mod lexer;
 pub mod parser;
 pub mod span;
 
-pub use ast::SourceFile;
+pub use ast::File;
 pub use diagnostic::{Diagnostic, Severity, Source};
 pub use lexer::{tokenize, Token, TokenKind};
 pub use parser::{parse, ParseResult};
