@@ -11,10 +11,12 @@
 
 pub mod check;
 pub mod graph;
+pub mod resolve;
 pub mod symbols;
 
 pub use check::{check_project, has_errors, CheckOptions, KNOWN_EFFECTS};
 pub use graph::{load, GraphDiagnostic, Module, ModuleGraph, ModuleId, Project};
+pub use resolve::{BUILTIN_TYPES, BUILTIN_VALUES, NAMESPACES};
 pub use symbols::{Symbol, SymbolKind, SymbolTable};
 
 use axiom_config::ProjectConfig;

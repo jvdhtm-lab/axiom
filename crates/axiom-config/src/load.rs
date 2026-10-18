@@ -73,6 +73,8 @@ pub fn parse_config_with(
 fn default_config() -> ProjectConfig {
     ProjectConfig {
         version: ProjectConfig::SUPPORTED_VERSION,
+        language: None,
+        sources: Vec::new(),
         integrations: BTreeMap::new(),
         models: BTreeMap::new(),
         runtime: RuntimeConfig::default(),
@@ -153,6 +155,8 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
         mapping,
         &[
             "version",
+            "language",
+            "sources",
             "integrations",
             "models",
             "runtime",
@@ -164,6 +168,8 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
     );
 
     let version = read_version(mapping, builder);
+    let language = read_language(mapping, builder);
+    let sources = build_string_list(mapping, "axiom.yaml", "sources", builder);
     let integrations = build_integrations(mapping, builder);
     let models = build_models(mapping, builder);
     let runtime = build_runtime(mapping, builder);
@@ -192,6 +198,8 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
 
     Some(ProjectConfig {
         version,
+        language,
+        sources,
         integrations,
         models,
         runtime,
@@ -231,6 +239,20 @@ fn read_version(mapping: &Mapping, builder: &mut Builder<'_>) -> u32 {
         );
     }
     version
+}
+
+fn read_language(mapping: &Mapping, builder: &mut Builder<'_>) -> Option<String> {
+    let language = optional_string(mapping, "axiom.yaml", "language", builder)?;
+    if language != ProjectConfig::SUPPORTED_LANGUAGE {
+        builder.error(
+            "axiom.yaml",
+            format!(
+                "unsupported language version `{language}`; this build supports `{}`",
+                ProjectConfig::SUPPORTED_LANGUAGE
+            ),
+        );
+    }
+    Some(language)
 }
 
 fn build_integrations(
@@ -274,31 +296,62 @@ fn build_integration(
         mapping,
         &[
             "adapter",
+            "dialect",
             "base_url",
             "api_key",
             "api_key_optional",
             "timeout_seconds",
             "headers",
+            "allowed_data_classes",
         ],
         label,
         builder,
     );
 
     let adapter = required_string(mapping, label, "adapter", builder)?;
+    let dialect = optional_string(mapping, label, "dialect", builder);
     let base_url = required_string(mapping, label, "base_url", builder)?;
     let api_key_optional = optional_bool(mapping, label, "api_key_optional", builder, false);
     let timeout_seconds = optional_u64(mapping, label, "timeout_seconds", builder);
     let headers = build_headers(mapping, label, builder);
+    let allowed_data_classes = build_allowed_data_classes(mapping, label, builder);
     let api_key = build_api_key(mapping, label, api_key_optional, builder);
 
     Some(IntegrationConfig {
         adapter,
+        dialect,
         base_url,
         api_key,
         api_key_optional,
         timeout_seconds,
         headers,
+        allowed_data_classes,
     })
+}
+
+fn build_allowed_data_classes(
+    mapping: &Mapping,
+    label: &str,
+    builder: &mut Builder<'_>,
+) -> Vec<String> {
+    let mut classes = build_string_list(mapping, label, "allowed_data_classes", builder);
+    for class in &classes {
+        match class.as_str() {
+            "public" | "internal" | "pii" => {}
+            "secret" => builder.error(
+                label,
+                "`allowed_data_classes` cannot contain `secret`; secret data never leaves the process",
+            ),
+            other => builder.error(
+                label,
+                format!("unknown data class `{other}` (known: public, internal, pii)"),
+            ),
+        }
+    }
+    if classes.is_empty() {
+        classes.push("public".to_string());
+    }
+    classes
 }
 
 fn build_api_key(

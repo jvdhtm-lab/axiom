@@ -5,6 +5,10 @@
 # resolved at runtime and never written into compiled plans, traces, or logs.
 
 version: 1
+language: "1.0"
+
+sources:
+  - "src/**/*.ax"
 
 integrations:
   claude:
@@ -12,18 +16,23 @@ integrations:
     base_url: "${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
     api_key: "${ANTHROPIC_API_KEY}"
     timeout_seconds: 120
+    allowed_data_classes: [public, internal]
 
   deepseek:
     adapter: openai_compatible
+    dialect: deepseek
     base_url: "${DEEPSEEK_BASE_URL:-https://api.deepseek.com}"
     api_key: "${DEEPSEEK_API_KEY}"
     timeout_seconds: 120
+    allowed_data_classes: [public, internal]
 
   kimi:
     adapter: openai_compatible
+    dialect: moonshot
     base_url: "${KIMI_BASE_URL:-https://api.moonshot.ai/v1}"
     api_key: "${KIMI_API_KEY}"
     timeout_seconds: 120
+    allowed_data_classes: [public]
 
   local:
     adapter: openai_compatible
@@ -31,6 +40,7 @@ integrations:
     api_key: "${AXIOM_LOCAL_API_KEY}"
     api_key_optional: true
     timeout_seconds: 180
+    allowed_data_classes: [public, internal, pii]
 
 models:
   reasoning:
@@ -94,4 +104,11 @@ commands:
     args: ["test", "--offline", "--workspace", "--all-targets"]
     working_directory: "."
     timeout_seconds: 1800
+    network: false
+
+  db_tests:
+    executable: cargo
+    args: ["test", "--offline", "-p", "axiom-database"]
+    working_directory: "."
+    timeout_seconds: 900
     network: false

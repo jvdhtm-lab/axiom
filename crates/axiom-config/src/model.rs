@@ -100,11 +100,15 @@ impl Capability {
 pub struct IntegrationConfig {
     /// The protocol adapter, e.g. `anthropic_messages` or `openai_compatible`.
     pub adapter: String,
+    /// An optional documented protocol dialect (`deepseek`, `moonshot`, ...).
+    pub dialect: Option<String>,
     pub base_url: String,
     pub api_key: Option<Secret>,
     pub api_key_optional: bool,
     pub timeout_seconds: Option<u64>,
     pub headers: BTreeMap<String, String>,
+    /// Data classes this integration is cleared to receive (default `[public]`).
+    pub allowed_data_classes: Vec<String>,
 }
 
 /// A model profile: a logical alias bound to an integration and concrete model id.
@@ -155,6 +159,10 @@ pub struct CommandProfile {
 #[derive(Debug, Clone)]
 pub struct ProjectConfig {
     pub version: u32,
+    /// The Axiom language version the project targets (e.g. `"1.0"`).
+    pub language: Option<String>,
+    /// Module search set (`sources`), e.g. `["src/**/*.ax"]`.
+    pub sources: Vec<String>,
     pub integrations: BTreeMap<String, IntegrationConfig>,
     pub models: BTreeMap<String, ModelConfig>,
     pub runtime: RuntimeConfig,
@@ -165,4 +173,7 @@ pub struct ProjectConfig {
 impl ProjectConfig {
     /// The configuration version this build understands.
     pub const SUPPORTED_VERSION: u32 = 1;
+
+    /// The Axiom language version this build understands.
+    pub const SUPPORTED_LANGUAGE: &'static str = "1.0";
 }

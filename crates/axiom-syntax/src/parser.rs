@@ -56,6 +56,8 @@ const DECL_KEYWORDS: &[&str] = &[
     "agent",
     "team",
     "tool",
+    "query",
+    "operation",
     "contract",
     "goal",
     "policy",
@@ -341,6 +343,8 @@ impl<'t> Parser<'t> {
             "agent" => ItemKind::Agent(self.parse_agent_decl()?),
             "team" => ItemKind::MemberBlock(self.parse_member_block_decl("team")?),
             "tool" => ItemKind::Tool(self.parse_tool_decl()?),
+            "query" => ItemKind::Query(self.parse_query_decl()?),
+            "operation" => ItemKind::Operation(self.parse_operation_decl()?),
             "contract" => ItemKind::MemberBlock(self.parse_member_block_decl("contract")?),
             "goal" => ItemKind::Goal(self.parse_goal_decl()?),
             "policy" => ItemKind::MemberBlock(self.parse_member_block_decl("policy")?),
@@ -527,6 +531,38 @@ impl<'t> Parser<'t> {
         let ret = self.parse_type_expr()?;
         let (members, close) = self.parse_member_block()?;
         Some(GoalDecl {
+            span: keyword.span.merge(close),
+            name,
+            params,
+            ret,
+            members,
+        })
+    }
+
+    fn parse_query_decl(&mut self) -> Option<QueryDecl> {
+        let keyword = self.advance(); // query
+        let name = self.expect_ident("a query name")?;
+        let params = self.parse_parameters()?;
+        self.expect(TokenKind::Arrow, "`->`")?;
+        let ret = self.parse_type_expr()?;
+        let (members, close) = self.parse_member_block()?;
+        Some(QueryDecl {
+            span: keyword.span.merge(close),
+            name,
+            params,
+            ret,
+            members,
+        })
+    }
+
+    fn parse_operation_decl(&mut self) -> Option<OperationDecl> {
+        let keyword = self.advance(); // operation
+        let name = self.expect_ident("an operation name")?;
+        let params = self.parse_parameters()?;
+        self.expect(TokenKind::Arrow, "`->`")?;
+        let ret = self.parse_type_expr()?;
+        let (members, close) = self.parse_member_block()?;
+        Some(OperationDecl {
             span: keyword.span.merge(close),
             name,
             params,
@@ -1289,7 +1325,23 @@ impl<'t> Parser<'t> {
                 let span = self.advance().span;
                 Some(Pattern::Wildcard(span))
             }
-            TokenKind::Ident(_) => Some(Pattern::Binding(self.expect_ident("a pattern")?)),
+            TokenKind::Ident(_) => {
+                let first = self.expect_ident("a pattern")?;
+                if self.check(&TokenKind::Dot) {
+                    let mut path = vec![first];
+                    while self.eat(&TokenKind::Dot).is_some() {
+                        path.push(self.expect_ident("a pattern segment")?);
+                    }
+                    let span = path
+                        .first()
+                        .expect("non-empty")
+                        .span
+                        .merge(path.last().expect("non-empty").span);
+                    Some(Pattern::Path(path, span))
+                } else {
+                    Some(Pattern::Binding(first))
+                }
+            }
             TokenKind::Integer(_)
             | TokenKind::Float(_)
             | TokenKind::String(_)
@@ -1744,6 +1796,18 @@ impl<'t> Parser<'t> {
             {
                 return self.parse_parallel_expression();
             }
+            "iterate" => {
+                self.advance();
+                let call = self.parse_expression()?;
+                let (members, close) = self.parse_member_block()?;
+                return Some(Expr {
+                    span: span.merge(close),
+                    kind: ExprKind::Iterate {
+                        call: Box::new(call),
+                        members,
+                    },
+                });
+            }
             _ => {}
         }
         // An ordinary name: a single-segment path. Dotted access is handled by
@@ -2064,6 +2128,7 @@ impl Pattern {
             Pattern::Wildcard(span) => *span,
             Pattern::Binding(ident) => ident.span,
             Pattern::Literal(_, span) => *span,
+            Pattern::Path(_, span) => *span,
             Pattern::Tuple(_, span) => *span,
         }
     }

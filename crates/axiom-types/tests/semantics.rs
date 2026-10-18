@@ -56,10 +56,16 @@ fn reference_options() -> CheckOptions {
                 .collect(),
         ),
         command_names: Some(
-            ["cargo_check", "unit_tests", "integration_tests", "full_ci"]
-                .into_iter()
-                .map(String::from)
-                .collect(),
+            [
+                "cargo_check",
+                "unit_tests",
+                "integration_tests",
+                "full_ci",
+                "db_tests",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
         ),
     }
 }
@@ -75,10 +81,17 @@ fn examples_src() -> PathBuf {
 fn reference_project_has_no_semantic_errors() {
     let root = examples_src();
     let files = vec![
+        root.join("types.ax"),
+        root.join("contracts.ax"),
+        root.join("workspaces.ax"),
+        root.join("agents.ax"),
         root.join("filesystem_feature_workflow.ax"),
-        root.join("team.ax"),
-        root.join("hello_agent.ax"),
+        root.join("support_db.ax"),
         root.join("local_and_cloud.ax"),
+        root.join("team.ax"),
+        root.join("frontend/frontend_contracts.ax"),
+        root.join("frontend/performance_dashboard.ax"),
+        root.join("frontend/server_dashboard.ax"),
     ];
     let project = load(&files);
     let diagnostics = check_project(&project, &reference_options());
@@ -331,7 +344,7 @@ fn distinct_clause_labels_are_accepted() {
     let dir = TempDir::new("clause-ok");
     let file = dir.write(
         "a.ax",
-        "module a;\nexport contract C {\n  version: \"1.0.0\";\n  postcondition non_empty: x > 0;\n  postcondition bounded: y < 10;\n}\n",
+        "module a;\nexport contract C {\n  version: \"1.0.0\";\n  postcondition non_empty: output != null;\n  postcondition bounded: value != null;\n}\n",
     );
     let project = load(&[file]);
     let diagnostics = check_project(&project, &CheckOptions::none());
@@ -350,4 +363,189 @@ fn module_check_is_usable_without_a_project() {
     let module = project.graph.module(0);
     let diagnostics = check_module(module, &CheckOptions::none());
     assert!(diagnostics.is_empty());
+}
+
+#[test]
+fn unresolved_value_name_is_reported() {
+    let dir = TempDir::new("unresolved-value");
+    let file = dir.write(
+        "a.ax",
+        "module a;\nexport workflow W() {\n  let x = mystery.name;\n}\n",
+    );
+    let project = load(&[file]);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    assert!(has_error_containing(
+        &diagnostics,
+        "cannot resolve name `mystery`"
+    ));
+}
+
+#[test]
+fn unresolved_type_name_is_reported() {
+    let dir = TempDir::new("unresolved-type");
+    let file = dir.write("a.ax", "module a;\nexport type T = Ghost;\n");
+    let project = load(&[file]);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    assert!(has_error_containing(
+        &diagnostics,
+        "cannot resolve type `Ghost`"
+    ));
+}
+
+#[test]
+fn namespaces_and_builtins_resolve() {
+    let dir = TempDir::new("resolves");
+    let file = dir.write(
+        "a.ax",
+        "module a;\nexport const root: WorkspaceRoot = project;\nexport workflow W() {\n  let x = fs.list(project);\n  let y = db.count(\"support\");\n}\n",
+    );
+    let project = load(&[file]);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    assert!(
+        !axiom_types::has_errors(&diagnostics),
+        "unexpected diagnostics: {:#?}",
+        messages(&diagnostics)
+    );
+}
+
+#[test]
+fn query_without_sql_is_reported() {
+    let dir = TempDir::new("query-no-sql");
+    let file = dir.write(
+        "a.ax",
+        "module a;\nexport query Q(id: int) -> JsonValue {\n  database: \"support\";\n  access: DbAccess.Read;\n}\n",
+    );
+    let project = load(&[file]);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    assert!(has_error_containing(
+        &diagnostics,
+        "query must declare a single `sql` string literal"
+    ));
+}
+
+#[test]
+fn query_placeholder_mismatch_is_reported() {
+    let dir = TempDir::new("query-params");
+    let file = dir.write(
+        "a.ax",
+        "module a;\nexport query Q(id: int) -> JsonValue {\n  database: \"support\";\n  access: DbAccess.Read;\n  sql: \"SELECT * FROM t WHERE id = :other\";\n}\n",
+    );
+    let project = load(&[file]);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    assert!(has_error_containing(
+        &diagnostics,
+        "placeholder `:other` has no parameter"
+    ));
+    assert!(has_error_containing(
+        &diagnostics,
+        "parameter `id` is not used in `sql`"
+    ));
+
+    let file2 = dir.write(
+        "b.ax",
+        "module a;\nexport query Q(id: int) -> JsonValue {\n  database: \"support\";\n  access: DbAccess.Read;\n  sql: \"SELECT * FROM t WHERE id = :id\";\n}\n",
+    );
+    let project = load(&[file2]);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    assert!(
+        !axiom_types::has_errors(&diagnostics),
+        "unexpected diagnostics: {:#?}",
+        messages(&diagnostics)
+    );
+}
+
+#[test]
+fn write_query_must_return_write_result() {
+    let dir = TempDir::new("query-write");
+    let file = dir.write(
+        "a.ax",
+        "module a;\nexport query Q(id: int) -> JsonValue {\n  database: \"support\";\n  access: DbAccess.Write;\n  sql: \"UPDATE t SET x = 1 WHERE id = :id\";\n}\n",
+    );
+    let project = load(&[file]);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    assert!(has_error_containing(
+        &diagnostics,
+        "a write query must return `WriteResult`"
+    ));
+
+    let file2 = dir.write(
+        "b.ax",
+        "module a;\nexport query Q(id: int) -> WriteResult {\n  database: \"support\";\n  access: DbAccess.Write;\n  sql: \"UPDATE t SET x = 1 WHERE id = :id\";\n}\n",
+    );
+    let project = load(&[file2]);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    assert!(
+        !axiom_types::has_errors(&diagnostics),
+        "unexpected diagnostics: {:#?}",
+        messages(&diagnostics)
+    );
+}
+
+#[test]
+fn non_execute_agent_entry_point_is_rejected() {
+    let dir = TempDir::new("agent-entry");
+    let file = dir.write(
+        "a.ax",
+        "module a;\nexport workflow W() {\n  await delegate Helper.run();\n}\n",
+    );
+    let project = load(&[file]);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    assert!(has_error_containing(
+        &diagnostics,
+        "`run` is not an agent entry point"
+    ));
+}
+
+#[test]
+fn operation_declaration_is_checked() {
+    let dir = TempDir::new("operation");
+    let missing_version = dir.write(
+        "a.ax",
+        "module a;\nexport operation Op(input: In) -> Out {\n  authentication: AuthenticationRequirement.Required;\n  handler: Handle;\n}\ninterface In { x: string; }\ninterface Out { y: string; }\n",
+    );
+    let project = load(&[missing_version]);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    assert!(has_error_containing(
+        &diagnostics,
+        "operation must declare `version`"
+    ));
+
+    let valid = dir.write(
+        "b.ax",
+        "module a;\nexport operation Op(input: In) -> Out {\n  version: \"1.0.0\";\n  authentication: AuthenticationRequirement.Required;\n  requires: capability(\"x:read\");\n  data_classes: [DataClass.Internal];\n  handler: Handle;\n}\ninterface In { x: string; }\ninterface Out { y: string; }\n",
+    );
+    let project = load(&[valid]);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    assert!(
+        !axiom_types::has_errors(&diagnostics),
+        "unexpected diagnostics: {:#?}",
+        messages(&diagnostics)
+    );
+}
+
+#[test]
+fn iterate_bound_must_be_positive() {
+    let dir = TempDir::new("iterate");
+    let zero = dir.write(
+        "a.ax",
+        "module a;\nexport workflow W() {\n  await iterate g() {\n    max_iterations: 0;\n    validate: [];\n    until: iteration.validation.accepted;\n  };\n}\n",
+    );
+    let project = load(&[zero]);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    assert!(has_error_containing(
+        &diagnostics,
+        "`max_iterations` must be a positive integer literal"
+    ));
+
+    let valid = dir.write(
+        "b.ax",
+        "module a;\nexport fn g() -> int effects [model] {\n  return 1;\n}\nexport workflow W() {\n  await iterate g() {\n    max_iterations: 4;\n    validate: [SomeCheck];\n    until: iteration.validation.accepted;\n  };\n}\n",
+    );
+    let project = load(&[valid]);
+    let diagnostics = check_project(&project, &CheckOptions::none());
+    assert!(
+        !axiom_types::has_errors(&diagnostics),
+        "unexpected diagnostics: {:#?}",
+        messages(&diagnostics)
+    );
 }

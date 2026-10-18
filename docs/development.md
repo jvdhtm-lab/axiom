@@ -27,7 +27,7 @@ $env:TEMP='E:\cargo-temp'; $env:TMP='E:\cargo-temp'
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-cargo run -p axiom-cli -- check examples/hello_agent.ax
+cargo run -p axiom-cli -- check --config examples/axiom.yaml examples/src/filesystem_feature_workflow.ax examples/src/support_db.ax
 cargo run -p axiom-cli -- config check examples/axiom.yaml
 ```
 

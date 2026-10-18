@@ -263,3 +263,35 @@ fn missing_api_key_without_optional_is_a_warning_not_an_error() {
     assert!(report.warning_count() >= 1);
     assert!(messages(&report).contains("api_key"));
 }
+
+#[test]
+fn language_and_sources_are_read() {
+    let text = include_str!("../../../examples/axiom.yaml");
+    let report = parse("examples/axiom.yaml", text);
+    assert_eq!(report.error_count(), 0, "{}", messages(&report));
+    let config = report.config.unwrap();
+    assert_eq!(config.language.as_deref(), Some("1.0"));
+    assert_eq!(config.sources, vec!["src/**/*.ax".to_string()]);
+}
+
+#[test]
+fn unsupported_language_version_is_reported() {
+    let text = "version: 1\nlanguage: \"2.0\"\n";
+    let report = parse("inline.yaml", text);
+    assert!(messages(&report).contains("unsupported language version `2.0`"));
+}
+
+#[test]
+fn allowed_data_classes_default_and_validation() {
+    let text = "version: 1\nintegrations:\n  cloud:\n    adapter: openai_compatible\n    base_url: \"https://example.invalid\"\n    api_key_optional: true\n";
+    let report = parse("inline.yaml", text);
+    assert_eq!(report.error_count(), 0, "{}", messages(&report));
+    assert_eq!(
+        report.config.unwrap().integrations["cloud"].allowed_data_classes,
+        vec!["public".to_string()]
+    );
+
+    let bad = "version: 1\nintegrations:\n  cloud:\n    adapter: openai_compatible\n    base_url: \"https://example.invalid\"\n    api_key_optional: true\n    allowed_data_classes: [public, secret]\n";
+    let report = parse("inline.yaml", bad);
+    assert!(messages(&report).contains("cannot contain `secret`"));
+}

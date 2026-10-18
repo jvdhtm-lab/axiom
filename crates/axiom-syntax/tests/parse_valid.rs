@@ -42,12 +42,24 @@ const EXAMPLE_SOURCES: &[(&str, &str)] = &[
         include_str!("../../../examples/src/filesystem_feature_workflow.ax"),
     ),
     (
-        "hello_agent.ax",
-        include_str!("../../../examples/src/hello_agent.ax"),
+        "support_db.ax",
+        include_str!("../../../examples/src/support_db.ax"),
     ),
     (
         "local_and_cloud.ax",
         include_str!("../../../examples/src/local_and_cloud.ax"),
+    ),
+    (
+        "frontend/frontend_contracts.ax",
+        include_str!("../../../examples/src/frontend/frontend_contracts.ax"),
+    ),
+    (
+        "frontend/performance_dashboard.ax",
+        include_str!("../../../examples/src/frontend/performance_dashboard.ax"),
+    ),
+    (
+        "frontend/server_dashboard.ax",
+        include_str!("../../../examples/src/frontend/server_dashboard.ax"),
     ),
 ];
 
@@ -77,8 +89,8 @@ fn every_valid_fixture_parses() {
 #[test]
 fn module_header_and_item_order() {
     let result = parse_ok(
-        "hello_agent.ax",
-        include_str!("../../../examples/src/hello_agent.ax"),
+        "header.ax",
+        "module hello;\nexport interface I { x: string; }\nexport type T = string;\nexport agent A implements Agent<I, T> { purpose: \"p\"; }\n",
     );
     let module = result.file.module.as_ref().expect("a module header");
     let path: Vec<_> = module.path.iter().map(|i| i.text.as_str()).collect();
@@ -92,15 +104,15 @@ fn module_header_and_item_order() {
 #[test]
 fn agent_declaration_is_structured() {
     let result = parse_ok(
-        "hello_agent.ax",
-        include_str!("../../../examples/src/hello_agent.ax"),
+        "local_and_cloud.ax",
+        include_str!("../../../examples/src/local_and_cloud.ax"),
     );
     let agent = result
         .file
         .items
         .iter()
         .find_map(|i| match &i.kind {
-            ItemKind::Agent(a) => Some(a),
+            ItemKind::Agent(a) if a.name.text == "Architect" => Some(a),
             _ => None,
         })
         .expect("an agent declaration");
@@ -122,7 +134,7 @@ fn agent_declaration_is_structured() {
         .filter(|m| matches!(m.value, MemberValue::Expr(_)))
         .map(|m| m.name.text.as_str())
         .collect();
-    assert_eq!(field_names, ["purpose", "model", "tools", "workspace"]);
+    assert_eq!(field_names, ["purpose", "model", "tools"]);
 
     let constraints = agent
         .members
@@ -147,8 +159,16 @@ fn imports_and_enums_are_captured() {
     assert_eq!(result.file.imports.len(), 1);
     let import = &result.file.imports[0];
     let names: Vec<_> = import.names.iter().map(|i| i.text.as_str()).collect();
-    assert_eq!(names, ["FeatureSpec", "ExecutionPlan"]);
-    assert_eq!(import.from.value, "./hello_agent.ax");
+    assert_eq!(
+        names,
+        [
+            "FeatureSpec",
+            "ExecutionPlan",
+            "PatchArtifact",
+            "ReviewResult"
+        ]
+    );
+    assert_eq!(import.from.value, "./types.ax");
 
     let enumeration = result
         .file

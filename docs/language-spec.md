@@ -92,10 +92,16 @@ Lower-case primitives: `string`, `bool`, `int`, `float`, `bytes`, `duration`,
 `export interface` and `export type` both introduce named types. An interface
 lists fields; a `type` alias introduces a name for any type expression.
 
+Data classification uses `DataClass.Public | .Internal | .Pii | .Secret`
+(`secret` never leaves the process). Frontend and platform built-ins include
+`UiTree`, `UiError`, `Capability`, `AuthenticationRequirement`, `Validator`,
+`ValidationResult`, `ValidationFinding`, `ValidationContext`, `InvokeOptions`,
+and `IterationOutcome<T>` / `IterationAttempt<T>`.
+
 ## Declarations
 
 Declarations are `type interface enum const fn agent team tool contract goal
-policy workspace workflow`, each optionally prefixed with `export`.
+policy workspace workflow operation`, each optionally prefixed with `export`.
 
 - **Agents** (`agent X implements Agent<I, O> { ... }`) are member blocks with
   `purpose`, `model`, `tools`, optional `workspace`, `constraints { must; must_not; }`,
@@ -113,20 +119,43 @@ policy workspace workflow`, each optionally prefixed with `export`.
 - **Policies** and **workspaces** are member blocks. A workspace has exactly one
   of `root`/`base`, an `isolation`, `read`/`write`/`deny` globs, an optional
   nested `limits { ... }`, and optional `write_authority`.
+- **Operations** (`operation Op(input: In) -> Out { version: "1.0.0";
+  authentication: AuthenticationRequirement.Required; handler: H; }`) declare a
+  stable wire contract with a semantic `version`, an `authentication`
+  requirement, optional `requires` capabilities and `data_classes`, and a
+  `handler` bound to a module entity. The declaration is a checked contract, not
+  an executable body.
 
 `purpose`, `model`, `tools`, and `workspace` on an agent are ordinary fields. The
 `constraints` block holds `must` / `must_not` natural-language lists.
 Natural-language constraints are **model-evaluated**, not statically verified;
 the language makes no claim otherwise.
 
+## Effects and namespaces
+
+Effect names in an `effects [...]` clause are qualified paths. Recognised
+prefixes are `db` (`db.read`, `db.write`, `db.schema`, `db.provision`), `fs`,
+`model`, `artifact`, `api.call`, `ui.*` (`ui.render`, `ui.event`, `ui.state`),
+and `browser.*` (`browser.storage`, `browser.navigation`, `browser.clipboard`,
+`browser.download`). Tool and function bodies may only call effectful targets
+they declare. The standard namespaces `ui`, `api`, and `browser` expose the
+frontend/platform surface; `capability(name)` constructs a `Capability` and
+`Ok`/`Err`/`Some`/`None` are built-in constructors.
+
 ## Expressions and statements
 
 Expressions use the usual precedence tiers: postfix (calls, member access
 `.name`, indexing), unary, multiplicative, additive, comparison, equality, `&&`,
-`||`, then the conditional `? :`. `await`, `delegate Agent.method(...)`, and
-`parallel for x in xs [max N] { ... yield v; }` are expressions. A lambda is
+`||`, then the conditional `? :`. `await`, `delegate Agent.method(...)`, `parallel for x in xs [max N] { ... yield v; }`,
+and `iterate Agent.method(...) { max_iterations: N; validate: [...]; until: ...; }`
+are expressions. The iteration block accepts `max_iterations` (a positive integer
+literal), a `validate` list of registered validator names, and an `until`
+condition evaluated against the built-in `iteration` binding. A lambda is
 either `(x: T, y: U) => body`, `(x) => body`, or the single-parameter `x => body`.
 `Agent.with { model: "..." }` is sugar for a call with an object argument.
+
+`match` patterns cover `_`, literals, `(`-grouped patterns, bindings, and dotted
+enum cases such as `DashboardEvent.Refresh`.
 
 Statements include `let`/`let mut`/`const` bindings, `if`/`else`, `match`,
 `for`, `while cond max N`, `return`, `yield`, `break`, `continue`, `throw`,

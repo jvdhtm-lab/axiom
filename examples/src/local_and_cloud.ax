@@ -1,32 +1,34 @@
 // The same agent role bound to different model profiles. Change the profile in
-// configuration, not the agent definition in source.
+// configuration (examples/axiom.yaml), not the agent definition in source.
 
-module profiles;
+module examples.local_and_cloud;
 
-import { FeatureSpec, ExecutionPlan } from "./hello_agent.ax";
+import { FeatureSpec, ExecutionPlan, PatchArtifact, ReviewResult } from "./types.ax";
 
 export enum Profile {
   Local = "local_coding",
-  Hosted = "fast",
+  Hosted = "coding",
   Reasoning = "reasoning",
 }
 
 export const localProfile: Profile = Profile.Local;
 
 export agent Architect implements Agent<FeatureSpec, ExecutionPlan> {
-  purpose: "Decompose requirements and design interfaces.";
+  purpose: "Decompose requirements and define interfaces";
   model: "reasoning";
-  tools: [repository.read];
+  tools: [fs.list, fs.search, fs.read_text, artifacts.publish];
   constraints {
-    must: ["keep interfaces stable"];
-    must_not: ["modify tests"];
+    must: ["Keep interfaces stable"];
+    must_not: ["Modify tests"];
   }
 }
 
-export agent Reviewer implements Agent<ExecutionPlan, Review> {
-  purpose: "Assess artifacts against contracts.";
-  model: "reasoning";
+export agent Reviewer implements Agent<PatchArtifact, ReviewResult> {
+  purpose: "Assess artifacts against contracts";
+  model: "review";
+  tools: [artifacts.fetch];
 }
 
-export const localArchitect = Architect;
-export const hostedArchitect = Architect;
+// Instance overrides change the runtime binding only, never the agent source.
+export const localArchitect = Architect.with { model: "local_coding" };
+export const hostedArchitect = Architect.with { model: "coding" };

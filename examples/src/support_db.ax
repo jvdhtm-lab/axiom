@@ -1,0 +1,112 @@
+module examples.support_db;
+
+import { ContractRef } from "./types.ax";
+
+export interface RefundRequest { refund_id: int; customer_id: int; message: string; }
+export interface RefundDecision { approve: bool; reason: string; }
+export interface OrderRow { order_id: int; total_cents: int; status: string; placed_at: timestamp; }
+export interface ContactRow { email: string; phone?: string; }
+export interface SchemaChangeRequest { id: string; objective: string; contract: ContractRef; }
+export interface ChangeSummary { notes: string; }
+
+export query RecentOrders(customer_id: int) -> OrderRow[] {
+  database: "support";
+  access: DbAccess.Read;
+  sql: "SELECT order_id, total_cents, status, placed_at FROM v_orders_public WHERE customer_id = :customer_id ORDER BY placed_at DESC LIMIT 20";
+  max_rows: 20;
+  timeout: 10s;
+}
+
+// pii: cannot be sent to an integration that is not cleared for it.
+export query CustomerContact(customer_id: int) -> Option<ContactRow> {
+  database: "support";
+  access: DbAccess.Read;
+  sql: "SELECT email, phone FROM v_contacts WHERE customer_id = :customer_id";
+  max_rows: 1;
+  timeout: 10s;
+}
+
+export query ApproveRefund(refund_id: int) -> WriteResult {
+  database: "support";
+  access: DbAccess.Write;
+  sql: "UPDATE refunds SET status = 'approved' WHERE refund_id = :refund_id AND status = 'pending'";
+  max_affected_rows: 1;
+  idempotency_key: refund_id;
+  requires_approval: true;
+  timeout: 10s;
+}
+
+workspace DbProjectReadOnly {
+  root: project;
+  isolation: WorkspaceIsolation.SharedReadOnly;
+  read: ["db/**", "docs/**"];
+  write: [];
+  deny: [".git/**", ".env", "**/.env", "**/*.pem", "**/*credentials*", "**/secrets/**"];
+}
+
+workspace MigrationWorkspace {
+  base: DbProjectReadOnly;
+  isolation: WorkspaceIsolation.PerTaskCopyOnWrite;
+  read: ["db/**"];
+  write: ["db/migrations/**"];
+  allow_protected: ["db/migrations/**"];
+  deny: [".git/**", ".env", "**/.env", "**/*.pem", "**/*credentials*"];
+  limits { max_file_bytes: 1MB; max_files_changed: 10; }
+}
+
+export agent RefundTriager implements Agent<RefundRequest, RefundDecision> {
+  purpose: "Decide whether a refund request meets policy using the customer's order history";
+  model: "reasoning";
+  tools: [RecentOrders];            // read queries only; a write query here is a compile error
+  constraints {
+    must: ["Base the decision on order data", "Give a one-sentence reason"];
+    must_not: ["Invent order details"];
+  }
+}
+
+export agent SchemaDesigner implements Agent<SchemaChangeRequest, ChangeSummary> {
+  purpose: "Propose a migration file for the requested schema change";
+  model: "coding";
+  workspace: MigrationWorkspace;
+  tools: [fs.list, fs.read_text, fs.write_text, fs.diff];
+}
+
+export workflow TriageRefund(req: RefundRequest) -> RefundDecision {
+  let orders = await RecentOrders(customer_id: req.customer_id);
+  let decision = await delegate RefundTriager.execute(req, context: { orders: orders });
+  require decision.reason != "";
+  if decision.approve {
+    // The runtime pauses here for human approval (requires_approval: true).
+    // Workflow code cannot skip or satisfy the gate.
+    await ApproveRefund(refund_id: req.refund_id);
+  }
+  return decision;
+}
+
+export workflow ProposeMigration(change: SchemaChangeRequest) -> MigrationResult {
+  let ws = await workspaces.create(base: DbProjectReadOnly, task_id: change.id,
+                                   template: MigrationWorkspace,
+                                   isolation: WorkspaceIsolation.PerTaskCopyOnWrite);
+  let summary = await delegate SchemaDesigner.execute(change, workspace: ws);
+  let diff = await fs.diff(ws, base: DbProjectReadOnly);
+  let patch = await artifacts.publish_patch(workspace: ws, diff: diff,
+                                            task_id: change.id, contract: change.contract);
+  require patch.changed_paths.all(p => p.starts_with("db/migrations/"));
+
+  let plan = await db.plan_migration("support", patch: patch);
+  require plan.violations.is_empty();
+  require plan.unclassified_columns.is_empty();
+
+  let scratch = await db.create_scratch("support");
+  try {
+    await db.apply_migration(scratch, patch: patch);
+    let tests = await commands.run("db_tests", workspace: ws, scratch: scratch);
+    require tests.passed;
+  } finally {
+    await db.discard_scratch(scratch);
+  }
+
+  // The runtime enforces approval here when policy requires it; the apply
+  // is rejected if the approved plan hash differs from this patch.
+  return await db.migrate("support", patch: patch);
+}

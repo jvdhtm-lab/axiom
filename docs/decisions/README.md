@@ -13,7 +13,8 @@
 | [0009](0009-yaml-dependency.md) | YAML parsing dependency (`yaml_serde`) | accepted |
 | [0010](0010-rebaseline-axiom-1-0.md) | Re-baseline to Axiom 1.0 | accepted |
 | [0011](0011-semicolons-and-member-blocks.md) | Semicolon-terminated statements and member blocks | accepted |
-| [0012](0012-semantic-analysis-scope.md) | Semantic analysis scope for Phase 2 | accepted |
+| [0012](0012-semantic-analysis-scope.md) | Semantic analysis scope for Phase 2 | accepted (decision 6 superseded by 0013) |
+| [0013](0013-strict-resolution-and-multi-target.md) | Strict name resolution and multi-target/frontend scope | accepted |
 
 ADRs are immutable once accepted; a later ADR supersedes an earlier one rather
 than editing it.

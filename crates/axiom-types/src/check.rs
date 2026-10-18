@@ -29,6 +29,18 @@ pub const KNOWN_EFFECTS: &[&str] = &[
     "workspace",
     "network",
     "integration",
+    "db.read",
+    "db.write",
+    "db.schema",
+    "db.provision",
+    "api.call",
+    "ui.render",
+    "ui.event",
+    "ui.state",
+    "browser.storage",
+    "browser.navigation",
+    "browser.clipboard",
+    "browser.download",
 ];
 
 /// Contract clause keys may repeat, provided each occurrence has a distinct label.
@@ -133,6 +145,7 @@ pub fn check_module(module: &Module, options: &CheckOptions) -> Vec<Diagnostic> 
     for item in &module.file.items {
         check_item(item, options, &mut diagnostics);
     }
+    crate::resolve::resolve_module(module, &mut diagnostics);
     diagnostics
 }
 
@@ -199,6 +212,18 @@ fn check_item(item: &Item, options: &CheckOptions, out: &mut Vec<Diagnostic>) {
             check_effects(&decl.effects, out);
             check_members(&decl.members, options, out);
         }
+        ItemKind::Query(decl) => {
+            check_params(&decl.params, out);
+            check_type(&decl.ret, out);
+            check_members(&decl.members, options, out);
+            check_query(decl, out);
+        }
+        ItemKind::Operation(decl) => {
+            check_params(&decl.params, out);
+            check_type(&decl.ret, out);
+            check_members(&decl.members, options, out);
+            check_operation(decl, out);
+        }
         ItemKind::Goal(decl) => {
             check_params(&decl.params, out);
             check_type(&decl.ret, out);
@@ -252,6 +277,217 @@ fn check_function(decl: &FunctionDecl, options: &CheckOptions, out: &mut Vec<Dia
         );
     }
     check_stmts(&decl.body, options, out);
+}
+
+fn check_query(decl: &QueryDecl, out: &mut Vec<Diagnostic>) {
+    let member = |name: &str| decl.members.iter().find(|m| m.name.text == name);
+
+    match member("sql") {
+        None => out.push(
+            Diagnostic::error(
+                decl.name.span,
+                "query must declare a single `sql` string literal",
+            )
+            .with_note("add `sql: \"<statement>\";`"),
+        ),
+        Some(entry) => match &entry.value {
+            MemberValue::Expr(Expr {
+                kind: ExprKind::Literal(Literal::String(sql)),
+                span,
+            }) => check_query_placeholders(decl, sql, *span, out),
+            _ => out.push(
+                Diagnostic::error(entry.span, "`sql` must be one string literal")
+                    .with_note("interpolated, concatenated, or computed SQL is rejected"),
+            ),
+        },
+    }
+
+    if !matches!(
+        member("database").map(|m| &m.value),
+        Some(MemberValue::Expr(_))
+    ) {
+        out.push(Diagnostic::error(
+            decl.name.span,
+            "query must declare `database`",
+        ));
+    }
+
+    if let Some(access) = member("access").and_then(member_access_path) {
+        let is_write = access == "DbAccess.Write";
+        if is_write && decl.ret.display_name() != "WriteResult" {
+            out.push(
+                Diagnostic::error(decl.name.span, "a write query must return `WriteResult`")
+                    .with_note(format!("found `{}`", decl.ret.display_name())),
+            );
+        }
+    } else {
+        out.push(
+            Diagnostic::error(decl.name.span, "query must declare `access`")
+                .with_note("use `access: DbAccess.Read;` or `access: DbAccess.Write;`"),
+        );
+    }
+}
+
+/// Check a backend `operation` declaration's metadata members.
+fn check_operation(decl: &OperationDecl, out: &mut Vec<Diagnostic>) {
+    let member = |name: &str| decl.members.iter().find(|m| m.name.text == name);
+
+    match member("version") {
+        Some(entry) => {
+            if !matches!(
+                &entry.value,
+                MemberValue::Expr(Expr {
+                    kind: ExprKind::Literal(Literal::String(_)),
+                    ..
+                })
+            ) {
+                out.push(Diagnostic::error(
+                    entry.span,
+                    "`version` must be a string literal",
+                ));
+            }
+        }
+        None => out.push(Diagnostic::error(
+            decl.name.span,
+            "operation must declare `version`",
+        )),
+    }
+
+    match member("authentication").and_then(member_access_path) {
+        Some(path) if path.starts_with("AuthenticationRequirement.") => {}
+        Some(_) | None => out.push(
+            Diagnostic::error(decl.name.span, "operation must declare `authentication`")
+                .with_note("use `AuthenticationRequirement.Required;` or `...Anonymous;`"),
+        ),
+    }
+
+    let handler = member("handler").map(|m| &m.value);
+    match handler {
+        Some(MemberValue::Expr(Expr {
+            kind: ExprKind::Path(path),
+            ..
+        })) if !path.is_empty() => {}
+        _ => out.push(
+            Diagnostic::error(decl.name.span, "operation must declare a `handler`")
+                .with_note("`handler: <function name>;`"),
+        ),
+    }
+}
+
+/// Check an `iterate` block: a positive `max_iterations`, a `validate` list, and
+/// an `until` condition.
+fn check_iterate(members: &[Member], fallback: Span, out: &mut Vec<Diagnostic>) {
+    let member = |name: &str| members.iter().find(|m| m.name.text == name);
+
+    match member("max_iterations").map(|m| &m.value) {
+        Some(MemberValue::Expr(Expr {
+            kind: ExprKind::Literal(Literal::Int(n)),
+            ..
+        })) if *n > 0 => {}
+        Some(MemberValue::Expr(e)) => out.push(
+            Diagnostic::error(
+                e.span,
+                "`max_iterations` must be a positive integer literal",
+            )
+            .with_note("the iteration bound is a compile-time constant"),
+        ),
+        Some(_) => out.push(Diagnostic::error(
+            fallback,
+            "`max_iterations` must be a positive integer literal",
+        )),
+        None => out.push(
+            Diagnostic::error(fallback, "`iterate` requires a `max_iterations` bound")
+                .with_note("for example `max_iterations: 4;`"),
+        ),
+    }
+
+    match member("validate").map(|m| &m.value) {
+        Some(MemberValue::Expr(Expr {
+            kind: ExprKind::List(_),
+            ..
+        })) => {}
+        _ => out.push(Diagnostic::error(
+            fallback,
+            "`iterate` requires a `validate` list",
+        )),
+    }
+
+    if member("until").is_none() {
+        out.push(Diagnostic::error(
+            fallback,
+            "`iterate` requires an `until` condition",
+        ));
+    }
+}
+
+/// Extract a dotted member-access path such as `DbAccess.Write` from a member value.
+fn member_access_path(member: &Member) -> Option<String> {
+    let MemberValue::Expr(Expr {
+        kind: ExprKind::Member { base, name },
+        ..
+    }) = &member.value
+    else {
+        return None;
+    };
+    let ExprKind::Path(path) = &base.kind else {
+        return None;
+    };
+    let mut segments: Vec<&str> = path.iter().map(|i| i.text.as_str()).collect();
+    segments.push(name.text.as_str());
+    Some(segments.join("."))
+}
+
+/// SQL parameters appear only as `:name` placeholders that match the declared
+/// parameters exactly (none missing, none extra).
+fn check_query_placeholders(decl: &QueryDecl, sql: &str, span: Span, out: &mut Vec<Diagnostic>) {
+    let placeholders = sql_placeholders(sql);
+    for placeholder in &placeholders {
+        if !decl.params.iter().any(|p| &p.name.text == placeholder) {
+            out.push(
+                Diagnostic::error(
+                    span,
+                    format!("placeholder `:{placeholder}` has no parameter"),
+                )
+                .with_note("every `:name` placeholder must match a declared parameter"),
+            );
+        }
+    }
+    for param in &decl.params {
+        if !placeholders.iter().any(|p| p == &param.name.text) {
+            out.push(
+                Diagnostic::error(
+                    param.name.span,
+                    format!("parameter `{}` is not used in `sql`", param.name.text),
+                )
+                .with_note("declared parameters must appear as `:name` placeholders"),
+            );
+        }
+    }
+}
+
+/// Collect `:name` placeholders, ignoring casts (`::`) and anything inside a
+/// placeholder-free context. This is a lexical pre-check; the real SQL scanner
+/// is Phase 6.
+fn sql_placeholders(sql: &str) -> Vec<String> {
+    let bytes = sql.as_bytes();
+    let mut placeholders = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b':' && bytes.get(i + 1) != Some(&b':') {
+            let start = i + 1;
+            let mut end = start;
+            while end < bytes.len() && (bytes[end].is_ascii_alphanumeric() || bytes[end] == b'_') {
+                end += 1;
+            }
+            if end > start {
+                placeholders.push(sql[start..end].to_string());
+                i = end;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    placeholders
 }
 
 fn check_params(params: &[Param], out: &mut Vec<Diagnostic>) {
@@ -567,6 +803,7 @@ fn stmt_is_effectful(stmt: &Stmt) -> bool {
 fn expr_is_effectful(expr: &Expr) -> bool {
     match &expr.kind {
         ExprKind::Await(_) | ExprKind::Delegate { .. } | ExprKind::Parallel { .. } => true,
+        ExprKind::Iterate { .. } => true,
         ExprKind::Unary { operand, .. } => expr_is_effectful(operand),
         ExprKind::Binary { left, right, .. } => expr_is_effectful(left) || expr_is_effectful(right),
         ExprKind::Conditional {
@@ -663,6 +900,11 @@ fn check_expr(expr: &Expr, options: &CheckOptions, out: &mut Vec<Diagnostic>) {
             LambdaBody::Expr(expr) => check_expr(expr, options, out),
             LambdaBody::Block(body) => check_stmts(body, options, out),
         },
+        ExprKind::Iterate { call, members } => {
+            check_expr(call, options, out);
+            check_iterate(members, call.span, out);
+            check_members(members, options, out);
+        }
         ExprKind::Literal(_) | ExprKind::Path(_) => {}
     }
 }

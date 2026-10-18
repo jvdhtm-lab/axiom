@@ -87,6 +87,8 @@ pub enum ItemKind {
     Function(FunctionDecl),
     Agent(AgentDecl),
     Tool(ToolDecl),
+    Query(QueryDecl),
+    Operation(OperationDecl),
     Goal(GoalDecl),
     Workflow(WorkflowDecl),
     /// `team` / `contract` / `policy` / `workspace`: a named member block.
@@ -103,6 +105,8 @@ impl ItemKind {
             ItemKind::Function(_) => "fn",
             ItemKind::Agent(_) => "agent",
             ItemKind::Tool(_) => "tool",
+            ItemKind::Query(_) => "query",
+            ItemKind::Operation(_) => "operation",
             ItemKind::Goal(_) => "goal",
             ItemKind::Workflow(_) => "workflow",
             ItemKind::MemberBlock(d) => d.kind,
@@ -118,6 +122,8 @@ impl ItemKind {
             ItemKind::Function(d) => Some(&d.name),
             ItemKind::Agent(d) => Some(&d.name),
             ItemKind::Tool(d) => Some(&d.name),
+            ItemKind::Query(d) => Some(&d.name),
+            ItemKind::Operation(d) => Some(&d.name),
             ItemKind::Goal(d) => Some(&d.name),
             ItemKind::Workflow(d) => Some(&d.name),
             ItemKind::MemberBlock(d) => Some(&d.name),
@@ -200,6 +206,27 @@ pub struct ToolDecl {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GoalDecl {
+    pub name: Ident,
+    pub params: Vec<Param>,
+    pub ret: TypeExpr,
+    pub members: Vec<Member>,
+    pub span: Span,
+}
+
+/// A typed, named, callable SQL operation (`query Name(params) -> T { ... }`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct QueryDecl {
+    pub name: Ident,
+    pub params: Vec<Param>,
+    pub ret: TypeExpr,
+    pub members: Vec<Member>,
+    pub span: Span,
+}
+
+/// A versioned, server-authorized API boundary
+/// (`operation Name(input: T) -> R { version: ...; handler: ...; }`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct OperationDecl {
     pub name: Ident,
     pub params: Vec<Param>,
     pub ret: TypeExpr,
@@ -442,6 +469,8 @@ pub enum Pattern {
     Wildcard(Span),
     Binding(Ident),
     Literal(Literal, Span),
+    /// A dotted enum-case or qualified pattern such as `DashboardEvent.Refresh`.
+    Path(Vec<Ident>, Span),
     Tuple(Vec<Pattern>, Span),
 }
 
@@ -474,6 +503,12 @@ pub enum ExprKind {
         iter: Box<Expr>,
         max: Option<Box<Expr>>,
         body: Vec<Stmt>,
+    },
+    /// `iterate Agent.execute(input) { max_iterations: N; validate: [...]; ... }`
+    /// — a bounded generate/validate/repair expression.
+    Iterate {
+        call: Box<Expr>,
+        members: Vec<Member>,
     },
     Unary {
         op: UnaryOp,

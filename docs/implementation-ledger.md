@@ -4,7 +4,7 @@ Tracks Axiom 1.0 requirements against implementation status. **Do not mark an
 item complete without test evidence.** Statuses: `done` (implemented + tested),
 `partial`, `not started`. Phase numbers follow `agents.md` §14.
 
-Last updated: 2026-10-18 (Phase 2 begun: module graph, symbols, declaration/effect checks).
+Last updated: 2026-10-18 (Phase 2: strict name resolution, `query`/`operation` declaration checks, `iterate` expressions, and config `language`/`sources`/`dialect`/`allowed_data_classes` landed).
 
 ## Phase status
 
@@ -12,7 +12,7 @@ Last updated: 2026-10-18 (Phase 2 begun: module graph, symbols, declaration/effe
 | --- | --- | --- |
 | 0 | Design: spec, EBNF, semantics, ADRs, threat model, conformance matrix | partial — spec/grammar/ADRs drafted; conformance matrix, threat model, provider verification pending |
 | 1 | Syntax: lexer, parser, AST, source maps, diagnostics with recovery | done — 1.0 surface grammar implemented; every §11/§5.7 example parses |
-| 2 | Semantics: module graph, symbols, type system, generics, Option/Result, effects, source/config cross-validation | partial — module graph, symbol tables, declaration/aggregate/effect checks, and literal config cross-validation landed; full type inference and effect propagation pending |
+| 2 | Semantics: module graph, symbols, type system, generics, Option/Result, effects, source/config cross-validation, `query`/`operation` declarations, frontend/WASM multi-target surface | partial — module graph, symbol tables, declaration/aggregate/effect checks, strict name resolution, `query`/`operation` declaration checks, `iterate` expressions, multi-target/frontend parsing, and literal config cross-validation landed; full type inference and effect propagation pending |
 | 3 | Compiler and evaluator: typed IR, deterministic evaluator, workflow graph validation, `explain`/`plan` | not started |
 | 4 | Config and integrations: YAML schema, env/secret resolution, redaction, registry, profiles, precedence, adapters/dialects | partial — `axiom.yaml` schema/validation only; no adapters |
 | 5 | Filesystem, tools, artifacts: secure FS, workspaces, Git worktrees, patches, artifacts, tool registry, command profiles | not started |
@@ -38,8 +38,14 @@ Last updated: 2026-10-18 (Phase 2 begun: module graph, symbols, declaration/effe
 | YAML keys match 1.0 spec (`integrations`/`integration`/`timeout_seconds`) | 4 | done | config integration tests | `docs/configuration.md` | `language:`/`sources:` top-level keys not yet accepted |
 | `filesystem:` config section parsing/validation | 4 | partial | config tests | `docs/configuration.md` | Parsed but not enforced (Phase 5) |
 | `commands:` allowlisted command profiles (schema) | 4,5 | partial | config tests | `docs/configuration.md` | Parsed/validated only; no execution (Phase 5) |
-| Module graph: relative import resolution, missing/unexported names, cycles, duplicate module paths | 2 | done | `crates/axiom-types` (19 tests) | `docs/architecture.md` | Deterministic path normalization; no `../` escape guard yet |
+| Module graph: relative import resolution, missing/unexported names, cycles, duplicate module paths | 2 | done | `crates/axiom-types` tests | `docs/architecture.md` | Deterministic path normalization; no `../` escape guard yet |
 | Symbol tables per module (kind, export, duplicates) | 2 | done | `crates/axiom-types` tests | `docs/architecture.md` | One namespace per module; no nested scopes yet |
+| Strict name resolution: every value/type reference resolves to a local binding, module declaration, import, built-in, prelude constant, or stdlib namespace | 2 | done | `unresolved_value_name_is_reported`, `unresolved_type_name_is_reported`, `namespaces_and_builtins_resolve` | `docs/language-spec.md` | Member access is shallow (namespaces/members not typed) |
+| `query` declarations: required `sql` literal / `database` / `access`, `:name` placeholder↔parameter match, write ⇒ `WriteResult` | 2 | done | `query_without_sql_is_reported`, `query_placeholder_mismatch_is_reported`, `write_query_must_return_write_result` | `docs/language-spec.md` | Lexical placeholder scan; full SQL scanner/row typing is Phase 6 |
+| `operation` declarations: required `version`, `authentication`, `handler` (resolved cross-module) | 2 | done | `operation_declaration_is_checked` | `docs/language-spec.md`, ADR-0013 | Handler target not type-checked against the signature |
+| `iterate` expressions: positive `max_iterations`, `validate` list, `until`; effectful | 2 | done | `iterate_bound_must_be_positive` | `docs/language-spec.md`, ADR-0013 | Validator registry resolution is Phase 8 |
+| Multi-target/frontend surface: `ui`/`api`/`browser` namespaces, `operation`/`iterate`, dotted enum patterns, frontend reference slice | 2 | partial | `reference_project_has_no_semantic_errors`, parse fixtures | `agents.md` §12.9, ADR-0013 | Parsed/checked only; IR/codegen crates not built |
+| Config `language`/`sources` top-level; integration `dialect`/`allowed_data_classes` (`secret` rejected) | 4 | done | `language_and_sources_are_read`, `unsupported_language_version_is_reported`, `allowed_data_classes_default_and_validation` | `docs/configuration.md` | `sources` globs not yet used to discover modules |
 | Declaration/aggregate checks (duplicates, record/interface/enum fields, generic arity) | 2 | partial | `axiom-types` tests | `docs/language-spec.md` | Only built-in generic arities checked; no user-generic arity |
 | Effects: known effect names, `pure` discipline (no effects clause, no `await`/`delegate`/`parallel`) | 2 | partial | `axiom-types` tests | `docs/language-spec.md` | No inter-procedural effect propagation or capability intersection |
 | Source/config cross-validation (literal model aliases, `commands.run` names) | 2,4 | partial | `axiom-types` tests; `axiom check --config` | `docs/configuration.md` | Tool `binding` strings not yet resolved |
