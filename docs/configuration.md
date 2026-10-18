@@ -1,5 +1,13 @@
 # Configuration (`axiom.yaml`)
 
+> **Status: re-baselining (Phase 0 → Phase 5).** The normative target schema is
+> `agents.md` §4 (`version`, `language`, `sources`, `integrations`, `models`,
+> `runtime`, `api_policies`, `compilation`, `browser`, `frontend`, `filesystem`,
+> `commands`). The `axiom-config` crate currently implements the previous schema;
+> it is rewritten in Phase 5. Until then, treat the sections below as legacy and
+> see `agents.md` §4 for the target. `docs/implementation-ledger.md` records the
+> exact status.
+
 Axiom separates **source** from **configuration**:
 
 | File | Responsibilities |

@@ -1,7 +1,11 @@
 # Providers and the integration layer
 
-> **Status: planned (Phase 4).** Phase 1 only *parses* `integration` and `model`
-> declarations. No adapter exists yet, and the CLI never contacts a provider.
+> **Status: planned (Phase 5).** `axiom.yaml` names integrations (protocol,
+> endpoint, auth reference, timeout, options) and model aliases; `.ax` references
+> an alias, never credentials or provider-specific request syntax. No adapter
+> exists yet, and neither the CLI nor `axiom check` contacts a provider. A mock
+> provider will back deterministic tests. Verify each provider's current API
+> before implementing an adapter and record the verification date here.
 
 ## The three-level model
 

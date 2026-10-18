@@ -1,105 +1,81 @@
 # Axiom
 
-Axiom is a TypeScript-inspired domain-specific language (`.ax`) for defining AI
-agents, goals, contracts, tools, policies, and hybrid (procedural + agentic)
-workflows. This repository contains the language compiler and runtime, written
-in Rust.
+Axiom is a small, strongly typed language and runtime for building full-stack
+applications with AI agents operating inside explicit boundaries and isolated
+workspaces. One source language and one shared type/effect system compile for two
+required targets: `server` (trusted backend, database, authorized API operations)
+and `wasm_browser` (Axiom frontend compiled to WebAssembly running in a trusted
+browser host).
 
-Axiom keeps five things deliberately separate, because collapsing them is the
-root of most agent-framework lock-in:
+> **Boundaries define authority. Workspaces define where work happens. Agents
+> propose changes. Validation determines what is accepted.**
 
-1. **Agent definition** — role, typed input/output, tools, constraints, authority.
-2. **Integration connection** — a configured endpoint that selects a protocol
-   adapter (base URL, auth reference, timeouts, headers).
-3. **Model profile** — a logical alias such as `reasoning` or `local_coding`,
-   resolved to an integration + concrete model id.
-4. **Agent instance** — an agent definition bound to a model profile plus
-   optional overrides.
-5. **Goal / contract / workflow** — desired outcome, bounded work with acceptance
-   criteria, and the sequencing (deterministic steps, delegation, verification).
-
-The point: an agent's role and source definition stay stable when the underlying
-model changes. `Anthropic Messages` is an *adapter*; `claude_api` is an
-*integration*; `claude_architecture` is a *model profile*.
+The language surface is deliberately small: `module`, `import`, `export`, `type`,
+`enum`, `fn`, `agent`, `workspace`, plus the `api`/`async` function modifiers and
+an `effects` clause. Everything else — agent iteration, validation, caching,
+persistence, retries, checkpoints, database queries, tools, artifact publishing,
+and parallel work — is a standard-library API or `axiom.yaml` configuration, not
+grammar.
 
 ## Status
 
-Axiom is re-baselined to the **Axiom 1.0** specification, but 1.0 is **not**
-implemented yet. The repository today is a `.ax` front end for the 1.0 surface
-grammar (no execution), a first increment of semantic analysis (module graph,
-symbols, declaration/effect checks), and a validated `axiom.yaml` (1.0 schema)
-loader. See [`docs/implementation-ledger.md`](docs/implementation-ledger.md) for
-the truthful phase-by-phase status; that file is the source of truth.
+Axiom 1.0 is **not** complete. This repository is being built phase by phase from
+the current [`agents.md`](agents.md) specification. The phase numbers below follow
+`agents.md` §15.
 
 | # | Phase | State |
 | --- | --- | --- |
-| 0 | Design: spec, EBNF, semantics, ADRs, threat model, conformance matrix | partial |
-| 1 | Syntax: lexer, parser, AST, diagnostics with recovery | done |
-| 2 | Semantics: module graph, symbols, types, effects | partial — module graph, symbols, declaration/effect checks |
-| 3 | Compiler and evaluator: typed IR, deterministic evaluator, explain/plan | not started |
-| 4 | Config and integrations: YAML schema, secrets, adapters/dialects | partial — config only |
-| 5 | Filesystem, tools, artifacts: secure FS, workspaces, patches, commands | not started |
-| 6 | Agent runtime: agents, teams, goals, contracts, typed output validation | not started |
-| 7 | Workflow engine and state: durable state, checkpoints, resume, traces | not started |
-| 8 | Stdlib and reference program | not started |
-| 9 | Tooling: CLI, formatter, linter, LSP | partial — `check`/`config check` |
-| 10 | Hardening and docs: conformance, security, fuzz, performance | not started |
-| 11 | Release sign-off | not started |
+| 0 | Design: small grammar, types, effects, target matrix, ABI, threat model | in progress |
+| 1 | Lexer, parser, AST, source maps, diagnostics, formatter skeleton | not started |
+| 2 | Module resolution, types, generics, Option/Result, effect/target checking | not started |
+| 3 | Typed IR and deterministic server evaluator; compiler commands | not started |
+| 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | not started |
+| 5 | Config, model integrations, registered tools and commands | not started |
+| 6 | Filesystem, workspaces, patch/artifact APIs, command sandbox | not started |
+| 7 | Database APIs, roles, parameter checks, approval/audit, migrations | not started |
+| 8 | Agent calls, iteration/validation APIs, budgets, typed results | not started |
+| 9 | Frontend state, validation/migration, artifact registry and caches | not started |
+| 10 | Durable async execution, checkpoints, resume, cancellation, tracing | not started |
+| 11 | Full-stack reference app, tooling, docs, security hardening | not started |
+| 12 | Release-readiness audit | not started |
 
-See [`docs/development.md`](docs/development.md) for build/test commands and
-parity notes, [`docs/language-spec.md`](docs/language-spec.md) for the language,
-[`docs/grammar.ebnf`](docs/grammar.ebnf) for the normative 1.0 grammar, and
-[`docs/configuration.md`](docs/configuration.md) for `axiom.yaml`.
+[`docs/implementation-ledger.md`](docs/implementation-ledger.md) is the source of
+truth for what works and what has test evidence. Do not assume a feature works
+unless the ledger cites a passing test.
+
+## Documentation
+
+- [`docs/language-spec.md`](docs/language-spec.md) — the language.
+- [`docs/grammar.ebnf`](docs/grammar.ebnf) — the normative grammar.
+- [`docs/configuration.md`](docs/configuration.md) — `axiom.yaml`.
+- [`docs/architecture.md`](docs/architecture.md) — the pipeline and crates.
+- [`docs/security-model.md`](docs/security-model.md) — threat model and invariants.
+- [`docs/conformance.md`](docs/conformance.md) — requirement-to-test matrix.
+- [`docs/decisions/`](docs/decisions/) — architecture decision records.
 
 ## Layout
 
 ```
 crates/
-  axiom-syntax/   lexer, parser, AST, spans, diagnostics  (no dependencies)
-  axiom-types/    module graph, symbols, declaration/effect checks
-  axiom-config/   axiom.yaml loading, expansion, validation
-  axiom-cli/      the `axiom` binary (check, config check, ...)
-examples/         axiom.yaml and src/ (the agent.md §11 reference project)
-docs/             language spec, grammar, configuration, architecture, providers,
-                  security, implementation ledger, ADRs
+  axiom-syntax/    lexer, parser, AST, spans, diagnostics
+  axiom-types/     module graph, symbols, type/effect/target checks
+  axiom-config/    axiom.yaml loading, expansion, validation
+  axiom-cli/       the `axiom` binary
+examples/          axiom.yaml and src/ (the reference project)
+docs/              spec, grammar, configuration, architecture, security, ledger, ADRs
 ```
-
-## Example (Axiom 1.0 target syntax)
-
-```ts
-module architect;
-
-import { FeatureSpec, ExecutionPlan } from "./types.ax";
-
-export agent Architect implements Agent<FeatureSpec, ExecutionPlan> {
-  purpose: "Decompose requirements and design interfaces.";
-  model: "reasoning";
-  tools: [repository.read, documentation.search];
-  workspace: ProjectReadOnly;
-  constraints {
-    must: ["define explicit interfaces"];
-    must_not: ["implement application code directly"];
-  }
-}
-```
-
-Endpoints, credentials, and concrete model ids live in `axiom.yaml`; `model:
-"reasoning"` names a model profile. This syntax parses today (`axiom check`);
-semantic analysis and execution are Phase 2+.
 
 ## Building
 
-The project builds with the GNU Rust toolchain on Windows (see
-`docs/development.md` for the exact environment, since this machine has no MSVC
-linker and a restrictive Application Control policy).
+The workspace pins Rust **1.99.0** (see `docs/development.md` for the Windows GNU
+toolchain notes).
 
 ```sh
 cargo check --workspace
 cargo test --workspace
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo run -p axiom-cli -- check examples/src/filesystem_feature_workflow.ax examples/src/team.ax
-cargo run -p axiom-cli -- check --config examples/axiom.yaml examples/src/team.ax
+cargo run -p axiom-cli -- check examples/src/*.ax
 cargo run -p axiom-cli -- config check examples/axiom.yaml
 ```
 
