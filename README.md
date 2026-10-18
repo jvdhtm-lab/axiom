@@ -29,7 +29,7 @@ the current [`agents.md`](agents.md) specification. The phase numbers below foll
 | 1 | Lexer, parser, AST, source maps, diagnostics, formatter skeleton | done |
 | 2 | Module resolution, types, generics, Option/Result, effect/target checking | partial |
 | 3 | Typed IR and deterministic server evaluator; compiler commands | done |
-| 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | not started |
+| 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | partial |
 | 5 | Config, model integrations, registered tools and commands | not started |
 | 6 | Filesystem, workspaces, patch/artifact APIs, command sandbox | not started |
 | 7 | Database APIs, roles, parameter checks, approval/audit, migrations | not started |
@@ -62,8 +62,11 @@ crates/
   axiom-types/     module graph, symbols, type/effect/target checks
   axiom-ir/        shared typed IR, lowering, deterministic JSON
   axiom-runtime/   deterministic server evaluator
+  axiom-wasm/      browser WASM backend + artifact manifest (Phase 4 partial)
+  axiom-browser-host/ trusted host ABI + artifact verification
   axiom-config/    axiom.yaml loading, expansion, validation
   axiom-cli/       the `axiom` binary
+browser/           trusted host shell + Node smoke harness
 examples/          axiom.yaml and src/ (the reference project)
 docs/              spec, grammar, configuration, architecture, security, ledger, ADRs
 ```
@@ -82,6 +85,8 @@ cargo run -p axiom-cli -- check examples/src/*.ax
 cargo run -p axiom-cli -- config check examples/axiom.yaml
 cargo run -p axiom-cli -- explain examples/src/deterministic.ax
 cargo run -p axiom-cli -- run examples/src/deterministic.ax
+cargo run -p axiom-cli -- build --target wasm_browser --out out examples/src/deterministic.ax
+node browser/host-smoke.mjs out/app.wasm out/app.manifest.json
 ```
 
 ## License

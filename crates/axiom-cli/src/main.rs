@@ -35,8 +35,9 @@ OPTIONS:
     -V, --version      Print version
     --config <FILE>    Cross-validate source against an axiom.yaml (for `check`)
     --target <T>       Build target: server (default) or wasm_browser
-    --emit-ir          Print the typed IR JSON (for `build`)
+    --emit-ir          Print the typed IR JSON / artifact manifest (for `build`)
     --fn <NAME>        Entry function for `run` (default: main)
+    --out <DIR>        Write `app.wasm` + `app.manifest.json` (for `build --target wasm_browser`)
 ";
 
 fn main() -> ExitCode {
@@ -223,7 +224,7 @@ fn positional_files(arguments: &[String]) -> Vec<PathBuf> {
     let mut out = Vec::new();
     let mut iter = arguments.iter();
     while let Some(arg) = iter.next() {
-        if matches!(arg.as_str(), "--target" | "--fn" | "--config") {
+        if matches!(arg.as_str(), "--target" | "--fn" | "--config" | "--out") {
             iter.next();
             continue;
         }
@@ -299,15 +300,12 @@ fn run_build(arguments: &[String]) -> ExitCode {
         return ExitCode::from(1);
     }
 
+    let program = lower_project(&project, target);
+
     if target == Target::WasmBrowser {
-        eprintln!(
-            "error: wasm_browser code generation is not implemented until Phase 4; \
-             refusing to emit a stub"
-        );
-        return ExitCode::from(1);
+        return emit_browser_artifact(&program, arguments, emit_ir);
     }
 
-    let program = lower_project(&project, target);
     if emit_ir {
         print!("{}", program_to_json(&program));
     } else {
@@ -316,6 +314,53 @@ fn run_build(arguments: &[String]) -> ExitCode {
             program.modules.len(),
             target.as_str(),
             axiom_ir::IR_VERSION
+        );
+    }
+    ExitCode::SUCCESS
+}
+
+fn emit_browser_artifact(program: &Program, arguments: &[String], emit_ir: bool) -> ExitCode {
+    let artifact = match axiom_wasm::build(program) {
+        Ok(artifact) => artifact,
+        Err(err) => {
+            eprintln!("error: {err}");
+            return ExitCode::from(1);
+        }
+    };
+
+    if let Some(dir) = flag_value(arguments, "--out") {
+        let dir = PathBuf::from(dir);
+        if let Err(err) = std::fs::create_dir_all(&dir) {
+            eprintln!("error: cannot create `{}`: {err}", dir.display());
+            return ExitCode::from(1);
+        }
+        let wasm_path = dir.join("app.wasm");
+        let manifest_path = dir.join("app.manifest.json");
+        if let Err(err) = std::fs::write(&wasm_path, &artifact.module) {
+            eprintln!("error: cannot write `{}`: {err}", wasm_path.display());
+            return ExitCode::from(1);
+        }
+        if let Err(err) = std::fs::write(&manifest_path, artifact.manifest_json()) {
+            eprintln!("error: cannot write `{}`: {err}", manifest_path.display());
+            return ExitCode::from(1);
+        }
+        println!(
+            "wrote {} and {} (sha256 {}, {} bytes)",
+            wasm_path.display(),
+            manifest_path.display(),
+            &artifact.content_hash[..16],
+            artifact.byte_len
+        );
+    } else if emit_ir {
+        print!("{}", artifact.manifest_json());
+    } else {
+        println!(
+            "built wasm_browser artifact (abi v{}, ir v{}, sha256 {}…, {} bytes, {} entry point(s))",
+            artifact.abi_version,
+            artifact.ir_version,
+            &artifact.content_hash[..16],
+            artifact.byte_len,
+            artifact.entry_points.len()
         );
     }
     ExitCode::SUCCESS

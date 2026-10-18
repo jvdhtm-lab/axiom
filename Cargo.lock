@@ -3,6 +3,15 @@
 version = 3
 
 [[package]]
+name = "axiom-browser-host"
+version = "0.1.0"
+dependencies = [
+ "axiom-ir",
+ "axiom-syntax",
+ "axiom-wasm",
+]
+
+[[package]]
 name = "axiom-cli"
 version = "0.1.0"
 dependencies = [
@@ -11,6 +20,7 @@ dependencies = [
  "axiom-runtime",
  "axiom-syntax",
  "axiom-types",
+ "axiom-wasm",
 ]
 
 [[package]]
@@ -52,6 +62,14 @@ name = "axiom-types"
 version = "0.1.0"
 dependencies = [
  "axiom-config",
+ "axiom-syntax",
+]
+
+[[package]]
+name = "axiom-wasm"
+version = "0.1.0"
+dependencies = [
+ "axiom-ir",
  "axiom-syntax",
 ]
 

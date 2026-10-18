@@ -63,13 +63,17 @@ or silently skipped.
 
 ```
 crates/
-  axiom-syntax/    lexer, parser, AST, spans, diagnostics   (no dependencies)
-  axiom-types/     module graph, symbols, type/effect/target checks
-  axiom-config/    axiom.yaml loading, expansion, validation
-  axiom-ir/        shared typed IR
-  axiom-compiler/  target pipeline and code generation
-  axiom-runtime/   deterministic evaluator, budgets, typed errors
-  axiom-cli/       the `axiom` binary
+  axiom-syntax/      lexer, parser, AST, spans, diagnostics   (no dependencies)
+  axiom-format/      deterministic formatter
+  axiom-types/       module graph, symbols, type/effect/target/SQL checks
+  axiom-ir/          shared typed IR, lowering, deterministic JSON
+  axiom-runtime/     deterministic server evaluator
+  axiom-wasm/        browser WASM backend + artifact manifest (Phase 4 partial)
+  axiom-browser-host/ trusted host ABI + artifact verification
+  axiom-config/      axiom.yaml loading, expansion, validation
+  axiom-compiler/    target pipeline and code generation (planned)
+  axiom-cli/         the `axiom` binary
+browser/             trusted minimal host shell + Node smoke harness
 ```
 
 Dependency direction stays acyclic: the type system and IR never depend on

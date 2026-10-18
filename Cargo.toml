@@ -6,6 +6,8 @@ members = [
     "crates/axiom-types",
     "crates/axiom-ir",
     "crates/axiom-runtime",
+    "crates/axiom-wasm",
+    "crates/axiom-browser-host",
     "crates/axiom-config",
     "crates/axiom-cli",
 ]
@@ -23,6 +25,8 @@ axiom-format = { path = "crates/axiom-format", version = "0.1.0" }
 axiom-types = { path = "crates/axiom-types", version = "0.1.0" }
 axiom-ir = { path = "crates/axiom-ir", version = "0.1.0" }
 axiom-runtime = { path = "crates/axiom-runtime", version = "0.1.0" }
+axiom-wasm = { path = "crates/axiom-wasm", version = "0.1.0" }
+axiom-browser-host = { path = "crates/axiom-browser-host", version = "0.1.0" }
 axiom-config = { path = "crates/axiom-config", version = "0.1.0" }
 yaml_serde = "0.10.7"
 

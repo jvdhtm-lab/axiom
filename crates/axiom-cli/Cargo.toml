@@ -15,4 +15,5 @@ axiom-syntax = { workspace = true }
 axiom-types = { workspace = true }
 axiom-ir = { workspace = true }
 axiom-runtime = { workspace = true }
+axiom-wasm = { workspace = true }
 axiom-config = { workspace = true }
