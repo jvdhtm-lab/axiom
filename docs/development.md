@@ -39,6 +39,8 @@ cargo run -p axiom-cli -- config check examples/axiom.yaml
 cargo run -p axiom-cli -- workspace check examples/src/agents.ax
 cargo run -p axiom-cli -- sandbox plan --config examples/axiom.yaml --command cargo_check
 cargo run -p axiom-cli -- artifacts hash examples/axiom.yaml
+cargo run -p axiom-cli -- db check --config examples/axiom.yaml
+cargo run -p axiom-cli -- db migrations plan --config examples/axiom.yaml --database app
 ```
 
 `config check` and `sandbox plan` fail closed on `examples/axiom.yaml` until the

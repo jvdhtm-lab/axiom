@@ -32,7 +32,7 @@ the current [`agents.md`](agents.md) specification. The phase numbers below foll
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | partial |
 | 5 | Config, model integrations, registered tools and commands | partial |
 | 6 | Filesystem, workspaces, patch/artifact APIs, command sandbox | done |
-| 7 | Database APIs, roles, parameter checks, approval/audit, migrations | not started |
+| 7 | Database APIs, roles, parameter checks, approval/audit, migrations | partial |
 | 8 | Agent calls, iteration/validation APIs, budgets, typed results | not started |
 | 9 | Frontend state, validation/migration, artifact registry and caches | not started |
 | 10 | Durable async execution, checkpoints, resume, cancellation, tracing | not started |
@@ -70,6 +70,7 @@ crates/
   axiom-tools/     tool registry, shell-free sandbox plans, process command runner
   axiom-filesystem/ secure workspaces: policy, overlays, patches, worktrees, integration lock
   axiom-artifacts/ content-addressed immutable artifact store
+  axiom-database/  parameterized SQL, roles, audit, approvals, migrations
   axiom-cli/       the `axiom` binary
 browser/           trusted host shell + Node smoke harness
 examples/          axiom.yaml and src/ (the reference project)

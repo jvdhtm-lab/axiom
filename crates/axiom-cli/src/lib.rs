@@ -4,4 +4,5 @@
 //! freshly-built (and possibly Application-Control-blocked) binary lives here.
 //! (See `docs/development.md` for the Windows Application Control note.)
 
+pub mod database;
 pub mod workspace;

@@ -10,8 +10,9 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use axiom_artifacts::{ArtifactKind, ArtifactStore};
-use axiom_cli::workspace;
+use axiom_cli::{database, workspace};
 use axiom_config::parse_config;
+use axiom_database::Database;
 use axiom_ir::{lower, program_to_json, ModuleInput, Program, Target};
 use axiom_runtime::run;
 use axiom_syntax::ast::DeclKind;
@@ -38,6 +39,9 @@ COMMANDS:
                                  Print the shell-free command plan for a profile
     artifacts hash <FILE> [--kind wasm_module|patch|ui_bundle|snapshot|other]
                                  Print a file's immutable content address
+    db check --config <FILE>     Validate configured databases and role isolation
+    db migrations plan --config <FILE> --database <NAME>
+                                 Print pending reviewed migrations
     version                      Print the version
     help                         Print this message
 
@@ -74,6 +78,7 @@ fn main() -> ExitCode {
         Some("workspace") => run_workspace(&args[1..]),
         Some("sandbox") => run_sandbox(&args[1..]),
         Some("artifacts") => run_artifacts(&args[1..]),
+        Some("db") => run_db(&args[1..]),
         Some(other) => {
             eprintln!("error: unknown command `{other}`\n");
             eprint!("{USAGE}");
@@ -702,6 +707,168 @@ fn run_artifacts_hash(arguments: &[String]) -> ExitCode {
     println!("{info}");
     println!("verified: {}", store.verify(&id));
     ExitCode::SUCCESS
+}
+
+fn run_db(arguments: &[String]) -> ExitCode {
+    match arguments.first().map(String::as_str) {
+        Some("check") => run_db_check(&arguments[1..]),
+        Some("migrations") => {
+            if arguments.get(1).map(String::as_str) == Some("plan") {
+                run_db_migrations_plan(&arguments[2..])
+            } else {
+                eprintln!("error: expected `axiom db migrations plan --config <FILE> --database <NAME>`\n");
+                eprint!("{USAGE}");
+                ExitCode::from(2)
+            }
+        }
+        _ => {
+            eprintln!("error: expected `axiom db check --config <FILE>`\n");
+            eprint!("{USAGE}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+/// Read and parse `--config`, returning the project config and its root.
+fn database_config(config_path: &str) -> Result<(axiom_config::ProjectConfig, PathBuf), ExitCode> {
+    let text = match std::fs::read_to_string(config_path) {
+        Ok(text) => text,
+        Err(err) => {
+            eprintln!("error: cannot read `{config_path}`: {err}");
+            return Err(ExitCode::from(1));
+        }
+    };
+    let report = parse_config(config_path, &text);
+    let source = Source::new(config_path.to_string(), text);
+    for diagnostic in &report.diagnostics {
+        eprint!("{}", diagnostic.render(&source));
+    }
+    if report.has_errors() {
+        return Err(ExitCode::from(1));
+    }
+    let Some(config) = report.config else {
+        return Err(ExitCode::from(1));
+    };
+    let root = database::project_root(std::path::Path::new(config_path));
+    Ok((config, root))
+}
+
+/// Validate configured databases: engine settings, the PostgreSQL target
+/// policy, and (for SQLite) that the least-privilege roles behave as claimed.
+fn run_db_check(arguments: &[String]) -> ExitCode {
+    let Some(config_path) = flag_value(arguments, "--config") else {
+        eprintln!("error: `db check` needs `--config <FILE>`\n");
+        eprint!("{USAGE}");
+        return ExitCode::from(2);
+    };
+    let (config, root) = match database_config(config_path) {
+        Ok(loaded) => loaded,
+        Err(code) => return code,
+    };
+    if config.databases.is_empty() {
+        println!("no databases configured");
+        return ExitCode::SUCCESS;
+    }
+
+    let mut failed = false;
+    for (name, database_config) in &config.databases {
+        println!("{}", database::describe(name, database_config));
+        match database_config.engine.as_str() {
+            "postgres" => {
+                if let Err(message) = database::postgres_policy(name, database_config) {
+                    eprintln!("error: {message}");
+                    failed = true;
+                }
+            }
+            "sqlite" => {
+                let spec = match database::spec_from_config(&root, name, database_config) {
+                    Ok(spec) => spec,
+                    Err(message) => {
+                        eprintln!("error: {message}");
+                        failed = true;
+                        continue;
+                    }
+                };
+                match Database::open(spec) {
+                    Ok(database) => match database.audit_roles() {
+                        Ok(roles) => {
+                            for role in roles {
+                                println!(
+                                    "    {}: read={} write={} schema={}",
+                                    role.role.as_str(),
+                                    role.can_read,
+                                    role.can_write,
+                                    role.can_schema
+                                );
+                            }
+                        }
+                        Err(error) => {
+                            eprintln!("error: database `{name}`: {}", error.message());
+                            failed = true;
+                        }
+                    },
+                    Err(error) => {
+                        eprintln!("error: database `{name}`: {}", error.message());
+                        failed = true;
+                    }
+                }
+            }
+            other => {
+                eprintln!("error: database `{name}` uses unknown engine `{other}`");
+                failed = true;
+            }
+        }
+    }
+    exit_code(failed)
+}
+
+/// Print the pending reviewed migrations for one configured database.
+fn run_db_migrations_plan(arguments: &[String]) -> ExitCode {
+    let Some(config_path) = flag_value(arguments, "--config") else {
+        eprintln!("error: `db migrations plan` needs `--config <FILE>`\n");
+        eprint!("{USAGE}");
+        return ExitCode::from(2);
+    };
+    let Some(name) = flag_value(arguments, "--database") else {
+        eprintln!("error: `db migrations plan` needs `--database <NAME>`\n");
+        eprint!("{USAGE}");
+        return ExitCode::from(2);
+    };
+    let (config, root) = match database_config(config_path) {
+        Ok(loaded) => loaded,
+        Err(code) => return code,
+    };
+    let Some(database_config) = config.databases.get(name) else {
+        eprintln!("error: no database named `{name}` is configured");
+        return ExitCode::from(1);
+    };
+    match database::plan(&root, name, database_config) {
+        Ok(plan) => {
+            let destructive = axiom_database::migrations::destructive_changes(&plan);
+            println!(
+                "database: {name}\nfiles: {}\npending: {}\napplied version: {}",
+                plan.files.len(),
+                plan.pending.len(),
+                plan.applied_version
+            );
+            for file in &plan.pending {
+                println!("  pending {} {}", file.version, file.name);
+            }
+            if destructive.is_empty() {
+                println!("destructive changes: none");
+            } else {
+                println!("destructive changes: {}", destructive.len());
+                for change in destructive {
+                    println!("  {}: {}", change.version, change.kinds.join(", "));
+                }
+            }
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("error: {}", error.message());
+            ExitCode::from(1)
+        }
+    }
 }
 
 fn artifact_kind(name: &str) -> Option<ArtifactKind> {

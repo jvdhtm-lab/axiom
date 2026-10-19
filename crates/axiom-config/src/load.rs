@@ -15,9 +15,9 @@ use yaml_serde::Value;
 use crate::expand::expand;
 use crate::model::{
     ApiPolicyConfig, BrowserConfig, BrowserStateConfig, BuildCacheConfig, Capability,
-    CommandProfile, CompilationConfig, DataCacheConfig, EntryPointConfig, FilesystemConfig,
-    FrontendConfig, IntegrationConfig, ModelConfig, ProjectConfig, RegistryConfig, RuntimeConfig,
-    Secret, WasmConfig,
+    CommandProfile, CompilationConfig, DataCacheConfig, DatabaseConfig, EntryPointConfig,
+    FilesystemConfig, FrontendConfig, IntegrationConfig, ModelConfig, ProjectConfig,
+    RegistryConfig, RuntimeConfig, Secret, WasmConfig,
 };
 
 /// The outcome of loading a configuration file.
@@ -85,6 +85,7 @@ fn default_config() -> ProjectConfig {
         browser: BrowserConfig::default(),
         frontend: FrontendConfig::default(),
         filesystem: FilesystemConfig::default(),
+        databases: BTreeMap::new(),
         commands: BTreeMap::new(),
     }
 }
@@ -171,6 +172,7 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
             "browser",
             "frontend",
             "filesystem",
+            "databases",
             "commands",
         ],
         "axiom.yaml",
@@ -188,6 +190,7 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
     let browser = build_browser(mapping, builder);
     let frontend = build_frontend(mapping, builder);
     let filesystem = build_filesystem(mapping, builder);
+    let databases = build_databases(mapping, builder);
     let commands = build_commands(mapping, builder);
 
     for (name, model) in &models {
@@ -222,6 +225,7 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
         browser,
         frontend,
         filesystem,
+        databases,
         commands,
     })
 }
@@ -971,6 +975,141 @@ fn build_build_cache(entries: &Mapping, builder: &mut Builder<'_>) -> BuildCache
     cache.enabled = optional_bool_value(mapping, "frontend.build_cache", "enabled", builder);
     cache.max_bytes = optional_u64(mapping, "frontend.build_cache", "max_bytes", builder);
     cache
+}
+
+fn build_databases(
+    mapping: &Mapping,
+    builder: &mut Builder<'_>,
+) -> BTreeMap<String, DatabaseConfig> {
+    let mut databases = BTreeMap::new();
+    let Some(value) = mapping_field(mapping, "databases") else {
+        return databases;
+    };
+    let Some(entries) = expect_mapping(value, "databases", builder) else {
+        return databases;
+    };
+
+    for (key, entry) in entries {
+        let Some(id) = key.as_str() else {
+            builder.error("databases", "database names must be strings");
+            continue;
+        };
+        let label = format!("databases.{id}");
+        if !is_ident(id) {
+            builder.error(
+                &label,
+                "invalid database name; use letters, digits, and underscores",
+            );
+        }
+        if let Some(database) = build_database(entry, &label, builder) {
+            databases.insert(id.to_string(), database);
+        }
+    }
+    databases
+}
+
+fn build_database(value: &Value, label: &str, builder: &mut Builder<'_>) -> Option<DatabaseConfig> {
+    let mapping = expect_mapping(value, label, builder)?;
+    check_allowed(
+        mapping,
+        &[
+            "engine",
+            "path",
+            "url",
+            "data_class",
+            "allowed_tables",
+            "max_rows",
+            "timeout_seconds",
+            "migrations",
+            "destructive_migrations",
+            "allow_private_network",
+            "require_write_approval",
+        ],
+        label,
+        builder,
+    );
+
+    let engine = required_string(mapping, label, "engine", builder)?;
+    if !matches!(engine.as_str(), "sqlite" | "postgres") {
+        builder.error(
+            label,
+            format!("unknown engine `{engine}`; use sqlite or postgres"),
+        );
+        return None;
+    }
+
+    let path = optional_string(mapping, label, "path", builder);
+    let url = optional_string(mapping, label, "url", builder).map(Secret::new);
+
+    if engine == "sqlite" {
+        match &path {
+            Some(path) if is_safe_relative_path(path) => {}
+            Some(_) => {
+                builder.error(
+                    label,
+                    "`path` must be a relative path inside the project root (no `..`)",
+                );
+            }
+            None => builder.error(label, "sqlite databases require `path`"),
+        }
+        if url.is_some() {
+            builder.error(label, "sqlite databases must not set `url`");
+        }
+    } else {
+        match &url {
+            Some(url)
+                if url.expose().starts_with("postgres://")
+                    || url.expose().starts_with("postgresql://") => {}
+            Some(_) => builder.error(label, "`url` must use the postgres:// scheme"),
+            None => builder.error(label, "postgres databases require `url`"),
+        }
+        if path.is_some() {
+            builder.error(label, "postgres databases must not set `path`");
+        }
+    }
+
+    let allowed_tables = build_string_list(mapping, label, "allowed_tables", builder);
+    for table in &allowed_tables {
+        if table.trim().is_empty() {
+            builder.error(label, "`allowed_tables` entries must not be empty");
+        }
+    }
+
+    Some(DatabaseConfig {
+        engine,
+        path,
+        url,
+        data_class: optional_string(mapping, label, "data_class", builder),
+        allowed_tables,
+        max_rows: optional_u64(mapping, label, "max_rows", builder),
+        timeout_seconds: optional_u64(mapping, label, "timeout_seconds", builder),
+        migrations: optional_string(mapping, label, "migrations", builder),
+        destructive_migrations: optional_bool_value(
+            mapping,
+            label,
+            "destructive_migrations",
+            builder,
+        ),
+        allow_private_network: optional_bool_value(
+            mapping,
+            label,
+            "allow_private_network",
+            builder,
+        ),
+        require_write_approval: optional_bool_value(
+            mapping,
+            label,
+            "require_write_approval",
+            builder,
+        ),
+    })
+}
+
+fn is_safe_relative_path(path: &str) -> bool {
+    !path.trim().is_empty()
+        && !path.starts_with(['/', '\\'])
+        && !path.contains("..")
+        && !path.contains(':')
 }
 
 fn build_commands(

@@ -12,9 +12,9 @@ pub use expand::{expand, ExpandError};
 pub use load::{parse_config, parse_config_with, ConfigReport};
 pub use model::{
     ApiPolicyConfig, BrowserConfig, BrowserStateConfig, BuildCacheConfig, Capability,
-    CommandProfile, CompilationConfig, DataCacheConfig, EntryPointConfig, FilesystemConfig,
-    FrontendConfig, IntegrationConfig, ModelConfig, ProjectConfig, RegistryConfig, RuntimeConfig,
-    Secret, WasmConfig,
+    CommandProfile, CompilationConfig, DataCacheConfig, DatabaseConfig, EntryPointConfig,
+    FilesystemConfig, FrontendConfig, IntegrationConfig, ModelConfig, ProjectConfig,
+    RegistryConfig, RuntimeConfig, Secret, WasmConfig,
 };
 
 /// The crate version, surfaced by the CLI.

@@ -158,6 +158,30 @@ profiles; command lines are never assembled from model output.
 | `timeout_seconds` | integer (optional) | |
 | `network` | bool (optional) | whether the command may use the network |
 
+### `databases`
+
+A mapping of database id → configuration. SQLite databases open locally with
+separate least-privilege read/write/schema connections; PostgreSQL entries
+declare the release target only (Phase 7 ships no remote driver).
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `engine` | string (required) | `sqlite` or `postgres` |
+| `path` | string (optional) | SQLite file, safe relative path (sqlite only) |
+| `url` | string (optional) | PostgreSQL URL (postgres only, redacted in output) |
+| `data_class` | string (optional) | data classification (default `internal`) |
+| `allowed_tables` | sequence of string (optional) | tables application SQL may reference |
+| `max_rows` | integer (optional) | read row cap |
+| `timeout_seconds` | integer (optional) | statement timeout |
+| `migrations` | string (optional) | reviewed migration directory (safe relative path) |
+| `destructive_migrations` | bool (optional) | whether destructive migrations are configured as allowed |
+| `allow_private_network` | bool (optional) | permit private/link-local PostgreSQL hosts |
+| `require_write_approval` | bool (optional) | require a write approval (default true) |
+
+`axiom db check` validates each entry, probes SQLite role isolation, and checks
+the PostgreSQL target policy; `axiom db migrations plan --database <name>`
+prints pending migrations and destructive changes.
+
 ## Providers (`axiom-providers`)
 
 `resolve_spec(config, alias)` maps a model alias to a vendor-neutral

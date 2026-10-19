@@ -138,6 +138,27 @@ filesystem:
   max_files_per_task: 500
   protect_vcs_metadata: true
 
+databases:
+  app:
+    engine: sqlite
+    path: "var/app.sqlite"
+    data_class: internal
+    allowed_tables: [teams, tasks, v_team_performance]
+    max_rows: 1000
+    timeout_seconds: 5
+    migrations: "db/migrations"
+    destructive_migrations: false
+    require_write_approval: true
+
+  reporting:
+    engine: postgres
+    url: "${AXIOM_REPORTING_DATABASE_URL:-postgres://reporting@db.example.com:5432/reporting?sslmode=verify-full}"
+    data_class: confidential
+    allowed_tables: [v_team_performance]
+    max_rows: 500
+    timeout_seconds: 10
+    allow_private_network: false
+
 commands:
   cargo_check:
     executable: cargo

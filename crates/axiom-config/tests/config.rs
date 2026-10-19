@@ -120,6 +120,73 @@ fn bundled_example_configuration_loads() {
     );
     assert_eq!(cargo_check.network, Some(false));
     assert_eq!(cargo_check.timeout_seconds, Some(300));
+
+    let app = &config.databases["app"];
+    assert_eq!(app.engine, "sqlite");
+    assert_eq!(app.path.as_deref(), Some("var/app.sqlite"));
+    assert_eq!(app.data_class.as_deref(), Some("internal"));
+    assert_eq!(
+        app.allowed_tables,
+        vec!["teams", "tasks", "v_team_performance"]
+    );
+    assert_eq!(app.max_rows, Some(1000));
+    assert_eq!(app.migrations.as_deref(), Some("db/migrations"));
+    assert_eq!(app.require_write_approval, Some(true));
+
+    let reporting = &config.databases["reporting"];
+    assert_eq!(reporting.engine, "postgres");
+    assert_eq!(reporting.data_class.as_deref(), Some("confidential"));
+    assert_eq!(reporting.allow_private_network, Some(false));
+    assert!(reporting.url.is_some());
+}
+
+#[test]
+fn database_urls_are_redacted_in_debug_output() {
+    let text = "version: 1\ndatabases:\n  prod:\n    engine: postgres\n    \
+                url: \"postgres://user:supersecret@db.example.com/app?sslmode=verify-full\"\n";
+    let report = parse("inline.yaml", text);
+    assert_eq!(report.error_count(), 0, "{}", messages(&report));
+    let rendered = format!("{:?}", report.config);
+    assert!(!rendered.contains("supersecret"));
+}
+
+#[test]
+fn invalid_database_configurations_are_rejected() {
+    let cases = [
+        (
+            "unknown engine",
+            "version: 1\ndatabases:\n  app:\n    engine: mysql\n    path: \"a.sqlite\"\n",
+        ),
+        (
+            "sqlite without path",
+            "version: 1\ndatabases:\n  app:\n    engine: sqlite\n",
+        ),
+        (
+            "sqlite with absolute path",
+            "version: 1\ndatabases:\n  app:\n    engine: sqlite\n    path: \"/etc/app.sqlite\"\n",
+        ),
+        (
+            "sqlite escaping the root",
+            "version: 1\ndatabases:\n  app:\n    engine: sqlite\n    path: \"../app.sqlite\"\n",
+        ),
+        (
+            "postgres without url",
+            "version: 1\ndatabases:\n  app:\n    engine: postgres\n",
+        ),
+        (
+            "postgres with path",
+            "version: 1\ndatabases:\n  app:\n    engine: postgres\n    \
+             url: \"postgres://app@db.example.com/app?sslmode=require\"\n    path: \"app.sqlite\"\n",
+        ),
+    ];
+    for (label, text) in cases {
+        let report = parse("inline.yaml", text);
+        assert!(
+            report.error_count() >= 1,
+            "{label} should be rejected:\n{}",
+            messages(&report)
+        );
+    }
 }
 
 #[test]

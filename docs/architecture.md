@@ -76,6 +76,7 @@ crates/
   axiom-tools/       tool registry, sandbox plans, process command runner (Phase 5/6)
   axiom-filesystem/  secure workspaces: paths, policy, overlays, patches, worktrees, integration lock (Phase 6)
   axiom-artifacts/   content-addressed immutable artifact store (Phase 6)
+  axiom-database/    parameterized SQL, roles, audit, approvals, migrations (Phase 7)
   axiom-compiler/    target pipeline and code generation (planned)
   axiom-cli/         the `axiom` binary
 browser/             trusted minimal host shell + Node smoke harness
@@ -98,13 +99,19 @@ logic that must be testable without executing a freshly built binary):
 - `sandbox plan`: turn a configured command profile plus arguments into a
   shell-free `CommandPlan`, rejecting unsafe inputs.
 - `artifacts hash`: print a file's content address for a chosen `ArtifactKind`.
+- `db check`: validate configured databases (`axiom-cli/src/database.rs` builds
+  the runtime `DatabaseSpec`/PostgreSQL target policy) and probe SQLite role
+  isolation.
+- `db migrations plan`: print pending reviewed migrations and destructive changes.
 
 The evaluator also has `run_with_host`: `axiom_runtime::WorkspaceHost` implements
 `fs.*`, `workspaces.snapshot/restore/discard/submit`, `artifacts.*`, and
 `patches.check_conflicts` over a policy-enforcing workspace. Integration
 (`workspaces.integrate`) is not an agent-callable host method; it requires the
-privileged `IntegrationLock` and an approved patch. `commands.run` remains a
-planned host method (Phase 8).
+privileged `IntegrationLock` and an approved patch. `axiom_runtime::DatabaseHost`
+implements `db.query`/`db.query_one`/`db.execute` over a configured database;
+schema, migration, and role-audit calls are operator APIs, not agent APIs.
+`commands.run` remains a planned host method (Phase 8).
 
 ## Source vs configuration
 

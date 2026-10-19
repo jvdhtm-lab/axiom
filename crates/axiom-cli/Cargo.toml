@@ -20,3 +20,4 @@ axiom-config = { workspace = true }
 axiom-filesystem = { workspace = true }
 axiom-artifacts = { workspace = true }
 axiom-tools = { workspace = true }
+axiom-database = { workspace = true }

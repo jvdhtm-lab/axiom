@@ -148,6 +148,37 @@ pub struct FilesystemConfig {
     pub protect_vcs_metadata: Option<bool>,
 }
 
+/// A configured database (agents.md §10).
+///
+/// SQLite databases are files under the project root; PostgreSQL targets are
+/// remote URLs. The connection URL is a [`Secret`] so credentials cannot leak
+/// into diagnostics, IR dumps, or traces.
+#[derive(Debug, Clone, Default)]
+pub struct DatabaseConfig {
+    /// `sqlite` or `postgres`.
+    pub engine: String,
+    /// SQLite file path, relative to the project root.
+    pub path: Option<String>,
+    /// PostgreSQL connection URL (redacted in debug output).
+    pub url: Option<Secret>,
+    /// The data class this database holds (default `internal`).
+    pub data_class: Option<String>,
+    /// Optional allowlist of tables application SQL may reference.
+    pub allowed_tables: Vec<String>,
+    /// Row cap for reads.
+    pub max_rows: Option<u64>,
+    /// Statement timeout in seconds.
+    pub timeout_seconds: Option<u64>,
+    /// Reviewed migration directory.
+    pub migrations: Option<String>,
+    /// Whether destructive migrations are configured as allowed at all.
+    pub destructive_migrations: Option<bool>,
+    /// Permit private/link-local PostgreSQL targets (default false).
+    pub allow_private_network: Option<bool>,
+    /// Require a write approval (default true).
+    pub require_write_approval: Option<bool>,
+}
+
 /// An allowlisted command profile: an executable plus fixed arguments.
 ///
 /// Commands are never assembled from model output; the runtime runs only named
@@ -264,6 +295,7 @@ pub struct ProjectConfig {
     pub browser: BrowserConfig,
     pub frontend: FrontendConfig,
     pub filesystem: FilesystemConfig,
+    pub databases: BTreeMap<String, DatabaseConfig>,
     pub commands: BTreeMap<String, CommandProfile>,
 }
 

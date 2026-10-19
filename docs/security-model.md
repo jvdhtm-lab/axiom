@@ -94,6 +94,29 @@ We threat-model at least:
   not a network boundary.
 - `fs.*`/`workspaces.*`/`artifacts.*` host calls go through the workspace policy;
   `workspaces.integrate` is not exposed to Axiom code.
+- `axiom-database` opens separate read/write/schema connections per database and
+  analyzes each statement before execution: exactly one statement, `:name`
+  placeholders matched to named parameters (anonymous `?` refused), no
+  `pragma`/`attach`/`detach`/`load_extension`/transaction control, no `sqlite_*`
+  internals, and no tables outside the configured allowlist. SQL is never
+  assembled from model output; only literal, checked statements run.
+- Reads are bounded by a row cap and a statement timeout. Writes require a
+  single-use approval bound to the database, role, SQL fingerprint, parameter
+  hash, row cap, action hash, and expiry; they run in `BEGIN IMMEDIATE`, abort
+  when the affected-row cap is exceeded, and honour idempotency keys so a replay
+  cannot apply twice. `db.*` host calls expose only `query`/`query_one`/`execute`.
+- Audit records carry actor/run ID, operation, statement fingerprint, data class,
+  row/affected counts, and outcome only — never SQL text, parameter values,
+  credentials, or raw driver messages.
+- Migrations are reviewed files with checksums; divergence and out-of-order
+  application are refused, destructive changes are detected and gated behind an
+  explicit approval, and `apply_plan` acquires `.axiom/migrations.lock`,
+  validates pending steps against a scratch database, and records per-migration
+  history.
+- PostgreSQL release targets require TLS (`sslmode=require|verify-ca|verify-full`)
+  and refuse loopback/private/link-local/metadata hosts unless explicitly
+  allowed. **Phase 7 ships no PostgreSQL wire adapter** — this is a target policy
+  plus a gated validation test, not a working remote connection.
 - Tests include malicious inputs and race conditions, not only success cases.
 
 ## Residual risks / honest limitations
@@ -101,6 +124,11 @@ We threat-model at least:
 - Static checks run on source; they are not the runtime security boundary.
 - Provider authentication, TLS verification, and DB policy depend on
   OS/runtime/DB configuration that is not yet implemented.
+- The SQL analyzer is conservative token-level analysis, not a full SQL parser;
+  it rejects by class and table scope rather than proving query intent, and
+  SQLite is opened through a dynamically loaded system library.
+- The PostgreSQL policy is validated but no driver connects yet, so its
+  enforcement claims are unproven against a live server.
 - Command execution has process isolation but no container/kernel network
   sandbox; network-enabled profiles are refused rather than isolated. A child
   may still open sockets if a profile is misconfigured to allow them.

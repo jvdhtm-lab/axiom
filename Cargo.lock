@@ -24,6 +24,7 @@ version = "0.1.0"
 dependencies = [
  "axiom-artifacts",
  "axiom-config",
+ "axiom-database",
  "axiom-filesystem",
  "axiom-ir",
  "axiom-runtime",
@@ -39,6 +40,14 @@ version = "0.1.0"
 dependencies = [
  "axiom-syntax",
  "yaml_serde",
+]
+
+[[package]]
+name = "axiom-database"
+version = "0.1.0"
+dependencies = [
+ "axiom-config",
+ "axiom-hash",
 ]
 
 [[package]]
@@ -78,6 +87,7 @@ name = "axiom-runtime"
 version = "0.1.0"
 dependencies = [
  "axiom-artifacts",
+ "axiom-database",
  "axiom-filesystem",
  "axiom-ir",
  "axiom-syntax",

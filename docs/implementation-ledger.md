@@ -4,7 +4,7 @@ Tracks Axiom 1.0 requirements against implementation status. **Do not mark an
 item complete without test evidence.** Statuses: `done` (implemented + tested),
 `partial`, `not started`. Phase numbers follow `agents.md` §15.
 
-Last updated: 2026-10-19 (Phase 6 complete: Git worktrees, exclusive integration gate, process command runner, runtime workspace/artifact host).
+Last updated: 2026-10-19 (Phase 7 partial: SQLite/PostgreSQL database subsystem, roles, audit, write approvals, reviewed migrations, runtime `DatabaseHost`, and CLI `db` commands).
 
 ## Phase status
 
@@ -17,7 +17,7 @@ Last updated: 2026-10-19 (Phase 6 complete: Git worktrees, exclusive integration
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | partial — `axiom-wasm` emits a valid, content-addressed WASM module embedding the checked IR; `axiom-browser-host` verifies header/ABI/hash/imports; Node integration smoke harness passes. **Missing:** function-level WASM codegen, the DOM renderer/event loop, and the real headless-browser smoke test |
 | 5 | Config, model integrations, registered tools and commands | partial — `axiom.yaml` now matches the §4 schema (integrations, models, runtime budgets, `api_policies`, `compilation`/`entrypoints`/`wasm`, `browser`, `frontend`, `filesystem`, `commands`) with strict unknown-key checks; `axiom-providers` resolves model aliases to a vendor-neutral spec and builds an offline mock provider; `axiom-tools` registers builtins + configured commands. **Missing:** networked adapters and real tool execution/sandbox (Phase 6) |
 | 6 | Filesystem, workspaces, patch/artifact APIs and command sandbox | partial — `axiom-filesystem` implements path normalization/root-escape refusal, workspace read/write/deny/protected policy with narrowing, copy-on-write overlays with snapshot/restore/discard, quotas, and patch generation/conflict checks; `axiom-artifacts` is a content-addressed immutable store with integrity verification; `axiom-tools` plans shell-free, allowlisted commands. Git worktree isolation, an exclusive integration lock with conflict and protected-file gates, and a shell-free process command runner (cleared environment with allowlist, timeout, output caps, escaping-directory refusal) complete the isolation surface. A runtime `Host` exposes `fs.*`/`workspaces.*`/`artifacts.*`/`patches.check_conflicts`; the CLI exposes `workspace check`, `sandbox plan`, and `artifacts hash`. **Limitations:** network-enabled command profiles are refused rather than network-isolated (no container/kernel sandbox yet), and `commands.run` is not yet an agent-callable host method (Phase 8) |
-| 7 | Database APIs, roles, parameter checks, approval/audit and migrations | not started |
+| 7 | Database APIs, roles, parameter checks, approval/audit and migrations | partial — `axiom-database` implements parameterized SQL analysis, separate read/write/schema connections, bounded reads, approved + idempotent writes, redacted audit records, reviewed migrations with a destructive-change gate, and a PostgreSQL target policy; `axiom_runtime::DatabaseHost` exposes `db.query`/`db.query_one`/`db.execute`; the CLI adds `db check` and `db migrations plan`. **Missing:** a live PostgreSQL wire adapter (release CI), which is policy-only here |
 | 8 | Agent calls, iteration/validation APIs, budgets, typed results | not started |
 | 9 | Frontend state, state validation/migration, artifact registry and build/data caches | not started |
 | 10 | Durable async execution, checkpoints, resume, cancellation, tracing, approvals | not started |
@@ -43,7 +43,7 @@ Last updated: 2026-10-19 (Phase 6 complete: Git worktrees, exclusive integration
 | Config cross-validation (model aliases) | 2,5 | partial | `unknown_model_alias_is_reported_when_configured` (`AX0217`) | `docs/configuration.md` | `axiom.yaml` schema itself is Phase 5 |
 | Static type system, inference, match exhaustiveness | 2 | partial | Name/type resolution tested; expression inference and `match` exhaustiveness not implemented | `docs/language-spec.md` §4 | No structural typing yet |
 | Target compatibility (server vs wasm_browser) | 2 | partial | `browser_target_rejects_server_effects` (`AX0310`) | `docs/language-spec.md` §8 | Whole-project target option; per-module targets are Phase 4 |
-| SQL literal + placeholder policy | 2,7 | partial | `non_literal_sql_is_reported` (`AX0320`), `sql_placeholder_mismatch_is_reported` (`AX0321`) | `docs/language-spec.md` §7 | Covers `db.query`/`db.query_one`/`db.execute`; full DB subsystem is Phase 7 |
+| SQL literal + placeholder policy | 2,7 | partial | `non_literal_sql_is_reported` (`AX0320`), `sql_placeholder_mismatch_is_reported` (`AX0321`); the runtime `axiom-database` analyzer enforces the same rules at execution | `docs/language-spec.md` §7 | Static checks cover `db.query`/`db.query_one`/`db.execute` arguments; runtime analysis is the enforcing boundary |
 | Typed IR (types, effects, capabilities, provenance, target) | 3 | done | `axiom-ir/tests/lower.rs`: determinism, effects, enum constructors, `api` | `docs/architecture.md` | Declared types only; no inference (Phase 2 gap) |
 | Deterministic server evaluator (pure subset, fail-closed effects) | 3 | done | `axiom-runtime/tests/eval.rs` (7): entry point, calls, `match`/`Option`, finite `for`, effectful-call rejection, no panics | `docs/language-spec.md` §6 | No host I/O; effectful calls require later phases |
 | CLI `build` / `explain` / `run` | 3 | done | `axiom run examples/src/deterministic.ax` → `"positive: 5 a"`; `build --target wasm_browser` refuses | `docs/development.md` | `lint`/`fmt` CLI wiring still Phase 11 |
@@ -60,7 +60,12 @@ Last updated: 2026-10-19 (Phase 6 complete: Git worktrees, exclusive integration
 | Immutable content-addressed artifact store | 6 | done | `axiom-artifacts/tests/store.rs` (5): determinism, idempotent publish, tamper detection; CLI `artifacts hash` verified on `examples/axiom.yaml` | `docs/architecture.md` | Registry versioning/retention/caches are Phase 9 |
 | Command sandbox: allowlisted profile + structured argv (never a shell) | 6 | done | `axiom-tools/tests/sandbox.rs` (5): argv build, metacharacters literal, unknown profile/unsafe dir refused, mock runner; `tests/process.rs` (6): real argv execution, nonzero exit, network refusal, env-cleared run, output cap, timeout kill; CLI `sandbox plan` prints a plan and rejects escaping working directories | `docs/security-model.md` | Process isolation only: network-enabled profiles are refused, not network-isolated; no container backend yet |
 | Runtime host: `fs.*`/`workspaces.*`/`artifacts.*`/`patches.check_conflicts` over a workspace | 6,8 | done | `axiom-runtime/tests/host.rs` (5): read/write through policy, denial propagation, artifact publish/fetch/verify/inspect, snapshot/restore; host-less evaluation still fails closed | `docs/architecture.md` | `commands.run`, agents, DB, and integration are not exposed to Axiom code yet (later phases) |
-| Database subsystem | 7 | not started | — | `docs/language-spec.md` §7 | — |
+| Database subsystem: parameterized SQL only, statement class/placeholder/table-scope/row-limit/timeout checks | 7 | done | `axiom-database/tests/sql.rs` (11): single statement, literal refusal, anonymous placeholder, unknown/out-of-scope table, `pragma`/`attach`/`load_extension`/transaction control, comment/string handling, stable fingerprints; `tests/sqlite.rs` (6): storage classes, params, row cap, timeout, read-only refusal | `docs/security-model.md` | Conservative token analysis, not a full SQL parser |
+| Database roles: least-privilege read/write/schema separation + role audit | 7 | done | `axiom-database/tests/write.rs` (6) + `roles.rs` unit tests: read connection cannot write, write/schema can create, role audit probes; CLI `db check` prints per-role capabilities | `docs/security-model.md` | SQLite privileges are connection-level (read-only vs read-write), not server GRANTs |
+| Write approvals + audit trail (bound to fingerprint/params/limits/action/expiry, no secret leakage) | 7 | done | `tests/write.rs`: approval required, binding mismatch refused, expiry refused, single-use replay refused, idempotency replay returns the stored outcome, affected-row cap rolls back; audit records exclude SQL/params/credentials | `docs/security-model.md` | Approval issuance is operator tooling; no UI |
+| Reviewed migrations with destructive-change gating + migration workspace/lock | 7 | done | `axiom-database/tests/migrations.rs` (8): checksum divergence, out-of-order refusal, destructive detection (drop/truncate/delete/update-without-where), workspace-marker requirement, lock exclusivity, apply records history and validates in scratch | `docs/security-model.md` | No down/rollback migrations; destructive approval is a checksum+expiry token |
+| PostgreSQL target policy (TLS required, private/metadata hosts refused) | 7 | partial | `axiom-database/tests/postgres.rs` (4) + `axiom-cli/tests/database.rs`: URL/database/SSL-mode parsing, private-host refusal unless allowed, sanitized output; `AXIOM_TEST_POSTGRES_URL`-gated test validates the URL then skips | `docs/configuration.md` | **No wire adapter**: no real connection, so enforcement is unproven against a server |
+| Runtime `DatabaseHost` (`db.query`/`db.query_one`/`db.execute`) + CLI `db check`/`db migrations plan` | 7 | done | `axiom-runtime/tests/database_host.rs` (4): reads return records, audit counts, writes denied without approval then approved/replayed, operator-only methods refused; `axiom-cli/tests/database.rs` (4): spec building, unsafe paths, PostgreSQL policy, redaction | `docs/architecture.md` | Schema/migration/role-audit calls are intentionally not agent APIs |
 | Agents/validation/budgets | 8 | not started | — | — | — |
 | Frontend state/caches | 9 | not started | — | `docs/language-spec.md` §9 | — |
 | Durable execution | 10 | not started | — | — | — |
@@ -85,10 +90,16 @@ an exclusive lock, stores immutable content-addressed artifacts, and runs
 allowlisted commands with process isolation (argv-only, cleared environment,
 timeout, output caps; network profiles refused). `run_with_host` exposes
 workspaces and artifacts to the evaluator, and the CLI wires the APIs into
-`workspace check`, `sandbox plan`, and `artifacts hash`. It does **not** infer
-expression types, report `match` exhaustiveness, generate function-level WASM or
-a DOM renderer, run a real browser test, talk to a networked model provider, run
-commands in a container/kernel network sandbox, let `axiom run` select a
-workspace at the CLI, or provide the database, durability, or budget subsystems.
-Nothing should be assumed to work unless the requirement ledger above cites a
-passing test.
+`workspace check`, `sandbox plan`, and `artifacts hash`. A database subsystem
+(`axiom-database`) analyzes parameterized SQL, opens least-privilege role
+connections over an offline SQLite engine, bounds reads, gates and audits writes
+behind single-use approvals with idempotency, applies reviewed migrations behind
+a destructive-change gate, and validates a PostgreSQL release target policy;
+`axiom_runtime::DatabaseHost` exposes `db.query`/`db.query_one`/`db.execute` to
+the evaluator and the CLI adds `db check`/`db migrations plan`. It does **not**
+infer expression types, report `match` exhaustiveness, generate function-level
+WASM or a DOM renderer, run a real browser test, talk to a networked model
+provider, connect to a live PostgreSQL server (no wire adapter), run commands in
+a container/kernel network sandbox, let `axiom run` select a workspace at the
+CLI, or provide the durability or budget subsystems. Nothing should be assumed
+to work unless the requirement ledger above cites a passing test.
