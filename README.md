@@ -88,11 +88,18 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo run -p axiom-cli -- check examples/src/*.ax
 cargo run -p axiom-cli -- config check examples/axiom.yaml
+cargo run -p axiom-cli -- workspace check examples/src/agents.ax
+cargo run -p axiom-cli -- sandbox plan --config examples/axiom.yaml --command cargo_check
+cargo run -p axiom-cli -- artifacts hash examples/axiom.yaml
 cargo run -p axiom-cli -- explain examples/src/deterministic.ax
 cargo run -p axiom-cli -- run examples/src/deterministic.ax
 cargo run -p axiom-cli -- build --target wasm_browser --out out examples/src/deterministic.ax
 node browser/host-smoke.mjs out/app.wasm out/app.manifest.json
 ```
+
+`config check` and `sandbox plan` fail closed on `examples/axiom.yaml` until the
+referenced integration API-key environment variables are set (or given defaults
+in the config).
 
 ## License
 

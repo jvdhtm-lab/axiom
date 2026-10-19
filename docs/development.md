@@ -36,7 +36,14 @@ Additional smoke commands:
 ```sh
 cargo run -p axiom-cli -- check examples/src/*.ax
 cargo run -p axiom-cli -- config check examples/axiom.yaml
+cargo run -p axiom-cli -- workspace check examples/src/agents.ax
+cargo run -p axiom-cli -- sandbox plan --config examples/axiom.yaml --command cargo_check
+cargo run -p axiom-cli -- artifacts hash examples/axiom.yaml
 ```
+
+`config check` and `sandbox plan` fail closed on `examples/axiom.yaml` until the
+referenced integration API-key environment variables are set (or given defaults
+in the config).
 
 ## Application Control (`os error 4551`)
 
@@ -48,8 +55,24 @@ build dependency-light and sign generated artifacts when needed:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sign-windows.ps1
 ```
 
-`axiom-syntax` has no third-party dependencies, so the `.ax` front end should not
-trigger this. `axiom-config` adds `yaml_serde` (ADR-0009).
+On this machine `scripts/sign-windows.ps1` can hang while writing the trust
+stores. A working fallback for a **specific blocked test/binary** is to run a
+copy outside `target/`, strip debug info, sign it with the already-trusted dev
+certificate, and retry (the policy is content-based and intermittent):
+
+```powershell
+$cert = Get-Item Cert:\CurrentUser\My\14EDB8E45DC1F916AD782B2B2BB31875F5378992
+$strip = "C:\Users\jvdht\AppData\Local\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\mingw64\bin\strip.exe"
+Copy-Item target\debug\deps\some_test-*.exe $env:TEMP\some_test.exe -Force
+& $strip --strip-debug $env:TEMP\some_test.exe
+Set-AuthenticodeSignature -FilePath $env:TEMP\some_test.exe -Certificate $cert -HashAlgorithm SHA256
+& $env:TEMP\some_test.exe
+```
+
+`cargo test --workspace` still works on CI and on unaffected machines; run the
+test binaries from the package directory (cargo's working directory) when doing
+this manually. `axiom-syntax` has no third-party dependencies, so the `.ax` front
+end should not trigger this. `axiom-config` adds `yaml_serde` (ADR-0009).
 
 ## Dependency policy
 
@@ -67,13 +90,13 @@ source of truth.
 
 | Phase | Deliverable | State |
 | --- | --- | --- |
-| 0 | Small grammar, types, effects, target matrix, browser ABI, threat model | in progress |
-| 1 | Lexer, parser, AST, source maps, diagnostics, formatter skeleton | not started |
-| 2 | Module resolution, types, generics, Option/Result, effects, target checks | not started |
-| 3 | Typed IR + deterministic server evaluator + compiler commands | not started |
-| 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | not started |
-| 5 | Config, model integrations, registered tools and commands | not started |
-| 6 | Filesystem, workspaces, patch/artifact APIs, command sandbox | not started |
+| 0 | Small grammar, types, effects, target matrix, browser ABI, threat model | done |
+| 1 | Lexer, parser, AST, source maps, diagnostics, formatter skeleton | done |
+| 2 | Module resolution, types, generics, Option/Result, effects, target checks | partial |
+| 3 | Typed IR + deterministic server evaluator + compiler commands | done |
+| 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | partial |
+| 5 | Config, model integrations, registered tools and commands | partial |
+| 6 | Filesystem, workspaces, patch/artifact APIs, command sandbox | partial |
 | 7 | Database APIs, roles, parameter checks, approval/audit, migrations | not started |
 | 8 | Agent calls, iteration/validation APIs, budgets, typed results | not started |
 | 9 | Frontend state, validation/migration, artifact registry and caches | not started |

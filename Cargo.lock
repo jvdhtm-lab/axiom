@@ -22,10 +22,13 @@ dependencies = [
 name = "axiom-cli"
 version = "0.1.0"
 dependencies = [
+ "axiom-artifacts",
  "axiom-config",
+ "axiom-filesystem",
  "axiom-ir",
  "axiom-runtime",
  "axiom-syntax",
+ "axiom-tools",
  "axiom-types",
  "axiom-wasm",
 ]

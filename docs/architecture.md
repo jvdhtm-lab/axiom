@@ -86,6 +86,22 @@ provider adapters; providers never depend on the parser; the database crate neve
 depends on model adapters; the browser host never contains app-specific business
 logic.
 
+## CLI surfaces
+
+`axiom` is a thin binary over the workspace crates (`axiom-cli/src/lib.rs` holds
+logic that must be testable without executing a freshly built binary):
+
+- `check` / `build` / `explain` / `run`: parse, lower to typed IR, and evaluate.
+- `config check`: validate `axiom.yaml` (placeholders, targets, entrypoints).
+- `workspace check`: parse `workspace` declarations and build the enforcing
+  `WorkspacePolicy` (`axiom-cli/src/workspace.rs`).
+- `sandbox plan`: turn a configured command profile plus arguments into a
+  shell-free `CommandPlan`, rejecting unsafe inputs.
+- `artifacts hash`: print a file's content address for a chosen `ArtifactKind`.
+
+None of these executes model output, commands, or database queries yet; the
+runtime integration belongs to later phases.
+
 ## Source vs configuration
 
 `.ax` is the portable language; `axiom.yaml` is deployment/environment

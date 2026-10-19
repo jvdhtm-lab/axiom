@@ -17,3 +17,6 @@ axiom-ir = { workspace = true }
 axiom-runtime = { workspace = true }
 axiom-wasm = { workspace = true }
 axiom-config = { workspace = true }
+axiom-filesystem = { workspace = true }
+axiom-artifacts = { workspace = true }
+axiom-tools = { workspace = true }

@@ -2,15 +2,21 @@
 //!
 //! Phase 1 added `axiom check` and `axiom config check`. Phase 3 adds
 //! `axiom build`, `axiom explain`, and `axiom run` over the typed IR and the
-//! deterministic server evaluator. No command contacts a model integration.
+//! deterministic server evaluator. Phase 6 adds `axiom workspace check`,
+//! `axiom sandbox plan`, and `axiom artifacts hash`. No command contacts a model
+//! integration.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use axiom_artifacts::{ArtifactKind, ArtifactStore};
+use axiom_cli::workspace;
 use axiom_config::parse_config;
 use axiom_ir::{lower, program_to_json, ModuleInput, Program, Target};
 use axiom_runtime::run;
-use axiom_syntax::{Source, VERSION};
+use axiom_syntax::ast::DeclKind;
+use axiom_syntax::{Diagnostic, Source, VERSION};
+use axiom_tools::{CommandRequest, ToolRegistry};
 use axiom_types::{check_options_from_config, check_project, CheckOptions, Project};
 
 const USAGE: &str = "\
@@ -27,6 +33,11 @@ COMMANDS:
                                  Print the typed IR as JSON
     run <FILE>... [--fn NAME]    Evaluate an entry function deterministically
     config check <FILE>...       Validate an axiom.yaml project configuration
+    workspace check <FILE>...    Validate workspace declarations against the runtime policy
+    sandbox plan --config <FILE> --command <NAME> [--arg V]... [--dir DIR]
+                                 Print the shell-free command plan for a profile
+    artifacts hash <FILE> [--kind wasm_module|patch|ui_bundle|snapshot|other]
+                                 Print a file's immutable content address
     version                      Print the version
     help                         Print this message
 
@@ -60,6 +71,9 @@ fn main() -> ExitCode {
         Some("explain") => run_explain(&args[1..]),
         Some("run") => run_run(&args[1..]),
         Some("config") => run_config(&args[1..]),
+        Some("workspace") => run_workspace(&args[1..]),
+        Some("sandbox") => run_sandbox(&args[1..]),
+        Some("artifacts") => run_artifacts(&args[1..]),
         Some(other) => {
             eprintln!("error: unknown command `{other}`\n");
             eprint!("{USAGE}");
@@ -207,6 +221,23 @@ fn flag_value<'a>(arguments: &'a [String], name: &str) -> Option<&'a str> {
         }
     }
     None
+}
+
+/// All values of a repeatable `--name value` / `--name=value` flag.
+fn repeat_flag_values(arguments: &[String], name: &str) -> Vec<String> {
+    let prefix = format!("{name}=");
+    let mut values = Vec::new();
+    let mut iter = arguments.iter();
+    while let Some(arg) = iter.next() {
+        if arg == name {
+            if let Some(value) = iter.next() {
+                values.push(value.clone());
+            }
+        } else if let Some(value) = arg.strip_prefix(&prefix) {
+            values.push(value.to_string());
+        }
+    }
+    values
 }
 
 fn target_from(arguments: &[String]) -> Result<Target, String> {
@@ -465,6 +496,223 @@ fn run_config_check(arguments: &[String]) -> ExitCode {
 
     print_summary(checked, error_count, warning_count);
     exit_code(failed)
+}
+
+fn run_workspace(arguments: &[String]) -> ExitCode {
+    match arguments.first().map(String::as_str) {
+        Some("check") => run_workspace_check(&arguments[1..]),
+        _ => {
+            eprintln!("error: expected `axiom workspace check <FILE>...`\n");
+            eprint!("{USAGE}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+/// Validate every `workspace` declaration by building the runtime policy the
+/// workspace would get. Compiler checks are not the security boundary, so this
+/// surfaces exactly the paths/isolation/limits the runtime would enforce.
+fn run_workspace_check(arguments: &[String]) -> ExitCode {
+    let files = file_arguments(arguments);
+    if files.is_empty() {
+        eprintln!("error: `workspace check` needs at least one .ax file\n");
+        eprint!("{USAGE}");
+        return ExitCode::from(2);
+    }
+
+    let project = axiom_types::load(&files);
+    let mut checked = 0usize;
+    let mut errors = 0usize;
+
+    for module in &project.graph.modules {
+        let source = Source::new(module.display.clone(), module.source.clone());
+        for declaration in &module.file.declarations {
+            let DeclKind::Workspace(workspace) = &declaration.kind else {
+                continue;
+            };
+            checked += 1;
+            match workspace::policy(workspace) {
+                Ok(policy) => {
+                    println!(
+                        "ok: {}::{} (isolation {}, read {}, write {}, deny {})",
+                        module.display,
+                        workspace.name,
+                        policy.isolation.as_str(),
+                        policy.read.len(),
+                        policy.write.len(),
+                        policy.deny.len()
+                    );
+                    let limits = policy.limits;
+                    if limits.max_files.is_some()
+                        || limits.max_file_bytes.is_some()
+                        || limits.max_changed_files.is_some()
+                    {
+                        println!(
+                            "    limits: max_files={:?} max_file_bytes={:?} max_changed_files={:?}",
+                            limits.max_files, limits.max_file_bytes, limits.max_changed_files
+                        );
+                    }
+                }
+                Err(issues) => {
+                    for (span, message) in issues {
+                        errors += 1;
+                        eprint!("{}", Diagnostic::error(span, message).render(&source));
+                    }
+                }
+            }
+        }
+    }
+
+    if checked == 0 {
+        println!("no workspace declarations found");
+    }
+    println!("checked {checked} workspace(s): {errors} error(s)");
+    exit_code(errors > 0)
+}
+
+fn run_sandbox(arguments: &[String]) -> ExitCode {
+    match arguments.first().map(String::as_str) {
+        Some("plan") => run_sandbox_plan(&arguments[1..]),
+        _ => {
+            eprintln!("error: expected `axiom sandbox plan --config <FILE> --command <NAME>`\n");
+            eprint!("{USAGE}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn run_sandbox_plan(arguments: &[String]) -> ExitCode {
+    let Some(config_path) = flag_value(arguments, "--config") else {
+        eprintln!("error: `sandbox plan` needs `--config <FILE>`\n");
+        eprint!("{USAGE}");
+        return ExitCode::from(2);
+    };
+    let Some(command) = flag_value(arguments, "--command") else {
+        eprintln!("error: `sandbox plan` needs `--command <NAME>`\n");
+        eprint!("{USAGE}");
+        return ExitCode::from(2);
+    };
+
+    let text = match std::fs::read_to_string(config_path) {
+        Ok(text) => text,
+        Err(err) => {
+            eprintln!("error: cannot read `{config_path}`: {err}");
+            return ExitCode::from(1);
+        }
+    };
+    let report = parse_config(config_path, &text);
+    let source = Source::new(config_path.to_string(), text);
+    for diagnostic in &report.diagnostics {
+        eprint!("{}", diagnostic.render(&source));
+    }
+    if report.has_errors() {
+        return ExitCode::from(1);
+    }
+    let Some(config) = report.config else {
+        return ExitCode::from(1);
+    };
+
+    let registry = ToolRegistry::from_config(&config);
+    let mut request = CommandRequest::new(command);
+    request.args = repeat_flag_values(arguments, "--arg");
+    request.working_directory = flag_value(arguments, "--dir").map(str::to_string);
+
+    match registry.plan(&request) {
+        Ok(plan) => {
+            println!("profile: {}", plan.profile);
+            println!("executable: {}", plan.executable);
+            println!("argv: {:?}", plan.argv);
+            println!(
+                "working_directory: {}",
+                plan.working_directory.as_deref().unwrap_or(".")
+            );
+            println!(
+                "timeout_seconds: {}",
+                plan.timeout_seconds
+                    .map(|t| t.to_string())
+                    .unwrap_or_else(|| "none".to_string())
+            );
+            println!("network: {}", plan.network);
+            ExitCode::SUCCESS
+        }
+        Err(err) => {
+            eprintln!("error: {err}");
+            ExitCode::from(1)
+        }
+    }
+}
+
+fn run_artifacts(arguments: &[String]) -> ExitCode {
+    match arguments.first().map(String::as_str) {
+        Some("hash") => run_artifacts_hash(&arguments[1..]),
+        _ => {
+            eprintln!("error: expected `axiom artifacts hash <FILE>`\n");
+            eprint!("{USAGE}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn run_artifacts_hash(arguments: &[String]) -> ExitCode {
+    let mut path: Option<PathBuf> = None;
+    let mut kind = ArtifactKind::Other;
+    let mut iter = arguments.iter();
+    while let Some(arg) = iter.next() {
+        if arg == "--kind" {
+            let Some(value) = iter.next() else {
+                eprintln!("error: `--kind` needs a value");
+                return ExitCode::from(2);
+            };
+            match artifact_kind(value) {
+                Some(parsed) => kind = parsed,
+                None => {
+                    eprintln!("error: unknown artifact kind `{value}`");
+                    return ExitCode::from(2);
+                }
+            }
+        } else if let Some(value) = arg.strip_prefix("--kind=") {
+            match artifact_kind(value) {
+                Some(parsed) => kind = parsed,
+                None => {
+                    eprintln!("error: unknown artifact kind `{value}`");
+                    return ExitCode::from(2);
+                }
+            }
+        } else if !arg.starts_with('-') {
+            path = Some(PathBuf::from(arg));
+        }
+    }
+
+    let Some(path) = path else {
+        eprintln!("error: `artifacts hash` needs a file\n");
+        eprint!("{USAGE}");
+        return ExitCode::from(2);
+    };
+    let bytes = match std::fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            eprintln!("error: cannot read `{}`: {err}", path.display());
+            return ExitCode::from(1);
+        }
+    };
+
+    let mut store = ArtifactStore::new();
+    let id = store.publish(kind, bytes);
+    let info = store.inspect(&id).expect("just published");
+    println!("{info}");
+    println!("verified: {}", store.verify(&id));
+    ExitCode::SUCCESS
+}
+
+fn artifact_kind(name: &str) -> Option<ArtifactKind> {
+    match name {
+        "wasm_module" => Some(ArtifactKind::WasmModule),
+        "patch" => Some(ArtifactKind::Patch),
+        "ui_bundle" => Some(ArtifactKind::UiBundle),
+        "snapshot" => Some(ArtifactKind::Snapshot),
+        "other" => Some(ArtifactKind::Other),
+        _ => None,
+    }
 }
 
 fn print_summary(checked: usize, errors: usize, warnings: usize) {
