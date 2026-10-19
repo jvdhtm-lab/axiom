@@ -82,13 +82,30 @@ We threat-model at least:
 - Artifacts and approvals bind to content hashes and versions and are revalidated
   at activation time.
 - `axiom` never runs a shell string assembled from model output.
+- `git_worktree` isolation creates a private checkout on a validated branch;
+  unsafe branch names and non-repository roots are refused.
+- Integration is only possible from an `exclusive_integration` workspace while
+  holding the exclusive lock, with a clean base revision and no conflicts.
+  Protected files (`axiom.yaml`, `.git/**`, `.axiom/**`, `db/migrations/**`)
+  are refused at integration.
+- `ProcessCommandRunner` clears the ambient environment (safe allowlist only),
+  passes literal argv (no shell), caps stdout/stderr, and kills timed-out
+  children. Network-enabled profiles are refused because process isolation is
+  not a network boundary.
+- `fs.*`/`workspaces.*`/`artifacts.*` host calls go through the workspace policy;
+  `workspaces.integrate` is not exposed to Axiom code.
 - Tests include malicious inputs and race conditions, not only success cases.
 
 ## Residual risks / honest limitations
 
 - Static checks run on source; they are not the runtime security boundary.
-- Provider authentication, TLS verification, sandboxing, and quota enforcement
-  depend on OS/runtime/DB configuration that is not yet implemented.
+- Provider authentication, TLS verification, and DB policy depend on
+  OS/runtime/DB configuration that is not yet implemented.
+- Command execution has process isolation but no container/kernel network
+  sandbox; network-enabled profiles are refused rather than isolated. A child
+  may still open sockets if a profile is misconfigured to allow them.
+- Symlink/TOCTOU behavior at the OS layer is untested because the workspace model
+  is in-memory; disk persistence arrives with the reference app.
 - Model judgments ("this passed") are never deterministic proof; only
   machine-executed runtime checks count as evidence.
 - Prompt injection through tool results and `context` is mitigated by treating

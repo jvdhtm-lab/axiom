@@ -68,13 +68,13 @@ crates/
   axiom-types/       module graph, symbols, type/effect/target/SQL checks
   axiom-hash/        dependency-free SHA-256 content addressing
   axiom-ir/          shared typed IR, lowering, deterministic JSON
-  axiom-runtime/     deterministic server evaluator
+  axiom-runtime/     deterministic server evaluator + optional runtime host
   axiom-wasm/        browser WASM backend + artifact manifest (Phase 4 partial)
   axiom-browser-host/ trusted host ABI + artifact verification
-  axiom-config/      axiom.yaml loading, expansion, validation (§4 schema)
+  axiom-config/      axiom.yaml loading, expansion, validation (A4 schema)
   axiom-providers/   model alias resolution + offline mock provider (Phase 5)
-  axiom-tools/       builtin + configured-command tool registry + sandbox plans (Phase 5/6)
-  axiom-filesystem/  secure workspaces: paths, policy, copy-on-write, patches (Phase 6)
+  axiom-tools/       tool registry, sandbox plans, process command runner (Phase 5/6)
+  axiom-filesystem/  secure workspaces: paths, policy, overlays, patches, worktrees, integration lock (Phase 6)
   axiom-artifacts/   content-addressed immutable artifact store (Phase 6)
   axiom-compiler/    target pipeline and code generation (planned)
   axiom-cli/         the `axiom` binary
@@ -99,8 +99,12 @@ logic that must be testable without executing a freshly built binary):
   shell-free `CommandPlan`, rejecting unsafe inputs.
 - `artifacts hash`: print a file's content address for a chosen `ArtifactKind`.
 
-None of these executes model output, commands, or database queries yet; the
-runtime integration belongs to later phases.
+The evaluator also has `run_with_host`: `axiom_runtime::WorkspaceHost` implements
+`fs.*`, `workspaces.snapshot/restore/discard/submit`, `artifacts.*`, and
+`patches.check_conflicts` over a policy-enforcing workspace. Integration
+(`workspaces.integrate`) is not an agent-callable host method; it requires the
+privileged `IntegrationLock` and an approved patch. `commands.run` remains a
+planned host method (Phase 8).
 
 ## Source vs configuration
 

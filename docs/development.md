@@ -96,7 +96,7 @@ source of truth.
 | 3 | Typed IR + deterministic server evaluator + compiler commands | done |
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | partial |
 | 5 | Config, model integrations, registered tools and commands | partial |
-| 6 | Filesystem, workspaces, patch/artifact APIs, command sandbox | partial |
+| 6 | Filesystem, workspaces, patch/artifact APIs, command sandbox | done |
 | 7 | Database APIs, roles, parameter checks, approval/audit, migrations | not started |
 | 8 | Agent calls, iteration/validation APIs, budgets, typed results | not started |
 | 9 | Frontend state, validation/migration, artifact registry and caches | not started |

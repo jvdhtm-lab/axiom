@@ -12,6 +12,7 @@ use axiom_ir::{
 };
 use axiom_syntax::span::Span;
 
+use crate::host::Host;
 use crate::value::Value;
 
 /// A runtime failure with the IR span it occurred at.
@@ -54,17 +55,38 @@ enum Flow {
 /// The runtime entry point context.
 pub struct Evaluator<'a> {
     functions: BTreeMap<String, &'a IrFunction>,
+    host: Option<&'a dyn Host>,
 }
 
-/// Run `entry` with `args`, returning its result value.
+/// Run `entry` with `args` in a host-less, ambient-I/O-free evaluator.
 pub fn run(program: &Program, entry: &str, args: Vec<Value>) -> Result<Value, RuntimeError> {
+    run_impl(program, entry, args, None)
+}
+
+/// Run `entry` with `args`, resolving effectful standard-library calls through
+/// `host`. Without a host those calls still fail closed.
+pub fn run_with_host(
+    program: &Program,
+    entry: &str,
+    args: Vec<Value>,
+    host: &dyn Host,
+) -> Result<Value, RuntimeError> {
+    run_impl(program, entry, args, Some(host))
+}
+
+fn run_impl(
+    program: &Program,
+    entry: &str,
+    args: Vec<Value>,
+    host: Option<&dyn Host>,
+) -> Result<Value, RuntimeError> {
     let mut functions = BTreeMap::new();
     for module in &program.modules {
         for f in &module.functions {
             functions.insert(f.name.clone(), f);
         }
     }
-    let evaluator = Evaluator { functions };
+    let evaluator = Evaluator { functions, host };
     let f =
         evaluator.functions.get(entry).copied().ok_or_else(|| {
             RuntimeError::new(Span::empty(0), format!("no entry function `{entry}`"))
@@ -401,18 +423,27 @@ impl Evaluator<'_> {
                 "Validator".to_string(),
                 vec![Value::Str(format!("checks.{method}"))],
             )),
-            "db" | "fs" | "agents" | "runtime" | "frontend" | "workspaces" | "artifacts"
-            | "patches" | "commands" | "browser" => Err(RuntimeError::new(
-                span,
-                format!(
-                    "`{namespace}.{method}` requires a runtime host; \
-                     the deterministic evaluator has no ambient I/O"
-                ),
-            )),
-            other => Err(RuntimeError::new(
-                span,
-                format!("unknown namespace `{other}`"),
-            )),
+            _ => {
+                if let Some(host) = self.host {
+                    return host
+                        .call(namespace, method, &args)
+                        .map_err(|message| RuntimeError::new(span, message));
+                }
+                match namespace {
+                    "db" | "fs" | "agents" | "runtime" | "frontend" | "workspaces"
+                    | "artifacts" | "patches" | "commands" | "browser" => Err(RuntimeError::new(
+                        span,
+                        format!(
+                            "`{namespace}.{method}` requires a runtime host; \
+                                 the deterministic evaluator has no ambient I/O"
+                        ),
+                    )),
+                    other => Err(RuntimeError::new(
+                        span,
+                        format!("unknown namespace `{other}`"),
+                    )),
+                }
+            }
         }
     }
 

@@ -5,7 +5,11 @@
 //! the browser host behind the same value model.
 
 pub mod eval;
+pub mod host;
 pub mod value;
+pub mod workspace_host;
 
-pub use eval::{run, Evaluator, RuntimeError};
+pub use eval::{run, run_with_host, Evaluator, RuntimeError};
+pub use host::Host;
 pub use value::Value;
+pub use workspace_host::WorkspaceHost;

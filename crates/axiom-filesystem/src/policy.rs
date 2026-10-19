@@ -101,6 +101,9 @@ pub fn protected_reason(path: &str) -> Option<&'static str> {
     if path == ".git" || path.starts_with(".git/") {
         return Some("VCS metadata");
     }
+    if path == ".axiom" || path.starts_with(".axiom/") {
+        return Some("runtime metadata");
+    }
     if path == "db/migrations" || path.starts_with("db/migrations/") {
         return Some("db/migrations");
     }
@@ -347,6 +350,7 @@ mod tests {
         assert!(policy.check_read("src/frontend/app.ax").is_ok());
         assert!(policy.check_read("src/server/app.ax").is_err());
         assert!(policy.check_read("axiom.yaml").is_err());
+        assert!(policy.check_read(".axiom/integration.lock").is_err());
         assert!(policy.check_read("README.md").is_err());
         assert!(policy.check_read("../escape").is_err());
     }

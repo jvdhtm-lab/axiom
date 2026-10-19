@@ -8,20 +8,26 @@
 //! - [`policy`] evaluates workspace permissions (read/write/deny/protected) and
 //!   narrows derived workspaces;
 //! - [`overlay`] provides copy-on-write isolation with snapshot/restore/discard;
-//! - [`patch`] produces immutable patches and detects integration conflicts.
+//! - [`patch`] produces immutable patches and detects integration conflicts;
+//! - [`worktree`] creates isolated Git worktrees/branches;
+//! - [`integration`] gates integration behind an exclusive lock.
 //!
-//! Real OS sandboxing (process isolation, Git worktrees, containerization) is
-//! tracked as remaining Phase 6 work in `docs/implementation-ledger.md`.
+//! OS/container process isolation lives in `axiom-tools`; this crate owns the
+//! filesystem and integration boundary.
 
+pub mod integration;
 pub mod overlay;
 pub mod patch;
 pub mod path;
 pub mod policy;
+pub mod worktree;
 
+pub use integration::IntegrationLock;
 pub use overlay::{Snapshot, Workspace};
 pub use patch::{Conflict, FileChange, FileChangeKind, Patch};
 pub use path::{normalize, Pattern};
 pub use policy::{Access, DenyReason, EffectivePolicy, IsolationMode, Limits, WorkspacePolicy};
+pub use worktree::GitWorktree;
 
 use std::fmt;
 
@@ -44,6 +50,14 @@ pub enum FsError {
     NotText(String),
     /// A derived workspace would widen its base's authority.
     Widening(String),
+    /// A Git worktree operation failed (missing Git, not a repository, ...).
+    Worktree(String),
+    /// An integration lock is held by another operation.
+    IntegrationLocked(String),
+    /// An integration was refused (wrong isolation, conflict, stale base, ...).
+    IntegrationRefused(String),
+    /// A host filesystem operation failed.
+    Io(String),
 }
 
 impl fmt::Display for FsError {
@@ -71,6 +85,14 @@ impl fmt::Display for FsError {
             FsError::Widening(detail) => {
                 write!(f, "workspace would widen authority: {detail}")
             }
+            FsError::Worktree(detail) => write!(f, "git worktree error: {detail}"),
+            FsError::IntegrationLocked(detail) => {
+                write!(f, "integration lock is held: {detail}")
+            }
+            FsError::IntegrationRefused(detail) => {
+                write!(f, "integration refused: {detail}")
+            }
+            FsError::Io(detail) => write!(f, "filesystem error: {detail}"),
         }
     }
 }

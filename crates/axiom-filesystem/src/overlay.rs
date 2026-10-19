@@ -283,6 +283,100 @@ impl Workspace {
         Ok(patch)
     }
 
+    /// Apply an approved patch to the shared base, returning the integrated
+    /// tree. The caller must persist the returned [`Snapshot`].
+    ///
+    /// Only `exclusive_integration` workspaces may integrate, the lock must be
+    /// held (proven by its type), the patch must target the current base, and
+    /// every touched path must still be writable and unprotected.
+    pub fn integrate(
+        &self,
+        _lock: &crate::integration::IntegrationLock,
+        patch: &Patch,
+        files: &BTreeMap<String, Vec<u8>>,
+    ) -> Result<Snapshot, FsError> {
+        if self.isolation != IsolationMode::ExclusiveIntegration {
+            return Err(FsError::IntegrationRefused(format!(
+                "`{}` workspaces cannot integrate",
+                self.isolation.as_str()
+            )));
+        }
+        if patch.base_revision != self.base.revision() {
+            return Err(FsError::IntegrationRefused(format!(
+                "patch base `{}` does not match the current base `{}`",
+                patch.base_revision,
+                self.base.revision()
+            )));
+        }
+        let conflicts = patch.check_conflicts(&self.base);
+        if !conflicts.is_empty() {
+            return Err(FsError::IntegrationRefused(
+                conflicts
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("; "),
+            ));
+        }
+
+        let limits = self.limits();
+        if let Some(max) = limits.max_changed_files {
+            if patch.changes.len() as u64 > max {
+                return Err(FsError::Limit {
+                    what: "changed files",
+                    limit: max,
+                });
+            }
+        }
+
+        let mut tree: BTreeMap<String, Vec<u8>> = self
+            .base
+            .iter()
+            .map(|(path, bytes)| (path.clone(), bytes.clone()))
+            .collect();
+
+        for change in &patch.changes {
+            let path = self.policy.check_write(&change.path)?;
+            match change.kind {
+                FileChangeKind::Added | FileChangeKind::Modified => {
+                    let bytes = files.get(&change.path).ok_or_else(|| {
+                        FsError::IntegrationRefused(format!(
+                            "missing content for `{}`",
+                            change.path
+                        ))
+                    })?;
+                    if let Some(max) = limits.max_file_bytes {
+                        if bytes.len() as u64 > max {
+                            return Err(FsError::Limit {
+                                what: "file bytes",
+                                limit: max,
+                            });
+                        }
+                    }
+                    let hash = hex_digest(bytes);
+                    if change.new_hash.as_deref() != Some(hash.as_str()) {
+                        return Err(FsError::IntegrationRefused(format!(
+                            "content for `{}` does not match the patch",
+                            change.path
+                        )));
+                    }
+                    tree.insert(path, bytes.clone());
+                }
+                FileChangeKind::Deleted => {
+                    if change.new_hash.is_some() {
+                        return Err(FsError::IntegrationRefused(format!(
+                            "deleted file `{}` has new content",
+                            change.path
+                        )));
+                    }
+                    tree.remove(&path);
+                }
+            }
+        }
+
+        Ok(Snapshot::from_files(tree))
+    }
+
     /// Snapshot the current view.
     pub fn snapshot(&self) -> Snapshot {
         Snapshot::from_files(self.materialized())

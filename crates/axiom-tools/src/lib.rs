@@ -59,6 +59,8 @@ pub enum ToolError {
     UnsafeInput(String),
     /// Execution was requested from a runner that refuses to run commands.
     ExecutionUnavailable(String),
+    /// A command exceeded its configured wall-clock timeout.
+    Timeout { profile: String, seconds: u64 },
 }
 
 impl fmt::Display for ToolError {
@@ -76,6 +78,9 @@ impl fmt::Display for ToolError {
             }
             ToolError::ExecutionUnavailable(detail) => {
                 write!(f, "command execution unavailable: {detail}")
+            }
+            ToolError::Timeout { profile, seconds } => {
+                write!(f, "command `{profile}` timed out after {seconds}s")
             }
         }
     }

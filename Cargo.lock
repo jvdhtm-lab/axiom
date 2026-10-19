@@ -77,6 +77,8 @@ dependencies = [
 name = "axiom-runtime"
 version = "0.1.0"
 dependencies = [
+ "axiom-artifacts",
+ "axiom-filesystem",
  "axiom-ir",
  "axiom-syntax",
 ]

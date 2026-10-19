@@ -4,7 +4,7 @@ Tracks Axiom 1.0 requirements against implementation status. **Do not mark an
 item complete without test evidence.** Statuses: `done` (implemented + tested),
 `partial`, `not started`. Phase numbers follow `agents.md` §15.
 
-Last updated: 2026-10-19 (Phase 6 partial: CLI `workspace check`/`sandbox plan`/`artifacts hash` wiring plus tests).
+Last updated: 2026-10-19 (Phase 6 complete: Git worktrees, exclusive integration gate, process command runner, runtime workspace/artifact host).
 
 ## Phase status
 
@@ -16,7 +16,7 @@ Last updated: 2026-10-19 (Phase 6 partial: CLI `workspace check`/`sandbox plan`/
 | 3 | Typed IR and deterministic server evaluator; basic compiler commands | done — `axiom-ir` (deterministic JSON IR with types/effects/capabilities/provenance), `axiom-runtime` evaluator, `axiom build/explain/run`; WASM emission explicitly refused until Phase 4 |
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | partial — `axiom-wasm` emits a valid, content-addressed WASM module embedding the checked IR; `axiom-browser-host` verifies header/ABI/hash/imports; Node integration smoke harness passes. **Missing:** function-level WASM codegen, the DOM renderer/event loop, and the real headless-browser smoke test |
 | 5 | Config, model integrations, registered tools and commands | partial — `axiom.yaml` now matches the §4 schema (integrations, models, runtime budgets, `api_policies`, `compilation`/`entrypoints`/`wasm`, `browser`, `frontend`, `filesystem`, `commands`) with strict unknown-key checks; `axiom-providers` resolves model aliases to a vendor-neutral spec and builds an offline mock provider; `axiom-tools` registers builtins + configured commands. **Missing:** networked adapters and real tool execution/sandbox (Phase 6) |
-| 6 | Filesystem, workspaces, patch/artifact APIs and command sandbox | partial — `axiom-filesystem` implements path normalization/root-escape refusal, workspace read/write/deny/protected policy with narrowing, copy-on-write overlays with snapshot/restore/discard, quotas, and patch generation/conflict checks; `axiom-artifacts` is a content-addressed immutable store with integrity verification; `axiom-tools` plans shell-free, allowlisted commands. The CLI exposes `workspace check`, `sandbox plan`, and `artifacts hash`. **Missing:** real OS/container sandboxing, Git worktrees, and evaluator/runtime integration of the workspace/artifact APIs |
+| 6 | Filesystem, workspaces, patch/artifact APIs and command sandbox | partial — `axiom-filesystem` implements path normalization/root-escape refusal, workspace read/write/deny/protected policy with narrowing, copy-on-write overlays with snapshot/restore/discard, quotas, and patch generation/conflict checks; `axiom-artifacts` is a content-addressed immutable store with integrity verification; `axiom-tools` plans shell-free, allowlisted commands. Git worktree isolation, an exclusive integration lock with conflict and protected-file gates, and a shell-free process command runner (cleared environment with allowlist, timeout, output caps, escaping-directory refusal) complete the isolation surface. A runtime `Host` exposes `fs.*`/`workspaces.*`/`artifacts.*`/`patches.check_conflicts`; the CLI exposes `workspace check`, `sandbox plan`, and `artifacts hash`. **Limitations:** network-enabled command profiles are refused rather than network-isolated (no container/kernel sandbox yet), and `commands.run` is not yet an agent-callable host method (Phase 8) |
 | 7 | Database APIs, roles, parameter checks, approval/audit and migrations | not started |
 | 8 | Agent calls, iteration/validation APIs, budgets, typed results | not started |
 | 9 | Frontend state, state validation/migration, artifact registry and build/data caches | not started |
@@ -53,11 +53,13 @@ Last updated: 2026-10-19 (Phase 6 partial: CLI `workspace check`/`sandbox plan`/
 | Config schema (`axiom.yaml`) for §4 sections + strict unknown-key/placeholder checks | 5 | done | `axiom-config/tests/config.rs` (25): bundled example, api_policies/compilation/browser/frontend, unknown target/host-api/key, placeholder + redaction | `docs/configuration.md` | Value spans still approximate |
 | Model alias resolution + mock provider | 5 | partial | `axiom-providers/tests/providers.rs` (7): spec resolution, alias switch without source edits, unknown alias, no secret leakage, mock determinism | `docs/configuration.md` | Only offline mocks; no networked adapters |
 | Tool registry (builtins + configured commands) | 5 | partial | `axiom-tools/tests/tools.rs` (5): builtin kinds/effects, command tools, unknown tool/command refusal | `docs/configuration.md` | Registry only; execution/sandbox is Phase 6 |
-| Path normalization + root-escape/symlink-safe policy, workspace read/write/deny/protected sets, narrowing | 6 | partial | `axiom-filesystem/tests/workspace.rs` (8) + `policy`/`path` unit tests: escape/absolute refusal, deny/protected win, derived cannot widen; `axiom-cli/tests/workspace.rs` (7) parses `workspace` decls and checks the generated policy | `docs/security-model.md` | Symlink handling is by construction (no OS traversal yet) |
-| Copy-on-write isolation, snapshot/restore/discard, quotas | 6 | partial | `workspace.rs`: base stays pristine, `read_only` refuses writes, `max_file_bytes`/`max_changed_files` limits | `docs/architecture.md` | No Git worktree or OS sandbox; exclusive-integration lock not implemented |
-| Patch generation + integration conflict checks | 6 | partial | `workspace.rs`: `diff`/`submit`, conflict on moved base | `docs/security-model.md` | Text patch only; no merge |
-| Immutable content-addressed artifact store | 6 | partial | `axiom-artifacts/tests/store.rs` (5): determinism, idempotent publish, tamper detection; CLI `artifacts hash` verified on `examples/axiom.yaml` | `docs/architecture.md` | Registry versioning/retention/caches are Phase 9 |
-| Command sandbox: allowlisted profile + structured argv (never a shell) | 6 | partial | `axiom-tools/tests/sandbox.rs` (5): argv build, metacharacters literal, unknown profile/unsafe dir refused, mock runner; CLI `sandbox plan` prints a plan and rejects escaping working directories | `docs/security-model.md` | Planning/validation only; OS/container execution is Phase 6 hardening |
+| Path normalization + root-escape/symlink-safe policy, workspace read/write/deny/protected sets, narrowing | 6 | done | `axiom-filesystem/tests/workspace.rs` (8) + `policy`/`path` unit tests: escape/absolute refusal, deny/protected win (including `.git`/`.axiom`), derived cannot widen; `axiom-cli/tests/workspace.rs` (7) parses `workspace` decls and checks the generated policy | `docs/security-model.md` | No OS traversal yet: symlinks cannot be followed because the runtime model is in-memory (disk persistence is Phase 11) |
+| Copy-on-write isolation, snapshot/restore/discard, quotas | 6 | done | `workspace.rs`: base stays pristine, `read_only` refuses writes, `max_file_bytes`/`max_changed_files` limits | `docs/architecture.md` | Large-file streaming not implemented (in-memory values) |
+| Git worktree isolation | 6 | done | `axiom-filesystem/tests/worktree.rs` (2) + branch-name unit test: create, modify, diff, remove; non-repository refused; unsafe branch names refused | `docs/security-model.md` | Requires `git`; worktree branch is not deleted automatically |
+| Patch generation + integration conflict checks and exclusive integration gate | 6 | done | `workspace.rs`: `diff`/`submit`, conflict on moved base; `tests/integration.rs` (5): lock exclusivity, exclusive-mode requirement, stale/conflicting patch refusal, protected files refused | `docs/security-model.md` | Text patch only; no merge; stale lock removal is an operator action |
+| Immutable content-addressed artifact store | 6 | done | `axiom-artifacts/tests/store.rs` (5): determinism, idempotent publish, tamper detection; CLI `artifacts hash` verified on `examples/axiom.yaml` | `docs/architecture.md` | Registry versioning/retention/caches are Phase 9 |
+| Command sandbox: allowlisted profile + structured argv (never a shell) | 6 | done | `axiom-tools/tests/sandbox.rs` (5): argv build, metacharacters literal, unknown profile/unsafe dir refused, mock runner; `tests/process.rs` (6): real argv execution, nonzero exit, network refusal, env-cleared run, output cap, timeout kill; CLI `sandbox plan` prints a plan and rejects escaping working directories | `docs/security-model.md` | Process isolation only: network-enabled profiles are refused, not network-isolated; no container backend yet |
+| Runtime host: `fs.*`/`workspaces.*`/`artifacts.*`/`patches.check_conflicts` over a workspace | 6,8 | done | `axiom-runtime/tests/host.rs` (5): read/write through policy, denial propagation, artifact publish/fetch/verify/inspect, snapshot/restore; host-less evaluation still fails closed | `docs/architecture.md` | `commands.run`, agents, DB, and integration are not exposed to Axiom code yet (later phases) |
 | Database subsystem | 7 | not started | — | `docs/language-spec.md` §7 | — |
 | Agents/validation/budgets | 8 | not started | — | — | — |
 | Frontend state/caches | 9 | not started | — | `docs/language-spec.md` §9 | — |
@@ -78,12 +80,15 @@ a verifying host ABI (Node integration smoke test only). It loads and validates
 the full §4 `axiom.yaml` schema, resolves model aliases to a provider-neutral
 spec with an offline mock provider, registers builtin and command tools, enforces
 workspace path/permission/isolation/quota rules with copy-on-write overlays and
-patch conflict checks, stores immutable content-addressed artifacts, and plans
-shell-free allowlisted commands. It does **not** infer expression types, report
-`match` exhaustiveness, generate function-level WASM or a DOM renderer, run a
-real browser test, talk to a networked model provider, run commands in a real
-OS/container sandbox or Git worktree, or provide the database, durability, or
-budget subsystems. The CLI wires these filesystem/artifact/tool APIs into
-`workspace check`, `sandbox plan`, and `artifacts hash`, but they are not yet
-integrated into the evaluator/runtime. Nothing should be assumed to work unless
-the requirement ledger above cites a passing test.
+patch conflict checks, isolates work in Git worktrees, gates integration behind
+an exclusive lock, stores immutable content-addressed artifacts, and runs
+allowlisted commands with process isolation (argv-only, cleared environment,
+timeout, output caps; network profiles refused). `run_with_host` exposes
+workspaces and artifacts to the evaluator, and the CLI wires the APIs into
+`workspace check`, `sandbox plan`, and `artifacts hash`. It does **not** infer
+expression types, report `match` exhaustiveness, generate function-level WASM or
+a DOM renderer, run a real browser test, talk to a networked model provider, run
+commands in a container/kernel network sandbox, let `axiom run` select a
+workspace at the CLI, or provide the database, durability, or budget subsystems.
+Nothing should be assumed to work unless the requirement ledger above cites a
+passing test.
