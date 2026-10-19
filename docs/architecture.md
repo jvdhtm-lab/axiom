@@ -68,7 +68,7 @@ crates/
   axiom-types/       module graph, symbols, type/effect/target/SQL checks
   axiom-hash/        dependency-free SHA-256 content addressing
   axiom-ir/          shared typed IR, lowering, deterministic JSON
-  axiom-runtime/     deterministic server evaluator + optional runtime host
+  axiom-runtime/     deterministic evaluator, runtime hosts (workspace/database/agents), budgets
   axiom-wasm/        browser WASM backend + artifact manifest (Phase 4 partial)
   axiom-browser-host/ trusted host ABI + artifact verification
   axiom-config/      axiom.yaml loading, expansion, validation (A4 schema)
@@ -111,6 +111,12 @@ The evaluator also has `run_with_host`: `axiom_runtime::WorkspaceHost` implement
 privileged `IntegrationLock` and an approved patch. `axiom_runtime::DatabaseHost`
 implements `db.query`/`db.query_one`/`db.execute` over a configured database;
 schema, migration, and role-audit calls are operator APIs, not agent APIs.
+`axiom_runtime::AgentHost` implements `agents.iterate` and
+`runtime.parallel_map`: it resolves the agent's model alias through
+`axiom-providers`, enforces the agent's declared budgets, runs registered
+validators, and returns a runtime-owned `IterationOutcome` (status, attempts,
+content-addressed candidate, per-attempt validation, evidence). Acceptance and
+evidence are never set by the model or the calling function.
 `commands.run` remains a planned host method (Phase 8).
 
 ## Source vs configuration

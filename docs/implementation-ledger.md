@@ -4,7 +4,7 @@ Tracks Axiom 1.0 requirements against implementation status. **Do not mark an
 item complete without test evidence.** Statuses: `done` (implemented + tested),
 `partial`, `not started`. Phase numbers follow `agents.md` §15.
 
-Last updated: 2026-10-19 (Phase 7 partial: SQLite/PostgreSQL database subsystem, roles, audit, write approvals, reviewed migrations, runtime `DatabaseHost`, and CLI `db` commands).
+Last updated: 2026-10-19 (Phase 8 partial: agent specs from IR, `agents.iterate` with runtime-owned acceptance, validators, budgets, and typed `IterationOutcome`).
 
 ## Phase status
 
@@ -18,7 +18,7 @@ Last updated: 2026-10-19 (Phase 7 partial: SQLite/PostgreSQL database subsystem,
 | 5 | Config, model integrations, registered tools and commands | partial — `axiom.yaml` now matches the §4 schema (integrations, models, runtime budgets, `api_policies`, `compilation`/`entrypoints`/`wasm`, `browser`, `frontend`, `filesystem`, `commands`) with strict unknown-key checks; `axiom-providers` resolves model aliases to a vendor-neutral spec and builds an offline mock provider; `axiom-tools` registers builtins + configured commands. **Missing:** networked adapters and real tool execution/sandbox (Phase 6) |
 | 6 | Filesystem, workspaces, patch/artifact APIs and command sandbox | partial — `axiom-filesystem` implements path normalization/root-escape refusal, workspace read/write/deny/protected policy with narrowing, copy-on-write overlays with snapshot/restore/discard, quotas, and patch generation/conflict checks; `axiom-artifacts` is a content-addressed immutable store with integrity verification; `axiom-tools` plans shell-free, allowlisted commands. Git worktree isolation, an exclusive integration lock with conflict and protected-file gates, and a shell-free process command runner (cleared environment with allowlist, timeout, output caps, escaping-directory refusal) complete the isolation surface. A runtime `Host` exposes `fs.*`/`workspaces.*`/`artifacts.*`/`patches.check_conflicts`; the CLI exposes `workspace check`, `sandbox plan`, and `artifacts hash`. **Limitations:** network-enabled command profiles are refused rather than network-isolated (no container/kernel sandbox yet), and `commands.run` is not yet an agent-callable host method (Phase 8) |
 | 7 | Database APIs, roles, parameter checks, approval/audit and migrations | partial — `axiom-database` implements parameterized SQL analysis, separate read/write/schema connections, bounded reads, approved + idempotent writes, redacted audit records, reviewed migrations with a destructive-change gate, and a PostgreSQL target policy; `axiom_runtime::DatabaseHost` exposes `db.query`/`db.query_one`/`db.execute`; the CLI adds `db check` and `db migrations plan`. **Missing:** a live PostgreSQL wire adapter (release CI), which is policy-only here |
-| 8 | Agent calls, iteration/validation APIs, budgets, typed results | not started |
+| 8 | Agent calls, iteration/validation APIs, budgets, typed results | partial — `axiom-runtime` builds `AgentSpec` from lowered IR, runs `agents.iterate` with runtime-owned acceptance, a validator registry (fail-closed, `checks.ax_compile` builtin), declared budgets, content-addressed candidates, and a typed `IterationOutcome`; `axiom_runtime::AgentHost` exposes `agents.iterate`/`runtime.parallel_map` (sequential). **Missing:** `runtime.retry`/`checkpoint`/`run_durable` (Phase 10), networked providers, and true concurrency |
 | 9 | Frontend state, state validation/migration, artifact registry and build/data caches | not started |
 | 10 | Durable async execution, checkpoints, resume, cancellation, tracing, approvals | not started |
 | 11 | Full-stack reference app, tooling, docs, security hardening | not started |
@@ -66,7 +66,13 @@ Last updated: 2026-10-19 (Phase 7 partial: SQLite/PostgreSQL database subsystem,
 | Reviewed migrations with destructive-change gating + migration workspace/lock | 7 | done | `axiom-database/tests/migrations.rs` (8): checksum divergence, out-of-order refusal, destructive detection (drop/truncate/delete/update-without-where), workspace-marker requirement, lock exclusivity, apply records history and validates in scratch | `docs/security-model.md` | No down/rollback migrations; destructive approval is a checksum+expiry token |
 | PostgreSQL target policy (TLS required, private/metadata hosts refused) | 7 | partial | `axiom-database/tests/postgres.rs` (4) + `axiom-cli/tests/database.rs`: URL/database/SSL-mode parsing, private-host refusal unless allowed, sanitized output; `AXIOM_TEST_POSTGRES_URL`-gated test validates the URL then skips | `docs/configuration.md` | **No wire adapter**: no real connection, so enforcement is unproven against a server |
 | Runtime `DatabaseHost` (`db.query`/`db.query_one`/`db.execute`) + CLI `db check`/`db migrations plan` | 7 | done | `axiom-runtime/tests/database_host.rs` (4): reads return records, audit counts, writes denied without approval then approved/replayed, operator-only methods refused; `axiom-cli/tests/database.rs` (4): spec building, unsafe paths, PostgreSQL policy, redaction | `docs/architecture.md` | Schema/migration/role-audit calls are intentionally not agent APIs |
-| Agents/validation/budgets | 8 | not started | — | — | — |
+| Agent declaration metadata → runtime `AgentSpec` (model alias, workspace, tools, limits, context) | 8 | done | `axiom-runtime/tests/agents.rs` (13): spec built from lowered IR (`agent_spec_is_built_from_lowered_ir`), missing model reported | `docs/language-spec.md` §5 | `context` and `tools` are recorded, not yet enforced at call time |
+| `agents.iterate` with runtime-owned acceptance and required validation | 8 | done | `tests/agents.rs`: pass-first acceptance with evidence, repair-pass feeds structured findings back, exhaustion, empty-validator refusal, unknown validator fails closed, advisory `ModelEvaluated` pass does not satisfy a required check, forged "all tests passed" claim rejected | `docs/security-model.md` | Iteration is synchronous; no durable resume (Phase 10) |
+| Validation registry: `RuntimeCheck`/`ModelEvaluated`/`HumanReviewed`, fail-closed results + evidence | 8 | done | `tests/agents.rs` + `axiom-runtime/src/validation.rs` unit paths; builtin `checks.ax_compile` parses the candidate and fails on errors | `docs/architecture.md` | Only `checks.ax_compile` ships builtin; others are operator-registered |
+| Budgets (`max_calls`, `max_output_bytes`, `timeout`) enforced per run | 8 | done | `tests/agents.rs`: `budget_exhaustion_stops_the_loop`; `budget.rs` unit paths | `docs/security-model.md` | Timeout is checked between attempts (advisory wall clock), not a hard per-call limit |
+| Typed results: content-addressed candidates + `IterationOutcome` (`accepted`/`exhausted`/`escalated`/`failed`/`cancelled`) | 8 | done | `tests/agents.rs`: `candidates_are_content_addressed`, status coverage, `agent_host_runs_iteration_through_the_evaluator` | `docs/architecture.md` | Outcome is a runtime record value; no dedicated Axiom type yet |
+| `runtime.parallel_map` bounded map over a finite list | 8 | partial | `agent_host.rs`; host test asserts refusal of `runtime.run_durable` | `docs/architecture.md` | Runs sequentially in input order with a shared budget; no real concurrency |
+| `runtime.retry` / `checkpoint` / `run_durable` | 10 | not started | — | — | Durable execution is Phase 10 |
 | Frontend state/caches | 9 | not started | — | `docs/language-spec.md` §9 | — |
 | Durable execution | 10 | not started | — | — | — |
 | Reference app | 11 | partial | `reference_examples_parse_cleanly`, `reference_examples_have_no_semantic_errors` | `examples/src/*.ax` | Parses/checks; not executed |
@@ -96,10 +102,15 @@ connections over an offline SQLite engine, bounds reads, gates and audits writes
 behind single-use approvals with idempotency, applies reviewed migrations behind
 a destructive-change gate, and validates a PostgreSQL release target policy;
 `axiom_runtime::DatabaseHost` exposes `db.query`/`db.query_one`/`db.execute` to
-the evaluator and the CLI adds `db check`/`db migrations plan`. It does **not**
-infer expression types, report `match` exhaustiveness, generate function-level
-WASM or a DOM renderer, run a real browser test, talk to a networked model
-provider, connect to a live PostgreSQL server (no wire adapter), run commands in
-a container/kernel network sandbox, let `axiom run` select a workspace at the
-CLI, or provide the durability or budget subsystems. Nothing should be assumed
-to work unless the requirement ledger above cites a passing test.
+the evaluator and the CLI adds `db check`/`db migrations plan`. The runtime also
+builds agent specs from lowered IR and runs `agents.iterate`: a model produces a
+content-addressed candidate, required validators (fail-closed, with
+`ModelEvaluated`/`HumanReviewed` as advisory only) decide acceptance, and the
+agent's declared budgets bound every attempt. It does **not** infer expression
+types, report `match` exhaustiveness, generate function-level WASM or a DOM
+renderer, run a real browser test, talk to a networked model provider, connect to
+a live PostgreSQL server (no wire adapter), run commands in a container/kernel
+network sandbox, provide durable execution (`runtime.checkpoint`/`run_durable`)
+or real concurrency, let `axiom run` select a workspace at the CLI, or provide
+the budget-independent durability subsystems. Nothing should be assumed to work
+unless the requirement ledger above cites a passing test.

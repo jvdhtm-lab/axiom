@@ -555,9 +555,7 @@ impl Connection {
                     if text.is_null() || bytes <= 0 {
                         Value::Text(String::new())
                     } else {
-                        let slice = unsafe {
-                            std::slice::from_raw_parts(text, bytes as usize)
-                        };
+                        let slice = unsafe { std::slice::from_raw_parts(text, bytes as usize) };
                         Value::Text(String::from_utf8_lossy(slice).to_string())
                     }
                 }

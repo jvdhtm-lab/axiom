@@ -117,6 +117,13 @@ We threat-model at least:
   and refuse loopback/private/link-local/metadata hosts unless explicitly
   allowed. **Phase 7 ships no PostgreSQL wire adapter** — this is a target policy
   plus a gated validation test, not a working remote connection.
+- Agent acceptance is runtime-owned: `agents.iterate` builds a candidate and runs
+  required validators; a model's text claiming success is never evidence.
+  Required validation fails closed (missing/errored/unsupported/failed all block
+  acceptance), `ModelEvaluated`/`HumanReviewed` results are advisory, and an
+  empty validator list can never accept. Declared `limits` (`max_calls`,
+  `max_output_bytes`, `timeout`) bound every attempt; candidates are
+  content-addressed so downstream approvals bind to the exact artifact.
 - Tests include malicious inputs and race conditions, not only success cases.
 
 ## Residual risks / honest limitations

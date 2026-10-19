@@ -13,3 +13,6 @@ axiom-ir = { workspace = true }
 axiom-filesystem = { workspace = true }
 axiom-artifacts = { workspace = true }
 axiom-database = { workspace = true }
+axiom-config = { workspace = true }
+axiom-hash = { workspace = true }
+axiom-providers = { workspace = true }
