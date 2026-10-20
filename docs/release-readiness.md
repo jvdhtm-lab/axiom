@@ -4,7 +4,8 @@ Status: **not ready for an Axiom 1.0 release.** This audit covers the repository
 at version `0.1.0` and records what is evidenced, what is partial, and what is
 still missing. A green test suite is not a completeness claim.
 
-Last audited: 2026-10-20.
+Last audited: 2026-10-20. Audited source commit: `7f63c1e` (CI green); this
+document was updated immediately after that verification.
 
 ## Decision
 
@@ -53,7 +54,8 @@ Run from the repository root unless noted.
 | `axiom build --target wasm_browser --out ... examples/src/deterministic.ax` | artifact written |
 | `node browser/host-smoke.mjs ...` | `ok` (hash, ABI v1, IR v1) |
 | `axiom build --target wasm_browser examples/src/{shared,frontend,server}.ax` | **fails**: `get_dashboard` uses `db.read`, which is not available on `wasm_browser` |
-| Clean checkout: `cargo build --workspace --all-targets --all-features` | recorded in "Clean-checkout verification" |
+| Clean checkout: `cargo build --workspace --all-targets --all-features` | pass at `7f63c1e` (see below) |
+| GitHub Actions CI (`fmt`, `clippy --all-features`, `test`) | pass on `7f63c1e` at https://github.com/jvdhtm-lab/axiom/actions/runs/39422548796 |
 
 The `check`/`config check` warning is expected: `examples/axiom.yaml` references
 integration keys by environment variable, and the audit used placeholder values
@@ -121,10 +123,23 @@ with a named gap; **not met** = no credible implementation.
 
 ## Clean-checkout verification
 
-To be filled after the audit commit is pushed: clone the remote into a fresh
-directory, then run format, clippy (all features), build (all targets), and the
-signed test binaries. A local build in the primary working tree is not a
-substitute because it can reuse stale artifacts.
+A fresh clone of `https://github.com/jvdhtm-lab/axiom` at commit `7f63c1e` was
+created in a separate directory with `core.autocrlf=false` and an empty `target/`
+directory, then checked with:
+
+| Command | Result |
+| --- | --- |
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --workspace --all-targets --all-features -- -D warnings` | pass |
+| `cargo build --workspace --all-targets --all-features` | pass |
+| `cargo test --workspace` (signed test executables) | pass: 52 executables, 274 tests, 1 ignored |
+
+GitHub Actions ran the same source on Ubuntu and passed (run `39422548796`).
+The first CI attempt at `23cd597` failed because a test assumed Windows path
+semantics (`C:/...` is absolute). `spec_from_config` now rejects drive-prefixed
+paths on every platform, the test covers both POSIX and Windows absolute paths,
+and the fix is in `7f63c1e`. This is why the clean-checkout result is recorded
+against `7f63c1e`, not the audit commit.
 
 ## Known limitations
 
