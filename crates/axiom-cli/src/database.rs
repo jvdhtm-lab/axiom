@@ -35,7 +35,7 @@ pub fn spec_from_config(
         return Err(format!("database `{name}` is missing `path`"));
     };
     let relative_path = Path::new(relative);
-    if relative_path.has_root()
+    if is_absolute_path(relative_path)
         || relative_path
             .components()
             .any(|c| matches!(c, std::path::Component::ParentDir))
@@ -56,7 +56,7 @@ pub fn spec_from_config(
     spec.require_write_approval = config.require_write_approval.unwrap_or(true);
     if let Some(migrations) = config.migrations.as_deref() {
         let migration_path = Path::new(migrations);
-        if migration_path.has_root()
+        if is_absolute_path(migration_path)
             || migration_path
                 .components()
                 .any(|c| matches!(c, std::path::Component::ParentDir))
@@ -68,6 +68,17 @@ pub fn spec_from_config(
         spec.migrations_dir = Some(base.join(migration_path));
     }
     Ok(spec)
+}
+
+/// Reject paths that are absolute on any supported platform. A Windows drive
+/// prefix is not a root component on Unix, so check it explicitly.
+fn is_absolute_path(path: &Path) -> bool {
+    if path.has_root() {
+        return true;
+    }
+    let text = path.to_string_lossy();
+    let bytes = text.as_bytes();
+    bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
 }
 
 /// Build the PostgreSQL target policy. This validates the release target only;

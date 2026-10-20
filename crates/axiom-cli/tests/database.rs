@@ -57,19 +57,23 @@ fn builds_a_bounded_sqlite_spec_under_the_project_root() {
 #[test]
 fn unsafe_paths_and_wrong_engines_are_refused() {
     let absolute = sqlite_config(Some("C:/etc/app.sqlite"), None);
-    assert!(database::spec_from_config(Path::new("E:/proj"), "app", &absolute).is_err());
+    assert!(database::spec_from_config(Path::new("proj"), "app", &absolute).is_err());
+    let absolute_unix = sqlite_config(Some("/etc/app.sqlite"), None);
+    assert!(database::spec_from_config(Path::new("proj"), "app", &absolute_unix).is_err());
     let escape = sqlite_config(Some("../outside.sqlite"), None);
-    assert!(database::spec_from_config(Path::new("E:/proj"), "app", &escape).is_err());
+    assert!(database::spec_from_config(Path::new("proj"), "app", &escape).is_err());
     let missing = sqlite_config(None, None);
-    assert!(database::spec_from_config(Path::new("E:/proj"), "app", &missing).is_err());
+    assert!(database::spec_from_config(Path::new("proj"), "app", &missing).is_err());
     let bad_migrations = sqlite_config(Some("data/app.sqlite"), Some("/etc/migrations"));
-    assert!(database::spec_from_config(Path::new("E:/proj"), "app", &bad_migrations).is_err());
+    assert!(database::spec_from_config(Path::new("proj"), "app", &bad_migrations).is_err());
+    let windows_migrations = sqlite_config(Some("data/app.sqlite"), Some("C:/migrations"));
+    assert!(database::spec_from_config(Path::new("proj"), "app", &windows_migrations).is_err());
 
     let postgres = postgres_config(
         "postgres://u:p@db.example.com:5432/app?sslmode=require",
         false,
     );
-    assert!(database::spec_from_config(Path::new("E:/proj"), "reporting", &postgres).is_err());
+    assert!(database::spec_from_config(Path::new("proj"), "reporting", &postgres).is_err());
 }
 
 #[test]
