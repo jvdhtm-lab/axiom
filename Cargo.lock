@@ -97,6 +97,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "axiom-state"
+version = "0.1.0"
+dependencies = [
+ "axiom-hash",
+]
+
+[[package]]
 name = "axiom-syntax"
 version = "0.1.0"
 

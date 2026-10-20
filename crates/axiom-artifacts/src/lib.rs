@@ -1,16 +1,28 @@
-//! Immutable, content-addressed artifact store (agents.md §6.2, Phase 6 partial).
+//! Immutable, content-addressed artifact store (agents.md §6.2, Phase 9).
 //!
 //! An artifact's address is the SHA-256 of its kind and bytes, so identical
 //! content always has one identity and a stored artifact can never be replaced
 //! by different bytes under the same id. Integrity is checked by re-hashing on
 //! demand; a mismatch is reported, never silently trusted.
 //!
-//! Registry versioning, retention, and the build/data caches are Phase 9 work.
+//! Releases are immutable manifests over artifacts; activation re-verifies
+//! integrity and ABI, and revocation blocks future activation. Build and
+//! server-data caches use explicit, reproducible keys with TTL/tag
+//! invalidation and per-principal isolation.
+
+pub mod cache;
+pub mod registry;
 
 use std::collections::BTreeMap;
 use std::fmt;
 
 use axiom_hash::hex_digest;
+
+pub use cache::{BuildCache, BuildKey, CacheError, CachePartition, DataCache, DataCacheKey};
+pub use registry::{
+    is_content_hash, ActivationPolicy, ArtifactRef, EvidenceStatus, RegistryError, ReleaseEvidence,
+    ReleaseManifest, ReleaseRegistry,
+};
 
 /// What an artifact contains. The kind is part of the address so a WASM module
 /// and a patch with identical bytes never collide.

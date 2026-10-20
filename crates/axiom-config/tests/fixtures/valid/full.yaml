@@ -55,6 +55,28 @@ databases:
     data_class: confidential
     allow_private_network: false
 
+frontend:
+  registry:
+    content_addressed: true
+    retain_accepted_versions: 3
+  build_cache:
+    enabled: true
+    max_bytes: 1048576
+
+frontend_state:
+  id: dashboard
+  type: src.frontend.DashboardState
+  schema_version: 3
+  scope: application
+  persistence: persistent
+  migrations:
+    - from: 1
+      to: 2
+      function: src.frontend.migrate_dashboard_v2
+    - from: 2
+      to: 3
+      function: src.frontend.migrate_dashboard_v3
+
 commands:
   cargo_check:
     executable: cargo

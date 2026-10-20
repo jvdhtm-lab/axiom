@@ -279,6 +279,28 @@ pub struct FrontendConfig {
     pub build_cache: BuildCacheConfig,
 }
 
+/// One declared pure migration from `from` to `from + 1`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct StateMigrationConfig {
+    pub from: u32,
+    pub to: u32,
+    pub function: String,
+}
+
+/// Typed frontend state declared in `axiom.yaml` (agents.md §8, §13.5).
+///
+/// State is not a language declaration: it is metadata for an ordinary record
+/// type, with an explicit scope, persistence mode, and migration chain.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FrontendStateConfig {
+    pub id: String,
+    pub record_type: String,
+    pub schema_version: u32,
+    pub scope: String,
+    pub persistence: String,
+    pub migrations: Vec<StateMigrationConfig>,
+}
+
 /// A validated `axiom.yaml` project configuration.
 #[derive(Debug, Clone, Default)]
 pub struct ProjectConfig {
@@ -294,6 +316,7 @@ pub struct ProjectConfig {
     pub compilation: CompilationConfig,
     pub browser: BrowserConfig,
     pub frontend: FrontendConfig,
+    pub frontend_state: Option<FrontendStateConfig>,
     pub filesystem: FilesystemConfig,
     pub databases: BTreeMap<String, DatabaseConfig>,
     pub commands: BTreeMap<String, CommandProfile>,

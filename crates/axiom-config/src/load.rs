@@ -16,8 +16,8 @@ use crate::expand::expand;
 use crate::model::{
     ApiPolicyConfig, BrowserConfig, BrowserStateConfig, BuildCacheConfig, Capability,
     CommandProfile, CompilationConfig, DataCacheConfig, DatabaseConfig, EntryPointConfig,
-    FilesystemConfig, FrontendConfig, IntegrationConfig, ModelConfig, ProjectConfig,
-    RegistryConfig, RuntimeConfig, Secret, WasmConfig,
+    FilesystemConfig, FrontendConfig, FrontendStateConfig, IntegrationConfig, ModelConfig,
+    ProjectConfig, RegistryConfig, RuntimeConfig, Secret, StateMigrationConfig, WasmConfig,
 };
 
 /// The outcome of loading a configuration file.
@@ -84,6 +84,7 @@ fn default_config() -> ProjectConfig {
         compilation: CompilationConfig::default(),
         browser: BrowserConfig::default(),
         frontend: FrontendConfig::default(),
+        frontend_state: None,
         filesystem: FilesystemConfig::default(),
         databases: BTreeMap::new(),
         commands: BTreeMap::new(),
@@ -171,6 +172,7 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
             "compilation",
             "browser",
             "frontend",
+            "frontend_state",
             "filesystem",
             "databases",
             "commands",
@@ -189,6 +191,7 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
     let compilation = build_compilation(mapping, builder);
     let browser = build_browser(mapping, builder);
     let frontend = build_frontend(mapping, builder);
+    let frontend_state = build_frontend_state(mapping, builder);
     let filesystem = build_filesystem(mapping, builder);
     let databases = build_databases(mapping, builder);
     let commands = build_commands(mapping, builder);
@@ -224,6 +227,7 @@ fn build_root(value: &Value, builder: &mut Builder<'_>) -> Option<ProjectConfig>
         compilation,
         browser,
         frontend,
+        frontend_state,
         filesystem,
         databases,
         commands,
@@ -977,6 +981,146 @@ fn build_build_cache(entries: &Mapping, builder: &mut Builder<'_>) -> BuildCache
     cache
 }
 
+/// Parse the optional top-level `frontend_state` block.
+///
+/// Validation is structural: ids/type names, a positive schema version,
+/// the closed scope/persistence vocabulary, and a contiguous, unique
+/// migration chain ending at `schema_version`.
+fn build_frontend_state(
+    mapping: &Mapping,
+    builder: &mut Builder<'_>,
+) -> Option<FrontendStateConfig> {
+    let value = mapping_field(mapping, "frontend_state")?;
+    let label = "frontend_state";
+    let entries = expect_mapping(value, label, builder)?;
+    check_allowed(
+        entries,
+        &[
+            "id",
+            "type",
+            "schema_version",
+            "scope",
+            "persistence",
+            "migrations",
+        ],
+        label,
+        builder,
+    );
+
+    let Some(id) = required_string(entries, label, "id", builder) else {
+        return Some(FrontendStateConfig::default());
+    };
+    if !is_dotted_name(&id) {
+        builder.error(
+            label,
+            "`id` must be a dotted name using letters, digits, and underscores",
+        );
+    }
+    let record_type = required_string(entries, label, "type", builder).unwrap_or_default();
+    if !is_dotted_name(&record_type) {
+        builder.error(
+            label,
+            "`type` must be a dotted record type name using letters, digits, and underscores",
+        );
+    }
+    let schema_version = match optional_u32(entries, label, "schema_version", builder) {
+        Some(version) if version >= 1 => version,
+        Some(_) => {
+            builder.error(label, "`schema_version` must be at least 1");
+            1
+        }
+        None => {
+            builder.error(label, "missing required field `schema_version`");
+            1
+        }
+    };
+
+    let scope = required_string(entries, label, "scope", builder).unwrap_or_default();
+    if !matches!(scope.as_str(), "component" | "route" | "application") {
+        builder.error(
+            label,
+            "`scope` must be one of `component`, `route`, or `application`",
+        );
+    }
+    let persistence = required_string(entries, label, "persistence", builder).unwrap_or_default();
+    if !matches!(persistence.as_str(), "none" | "session" | "persistent") {
+        builder.error(
+            label,
+            "`persistence` must be one of `none`, `session`, or `persistent`",
+        );
+    }
+
+    let mut migrations = Vec::new();
+    if let Some(value) = mapping_field(entries, "migrations") {
+        match value {
+            Value::Null => {}
+            Value::Sequence(items) => {
+                let mut previous: Option<u32> = None;
+                for (index, item) in items.iter().enumerate() {
+                    let item_label = format!("{label}.migrations[{index}]");
+                    let Some(entry) = expect_mapping(item, &item_label, builder) else {
+                        continue;
+                    };
+                    check_allowed(entry, &["from", "to", "function"], &item_label, builder);
+                    let from = optional_u32(entry, &item_label, "from", builder).unwrap_or(0);
+                    let to = optional_u32(entry, &item_label, "to", builder).unwrap_or(0);
+                    if to != from + 1 {
+                        builder.error(
+                            &item_label,
+                            "a migration must advance exactly one version (`to` = `from` + 1)",
+                        );
+                    }
+                    if let Some(expected) = previous {
+                        if from != expected {
+                            builder.error(
+                                &item_label,
+                                format!(
+                                    "migrations must be contiguous; expected `from: {expected}`"
+                                ),
+                            );
+                        }
+                    } else if from != 1 {
+                        builder.error(&item_label, "the first migration must start at version 1");
+                    }
+                    previous = Some(to);
+                    let function = required_string(entry, &item_label, "function", builder)
+                        .unwrap_or_default();
+                    if !is_dotted_name(&function) {
+                        builder.error(&item_label, "`function` must be a pure function name");
+                    }
+                    migrations.push(StateMigrationConfig { from, to, function });
+                }
+                if let Some(last) = previous {
+                    if last != schema_version {
+                        builder.error(
+                            label,
+                            format!(
+                                "migrations must reach `schema_version` {schema_version}, but end at {last}"
+                            ),
+                        );
+                    }
+                }
+            }
+            other => builder.error(
+                label,
+                format!(
+                    "`migrations` must be a sequence, found {}",
+                    type_name(other)
+                ),
+            ),
+        }
+    }
+
+    Some(FrontendStateConfig {
+        id,
+        record_type,
+        schema_version,
+        scope,
+        persistence,
+        migrations,
+    })
+}
+
 fn build_databases(
     mapping: &Mapping,
     builder: &mut Builder<'_>,
@@ -1419,6 +1563,10 @@ fn is_ident(text: &str) -> bool {
         _ => return false,
     }
     chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+fn is_dotted_name(text: &str) -> bool {
+    !text.is_empty() && text.split('.').all(is_ident)
 }
 
 fn yaml_error_span(text: &str, error: &yaml_serde::Error) -> Span {

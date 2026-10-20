@@ -81,6 +81,22 @@ We threat-model at least:
 - No cache is an authority source; no typed contract is an authorization grant.
 - Artifacts and approvals bind to content hashes and versions and are revalidated
   at activation time.
+- Frontend state is validated before commit: it must be a record, respect its
+  byte limit and registered invariants, and must not contain credential or
+  authorization fields (`token`, `password`, `secret`, `api_key`,
+  `authorization`, `capability`, `grant`, `cookie`, ...). Client state is never
+  an authorization decision.
+- State is partitioned by tenant and principal; quarantining one partition does
+  not expose or clear another. A migration that fails, or that produces invalid
+  state, is not committed, and downgrades require an older snapshot.
+- Release manifests are immutable and content-addressed. Publishing requires a
+  pinned artifact reference and acceptance evidence bound to the exact candidate
+  hash; activation re-verifies artifacts, kind, and ABI. Revocation blocks future
+  activation and rollback, and retention never drops the active/previous release.
+- Build-cache keys cover source, dependencies, compiler, target, options, ABI,
+  and contract versions, and reuse re-checks content. Data-cache keys hash their
+  inputs (never raw tokens), carry explicit TTLs and tags, and are scoped to the
+  tenant/principal partition. Stale-on-error is off by default.
 - `axiom` never runs a shell string assembled from model output.
 - `git_worktree` isolation creates a private checkout on a validated branch;
   unsafe branch names and non-repository roots are refused.

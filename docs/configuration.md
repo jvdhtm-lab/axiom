@@ -133,6 +133,27 @@ Browser-host quotas and state/cache defaults: `isolation`, `max_memory_pages`,
 `require_pinned_references`) and `build_cache` (`enabled`, `max_bytes`) govern
 frontend artifact storage.
 
+### `frontend_state`
+
+Optional typed frontend state (`agents.md` §8, §13.5). State is metadata for an
+ordinary record type, not a language declaration; the runtime validates and
+migrates the value. Omit the block when the frontend has no persisted state.
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `id` | string (required) | stable state id (dotted name), e.g. `editor` |
+| `type` | string (required) | record type, e.g. `src.frontend.EditorState` |
+| `schema_version` | integer (required) | current version, at least 1 |
+| `scope` | string (required) | `component`, `route`, or `application` |
+| `persistence` | string (required) | `none`, `session`, or `persistent` |
+| `migrations` | sequence (optional) | ordered `from`/`to`/`function` entries |
+
+Migrations must advance exactly one version (`to` = `from` + 1), start at 1, be
+contiguous, and end at `schema_version`. `function` names a pure function
+registered with the runtime. Values that contain credential or authorization
+field names (`token`, `password`, `secret`, `api_key`, `authorization`,
+`capability`, `grant`, `cookie`, ...) are refused at commit.
+
 ### `filesystem`
 
 | Key | Type | Notes |

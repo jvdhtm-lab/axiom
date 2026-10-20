@@ -418,6 +418,55 @@ fn api_policies_compilation_browser_and_frontend_are_read() {
     assert_eq!(registry.require_pinned_references, Some(true));
     assert_eq!(config.frontend.build_cache.enabled, Some(true));
     assert_eq!(config.frontend.build_cache.max_bytes, Some(268_435_456));
+
+    let state = config.frontend_state.expect("declared frontend state");
+    assert_eq!(state.id, "editor");
+    assert_eq!(state.record_type, "src.frontend.EditorState");
+    assert_eq!(state.schema_version, 2);
+    assert_eq!(state.scope, "route");
+    assert_eq!(state.persistence, "session");
+    assert_eq!(state.migrations.len(), 1);
+    assert_eq!(state.migrations[0].from, 1);
+    assert_eq!(state.migrations[0].to, 2);
+    assert_eq!(
+        state.migrations[0].function,
+        "src.frontend.migrate_editor_v2"
+    );
+}
+
+#[test]
+fn frontend_state_metadata_is_validated() {
+    let base = |extra: &str| {
+        format!(
+            "version: 1\nfrontend_state:\n  id: editor\n  type: src.frontend.EditorState\n  schema_version: 2\n{extra}"
+        )
+    };
+
+    let bad_scope = parse(
+        "inline.yaml",
+        &base("  scope: global\n  persistence: session\n"),
+    );
+    assert!(messages(&bad_scope).contains("`scope` must be one of"));
+
+    let bad_persistence = parse(
+        "inline.yaml",
+        &base("  scope: route\n  persistence: forever\n"),
+    );
+    assert!(messages(&bad_persistence).contains("`persistence` must be one of"));
+
+    let bad_migration = parse(
+        "inline.yaml",
+        &base("  scope: route\n  persistence: session\n  migrations:\n    - from: 1\n      to: 3\n      function: migrate_v3\n"),
+    );
+    let text = messages(&bad_migration);
+    assert!(text.contains("must advance exactly one version"), "{text}");
+    assert!(text.contains("must reach `schema_version` 2"), "{text}");
+
+    let unknown = parse(
+        "inline.yaml",
+        &base("  scope: route\n  persistence: session\n  storage: disk\n"),
+    );
+    assert!(messages(&unknown).contains("unknown"));
 }
 
 #[test]

@@ -27,5 +27,6 @@ entry is only meaningful when the cited test exists and passes.
 | Agents/validation (§5) | Phase 8 | Phase 8: `forged_evidence_rejected`, `exhausted_does_not_publish` |
 | Filesystem/workspaces (§6) | Phase 6 | Phase 6: `path_escape_rejected`, `deny_glob` |
 | Database roles/approval (§10) | Phase 7 | Phase 7: `injection_rejected`, `approval_hash_mismatch` |
-| State/migration (§8) | Phase 9 | Phase 9: `incompatible_state_blocks`, `tenant_leak` |
+| State/migration (§8) | `axiom-state/tests/state.rs`: hot-swap, migration chain, snapshot/restore, per-partition isolation | `state.rs`: forbidden credential/authorization fields, failed migration keeps old state, downgrade refused, tampered snapshot |
+| Artifacts/caches (§8.5) | `axiom-artifacts/tests/registry.rs`: content-addressed publish, evidence binding, activation/rollback, retention; `tests/cache.rs`: reproducible build keys, TTL/tag invalidation, partition isolation | `registry.rs`: unpinned refs, ABI mismatch, revoked activation/republish, unbound evidence; `cache.rs`: non-reproducible key, missing TTL, stale-on-error default |
 | Durable execution (§11) | Phase 10 | Phase 10: `resume_no_double_side_effect` |

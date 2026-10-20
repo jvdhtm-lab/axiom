@@ -75,8 +75,9 @@ crates/
   axiom-providers/   model alias resolution + offline mock provider (Phase 5)
   axiom-tools/       tool registry, sandbox plans, process command runner (Phase 5/6)
   axiom-filesystem/  secure workspaces: paths, policy, overlays, patches, worktrees, integration lock (Phase 6)
-  axiom-artifacts/   content-addressed immutable artifact store (Phase 6)
+  axiom-artifacts/   content-addressed store, release registry, build/data caches (Phase 6/9)
   axiom-database/    parameterized SQL, roles, audit, approvals, migrations (Phase 7)
+  axiom-state/       typed frontend state: validation, migrations, hot-swap, snapshots (Phase 9)
   axiom-compiler/    target pipeline and code generation (planned)
   axiom-cli/         the `axiom` binary
 browser/             trusted minimal host shell + Node smoke harness
@@ -118,6 +119,19 @@ validators, and returns a runtime-owned `IterationOutcome` (status, attempts,
 content-addressed candidate, per-attempt validation, evidence). Acceptance and
 evidence are never set by the model or the calling function.
 `commands.run` remains a planned host method (Phase 8).
+
+Frontend state and release storage are library APIs in Phase 9.
+`axiom_state::StateStore` validates a declared record, refuses credential or
+authorization fields, keeps tenant/principal partitions separate, and commits a
+migration only after the migrated value validates; same-version activation is a
+hot swap and failures leave the previous state (or a snapshot) restorable.
+`axiom_artifacts::ReleaseRegistry` publishes content-addressed release manifests,
+binds acceptance evidence to the exact candidate, re-verifies artifacts and ABI
+at activation, blocks revoked releases, and rolls back to the previous release.
+`BuildCache` keys cover every build input and reuse is integrity-checked;
+`DataCache` keys hash their inputs, carry explicit TTLs and tags, and are
+partitioned per tenant/principal. These are not yet wired into the browser
+loader or a persistent backend.
 
 ## Source vs configuration
 

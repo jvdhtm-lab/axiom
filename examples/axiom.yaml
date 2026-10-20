@@ -129,6 +129,20 @@ frontend:
     enabled: true
     max_bytes: 268435456
 
+# Typed frontend state (agents.md §8, §13.5). This is metadata for an ordinary
+# record type; migrations are pure functions registered with the runtime and
+# state is never a place for credentials or authorization decisions.
+frontend_state:
+  id: editor
+  type: src.frontend.EditorState
+  schema_version: 2
+  scope: route
+  persistence: session
+  migrations:
+    - from: 1
+      to: 2
+      function: src.frontend.migrate_editor_v2
+
 filesystem:
   project_root: "."
   default_agent_isolation: per_task
