@@ -21,3 +21,4 @@ axiom-filesystem = { workspace = true }
 axiom-artifacts = { workspace = true }
 axiom-tools = { workspace = true }
 axiom-database = { workspace = true }
+axiom-format = { workspace = true }

@@ -5,4 +5,5 @@
 //! (See `docs/development.md` for the Windows Application Control note.)
 
 pub mod database;
+pub mod tooling;
 pub mod workspace;

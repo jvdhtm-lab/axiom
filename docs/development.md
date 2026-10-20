@@ -34,6 +34,9 @@ cargo test --workspace
 Additional smoke commands:
 
 ```sh
+cargo run -p axiom-cli -- init .axiom-smoke
+cargo run -p axiom-cli -- fmt examples/src/deterministic.ax --check
+cargo run -p axiom-cli -- lint examples/src/deterministic.ax
 cargo run -p axiom-cli -- check examples/src/*.ax
 cargo run -p axiom-cli -- config check examples/axiom.yaml
 cargo run -p axiom-cli -- workspace check examples/src/agents.ax
@@ -99,11 +102,11 @@ source of truth.
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | partial |
 | 5 | Config, model integrations, registered tools and commands | partial |
 | 6 | Filesystem, workspaces, patch/artifact APIs, command sandbox | done |
-| 7 | Database APIs, roles, parameter checks, approval/audit, migrations | not started |
-| 8 | Agent calls, iteration/validation APIs, budgets, typed results | not started |
-| 9 | Frontend state, validation/migration, artifact registry and caches | not started |
-| 10 | Durable async execution, checkpoints, resume, cancellation, tracing | not started |
-| 11 | Full-stack reference app, tooling, docs, security hardening | not started |
+| 7 | Database APIs, roles, parameter checks, approval/audit, migrations | partial |
+| 8 | Agent calls, iteration/validation APIs, budgets, typed results | partial |
+| 9 | Frontend state, validation/migration, artifact registry and caches | partial |
+| 10 | Durable async execution, checkpoints, resume, cancellation, tracing | partial |
+| 11 | Full-stack reference app, tooling, docs, security hardening | partial |
 | 12 | Release-readiness audit | not started |
 
 Every phase ends with a compiling repository and passing relevant tests. Nothing

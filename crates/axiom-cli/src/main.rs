@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use axiom_artifacts::{ArtifactKind, ArtifactStore};
-use axiom_cli::{database, workspace};
+use axiom_cli::{database, tooling, workspace};
 use axiom_config::parse_config;
 use axiom_database::Database;
 use axiom_ir::{lower, program_to_json, ModuleInput, Program, Target};
@@ -27,7 +27,11 @@ USAGE:
     axiom <COMMAND> [OPTIONS]
 
 COMMANDS:
+    init [DIR]                   Create a minimal project skeleton
     check <FILE>...              Load the module graph and report diagnostics
+    lint <FILE>... [--config <FILE>]
+                                 Report the same stable diagnostics as `check`
+    fmt <FILE>... [--check]      Format source deterministically (or check only)
     build <FILE>... [--target server|wasm_browser] [--emit-ir]
                                  Lower to typed IR for a target
     explain <FILE>... [--target server|wasm_browser]
@@ -70,7 +74,10 @@ fn main() -> ExitCode {
             println!("{USAGE}");
             ExitCode::SUCCESS
         }
-        Some("check") => run_check(&args[1..]),
+        Some("init") => run_init(&args[1..]),
+        Some("check") => run_check_as(&args[1..], "check"),
+        Some("lint") => run_check_as(&args[1..], "lint"),
+        Some("fmt") => run_fmt(&args[1..]),
         Some("build") => run_build(&args[1..]),
         Some("explain") => run_explain(&args[1..]),
         Some("run") => run_run(&args[1..]),
@@ -116,7 +123,79 @@ fn split_check_args(arguments: &[String]) -> Result<(Option<PathBuf>, Vec<PathBu
     Ok((config, files))
 }
 
-fn run_check(arguments: &[String]) -> ExitCode {
+fn run_init(arguments: &[String]) -> ExitCode {
+    let root = arguments
+        .iter()
+        .find(|arg| !arg.starts_with('-'))
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+    match tooling::scaffold(&root) {
+        Ok(paths) => {
+            for path in paths {
+                println!("created: {}", path.display());
+            }
+            ExitCode::SUCCESS
+        }
+        Err(message) => {
+            eprintln!("error: {message}");
+            ExitCode::from(1)
+        }
+    }
+}
+
+fn run_fmt(arguments: &[String]) -> ExitCode {
+    let check = arguments.iter().any(|arg| arg == "--check");
+    let files = positional_files(arguments);
+    if files.is_empty() {
+        eprintln!("error: `fmt` needs at least one .ax file\n");
+        eprint!("{USAGE}");
+        return ExitCode::from(2);
+    }
+    let mut failed = false;
+    let mut changed = 0usize;
+    for path in &files {
+        let display = path.display().to_string();
+        let text = match std::fs::read_to_string(path) {
+            Ok(text) => text,
+            Err(error) => {
+                eprintln!("error: cannot read `{display}`: {error}");
+                failed = true;
+                continue;
+            }
+        };
+        match tooling::format_source(&text) {
+            Err(diagnostics) => {
+                let source = Source::new(display.clone(), text);
+                for diagnostic in diagnostics {
+                    eprint!("{}", diagnostic.render(&source));
+                }
+                failed = true;
+            }
+            Ok(report) if !report.changed => {}
+            Ok(report) => {
+                changed += 1;
+                if check {
+                    println!("would reformat: {display}");
+                    failed = true;
+                } else if let Err(error) = std::fs::write(path, &report.formatted) {
+                    eprintln!("error: cannot write `{display}`: {error}");
+                    failed = true;
+                } else {
+                    println!("formatted: {display}");
+                }
+            }
+        }
+    }
+    if check && !failed {
+        let noun = if files.len() == 1 { "file" } else { "files" };
+        println!("{} {noun} already formatted", files.len());
+    } else if !check && !failed {
+        println!("formatted {changed} of {} file(s)", files.len());
+    }
+    exit_code(failed)
+}
+
+fn run_check_as(arguments: &[String], command: &str) -> ExitCode {
     let (config_path, files) = match split_check_args(arguments) {
         Ok(parsed) => parsed,
         Err(message) => {
@@ -126,7 +205,7 @@ fn run_check(arguments: &[String]) -> ExitCode {
         }
     };
     if files.is_empty() {
-        eprintln!("error: `check` needs at least one .ax file\n");
+        eprintln!("error: `{command}` needs at least one .ax file\n");
         eprint!("{USAGE}");
         return ExitCode::from(2);
     }

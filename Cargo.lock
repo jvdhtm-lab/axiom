@@ -26,6 +26,7 @@ dependencies = [
  "axiom-config",
  "axiom-database",
  "axiom-filesystem",
+ "axiom-format",
  "axiom-ir",
  "axiom-runtime",
  "axiom-syntax",
