@@ -4,6 +4,7 @@
 //! ambient I/O. Later phases add provider/tool hosts, durability, budgets, and
 //! the browser host behind the same value model.
 
+pub mod access;
 pub mod agent_host;
 pub mod agents;
 pub mod budget;
@@ -15,6 +16,7 @@ pub mod validation;
 pub mod value;
 pub mod workspace_host;
 
+pub use access::{AccessError, ApiGuard, ApiPolicy, Principal};
 pub use agent_host::{AgentHost, IterationTrace};
 pub use agents::{
     iterate, run_iteration, AgentSpec, Candidate, IterationOutcome, IterationRequest,

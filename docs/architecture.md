@@ -132,6 +132,13 @@ traces record IDs, statuses, fingerprints, and byte counts but never payloads.
 Cancellation is cooperative and shared with nested child runs; effect,
 checkpoint, nesting, and output budgets are enforced by the host.
 
+`axiom_runtime::ApiGuard` is the server boundary for exported APIs. It loads
+`api_policies` from the project config, fails closed when an API has no policy,
+and checks the authenticated principal's capabilities and tenant before the
+handler is invoked. The reference `get_dashboard` handler is exercised this way
+against a mock database; wiring the guard to a concrete HTTP server and identity
+provider remains future work.
+
 Frontend state and release storage are library APIs in Phase 9.
 `axiom_state::StateStore` validates a declared record, refuses credential or
 authorization fields, keeps tenant/principal partitions separate, and commits a

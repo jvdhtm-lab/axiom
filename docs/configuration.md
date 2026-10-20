@@ -7,6 +7,7 @@
 > the offline mock provider live in `axiom-providers`; the builtin/command tool
 > registry lives in `axiom-tools`. Networked adapters and tool execution are
 > later phases. `docs/implementation-ledger.md` records the exact status.
+> `api_policies` are enforced at the server boundary by `axiom_runtime::ApiGuard`.
 
 Axiom separates **source** from **configuration**:
 
@@ -94,7 +95,9 @@ Environment-independent defaults and hard per-run budgets.
 ### `api_policies`
 
 A mapping of API name → policy. The server enforces these on every call; they
-are not an authorization grant from the client.
+are not an authorization grant from the client. `axiom_runtime::ApiGuard` loads
+the entries, refuses APIs with no entry, and checks `authentication`, `requires`,
+and tenant scope before the handler runs.
 
 | Key | Type | Notes |
 | --- | --- | --- |
