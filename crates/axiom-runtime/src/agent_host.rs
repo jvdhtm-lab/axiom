@@ -2,8 +2,10 @@
 //!
 //! Only `agents.iterate` and `runtime.parallel_map` are reachable. Acceptance
 //! and validator evidence are produced here, never by the model or the calling
-//! Axiom function. Durable execution (`runtime.run_durable`,
-//! `runtime.checkpoint`) and `runtime.retry` are Phase 10 and are refused.
+//! Axiom function. Durable execution is provided by [`crate::DurableHost`],
+//! which composes over this host; `runtime.run_durable` and `runtime.checkpoint`
+//! are refused here unless that host is in front. `runtime.retry` is never an
+//! implicit retry.
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -232,9 +234,13 @@ impl Host for AgentHost {
             },
             "runtime" => match method {
                 "parallel_map" => self.parallel_map(args),
-                "retry" | "checkpoint" | "run_durable" => Err(format!(
-                    "`runtime.{method}` is not available yet; durable execution is Phase 10"
+                "checkpoint" | "run_durable" => Err(format!(
+                    "`runtime.{method}` requires the durable execution host (`axiom_runtime::DurableHost`)"
                 )),
+                "retry" => Err(
+                    "`runtime.retry` does not retry implicitly; use `agents.iterate` or resume a durable run"
+                        .to_string(),
+                ),
                 other => Err(format!("unsupported runtime method `{other}`")),
             },
             other => Err(format!(

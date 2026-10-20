@@ -356,7 +356,10 @@ fn agent_host_runs_iteration_through_the_evaluator() {
     assert_eq!(traces[0].status, "accepted");
     assert!(traces[0].accepted_hash.is_some());
 
-    // Durable/retry APIs are refused, not silently ignored.
+    // Durable/retry APIs are refused here, not silently ignored; DurableHost
+    // composes in front of this host when durability is configured.
     let error = host.call("runtime", "run_durable", &[]).unwrap_err();
-    assert!(error.contains("Phase 10"), "{error}");
+    assert!(error.contains("DurableHost"), "{error}");
+    let error = host.call("runtime", "retry", &[]).unwrap_err();
+    assert!(error.contains("does not retry implicitly"), "{error}");
 }

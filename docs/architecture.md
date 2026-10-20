@@ -68,7 +68,7 @@ crates/
   axiom-types/       module graph, symbols, type/effect/target/SQL checks
   axiom-hash/        dependency-free SHA-256 content addressing
   axiom-ir/          shared typed IR, lowering, deterministic JSON
-  axiom-runtime/     deterministic evaluator, runtime hosts (workspace/database/agents), budgets
+  axiom-runtime/     deterministic evaluator, runtime hosts (workspace/database/agents/durable), budgets
   axiom-wasm/        browser WASM backend + artifact manifest (Phase 4 partial)
   axiom-browser-host/ trusted host ABI + artifact verification
   axiom-config/      axiom.yaml loading, expansion, validation (A4 schema)
@@ -119,6 +119,18 @@ validators, and returns a runtime-owned `IterationOutcome` (status, attempts,
 content-addressed candidate, per-attempt validation, evidence). Acceptance and
 evidence are never set by the model or the calling function.
 `commands.run` remains a planned host method (Phase 8).
+
+`axiom_runtime::DurableHost` composes over any host and implements
+`runtime.run_durable`/`runtime.checkpoint`. It journals each non-`runtime`
+effect by index and fingerprint, replays completed effects without invoking the
+inner host, and resumes a crashed or failed run from the same journal. Effect
+delivery is at-least-once: an effect left `Started`/`Failed` is indeterminate
+and is retried only when it is read-only, carries an `idempotency_key`, or a
+single-use `ResumeApproval` bound to the run/index/fingerprint is supplied.
+Checkpoints record a label and value fingerprint at declared safe boundaries;
+traces record IDs, statuses, fingerprints, and byte counts but never payloads.
+Cancellation is cooperative and shared with nested child runs; effect,
+checkpoint, nesting, and output budgets are enforced by the host.
 
 Frontend state and release storage are library APIs in Phase 9.
 `axiom_state::StateStore` validates a declared record, refuses credential or

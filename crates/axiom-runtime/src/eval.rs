@@ -186,7 +186,8 @@ impl Evaluator<'_> {
             IrExprKind::Bytes(b) => Value::Bytes(b.clone()),
             IrExprKind::Duration(ms) => Value::Duration(*ms),
             IrExprKind::Local(name) => return Ok(Ctl::Val(self.lookup(name, env, span)?)),
-            IrExprKind::Function(name) | IrExprKind::Namespace(name) => {
+            IrExprKind::Function(name) => Value::Function(name.clone()),
+            IrExprKind::Namespace(name) => {
                 return Err(RuntimeError::new(span, format!("`{name}` is not a value")));
             }
             IrExprKind::List(items) => {
@@ -678,5 +679,6 @@ fn kind_of(value: &Value) -> &'static str {
         Value::List(_) => "list",
         Value::Record(_) => "record",
         Value::Variant(_, _) => "variant",
+        Value::Function(_) => "function",
     }
 }

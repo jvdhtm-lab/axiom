@@ -18,6 +18,8 @@ pub enum Value {
     Record(Vec<(String, Value)>),
     /// A named constructor with arguments, e.g. `Ok(v)` or `AppError.NotFound`.
     Variant(String, Vec<Value>),
+    /// A reference to a declared function, passed to durable-entry APIs.
+    Function(String),
 }
 
 impl Value {
@@ -81,6 +83,9 @@ impl Value {
                     }
                     out.push(')');
                 }
+            }
+            Value::Function(name) => {
+                let _ = write!(out, "<fn {name}>");
             }
         }
     }

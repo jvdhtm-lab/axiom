@@ -8,6 +8,7 @@ pub mod agent_host;
 pub mod agents;
 pub mod budget;
 pub mod database_host;
+pub mod durable;
 pub mod eval;
 pub mod host;
 pub mod validation;
@@ -21,6 +22,11 @@ pub use agents::{
 };
 pub use budget::{BudgetExhausted, BudgetLedger, Budgets};
 pub use database_host::DatabaseHost;
+pub use durable::{
+    effect_fingerprint, value_fingerprint, CancelToken, CheckpointRecord, DurableConfig,
+    DurableHost, EffectRecord, EffectStatus, ResumeApproval, RunRecord, RunStatus, RunStore,
+    TraceEvent, TraceKind,
+};
 pub use eval::{run, run_with_host, Evaluator, RuntimeError};
 pub use host::Host;
 pub use validation::{

@@ -140,6 +140,14 @@ We threat-model at least:
   empty validator list can never accept. Declared `limits` (`max_calls`,
   `max_output_bytes`, `timeout`) bound every attempt; candidates are
   content-addressed so downstream approvals bind to the exact artifact.
+- Durable execution is at-least-once, never exactly-once. A completed effect is
+  replayed from the journal without invoking the host again; an effect left
+  `Started`/`Failed` is indeterminate and is retried only if it is read-only,
+  carries an idempotency key, or a single-use approval bound to the run, effect
+  index, action fingerprint, and expiry is consumed. Cancellation is cooperative
+  and propagates to nested runs. Traces contain run/effect/checkpoint names,
+  statuses, fingerprints, and byte counts only: no source text, payloads,
+  credentials, or raw host errors are exported.
 - Tests include malicious inputs and race conditions, not only success cases.
 
 ## Residual risks / honest limitations
@@ -157,6 +165,11 @@ We threat-model at least:
   may still open sockets if a profile is misconfigured to allow them.
 - Symlink/TOCTOU behavior at the OS layer is untested because the workspace model
   is in-memory; disk persistence arrives with the reference app.
+- Durable journals and approvals live in process memory; a crash loses them
+  unless an operator persists `RunStore`. Resuming an indeterminate
+  non-idempotent effect without an approval or key fails closed, but a
+  read-only effect is retried automatically. `runtime.retry` is not implemented;
+  there is no trace exporter or background timeout scheduler.
 - Model judgments ("this passed") are never deterministic proof; only
   machine-executed runtime checks count as evidence.
 - Prompt injection through tool results and `context` is mitigated by treating
