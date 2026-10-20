@@ -4,48 +4,27 @@ import { DashboardInput, DashboardSummary, DashboardState, DashboardEvent, Dashb
 import { get_dashboard } from "./server.ax";
 
 export fn init(input: DashboardInput) -> DashboardState {
-  return {
-    team_id: input.team_id,
-    completed: 0,
-    range: TimeRange.Month,
-    loading: false
-  };
+  return { team_id: input.team_id, completed: 0, range: TimeRange.Month, loading: false };
 }
 
 export fn render(state: DashboardState) -> UiTree {
-  return ui.column([
-    ui.heading("TeamBoard"),
-    ui.text("Team: " + state.team_id),
-    ui.metric("Completed tasks", state.completed),
-    ui.text("Range: " + state.range.to_string()),
-    ui.button("Refresh", { kind: DashboardEventKind.Refresh, range: None })
-  ]);
+  return ui.column([ui.heading("TeamBoard"), ui.text("Team: " + state.team_id), ui.metric("Completed tasks", state.completed), ui.text("Range: " + state.range.to_string()), ui.button("Refresh", { kind: DashboardEventKind.Refresh, range: None })]);
 }
 
-export async fn handle_event(
-  state: DashboardState,
-  event: DashboardEvent
-) -> Result<DashboardState, AppError>
-  effects [api.call] {
+export async fn handle_event(state: DashboardState, event: DashboardEvent) -> Result<DashboardState, AppError> effects [api.call] {
   match event.kind {
     DashboardEventKind.Refresh => {
       match await get_dashboard({ team_id: state.team_id }) {
-        Ok(summary) => return Ok({
-          team_id: state.team_id,
-          completed: summary.completed,
-          range: state.range,
-          loading: false
-        });
-        Err(error) => return Err(error);
+        Ok(summary) => {
+          return Ok({ team_id: state.team_id, completed: summary.completed, range: state.range, loading: false });
+        }
+        Err(error) => {
+          return Err(error);
+        }
       }
     }
     DashboardEventKind.SetRange => {
-      return Ok({
-        team_id: state.team_id,
-        completed: state.completed,
-        range: event.range.unwrap_or(state.range),
-        loading: state.loading
-      });
+      return Ok({ team_id: state.team_id, completed: state.completed, range: event.range.unwrap_or(state.range), loading: state.loading });
     }
   }
 }

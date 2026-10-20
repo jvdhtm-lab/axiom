@@ -2,17 +2,13 @@ module examples.server;
 
 import { DashboardInput, DashboardSummary, AppError } from "./shared.ax";
 
-export api async fn get_dashboard(
-  input: DashboardInput
-) -> Result<DashboardSummary, AppError>
-  effects [db.read] {
-  match await db.query_one<DashboardSummary>(
-    database: "teamboard",
-    sql: "SELECT team_id, completed FROM v_team_performance WHERE team_id = :team_id LIMIT 1",
-    params: { team_id: input.team_id },
-    timeout: 5s
-  ) {
-    Ok(summary) => return Ok(summary);
-    Err(_) => return Err(AppError.DatabaseUnavailable);
+export api async fn get_dashboard(input: DashboardInput) -> Result<DashboardSummary, AppError> effects [db.read] {
+  match await db.query_one<DashboardSummary>(database: "teamboard", sql: "SELECT team_id, completed FROM v_team_performance WHERE team_id = :team_id LIMIT 1", params: { team_id: input.team_id }, timeout: 5s) {
+    Ok(summary) => {
+      return Ok(summary);
+    }
+    Err(_) => {
+      return Err(AppError.DatabaseUnavailable);
+    }
   }
 }

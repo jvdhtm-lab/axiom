@@ -34,10 +34,10 @@ the current [`agents.md`](agents.md) specification. The phase numbers below foll
 | 6 | Filesystem, workspaces, patch/artifact APIs, command sandbox | done |
 | 7 | Database APIs, roles, parameter checks, approval/audit, migrations | partial |
 | 8 | Agent calls, iteration/validation APIs, budgets, typed results | partial |
-| 9 | Frontend state, validation/migration, artifact registry and caches | not started |
-| 10 | Durable async execution, checkpoints, resume, cancellation, tracing | not started |
-| 11 | Full-stack reference app, tooling, docs, security hardening | not started |
-| 12 | Release-readiness audit | not started |
+| 9 | Frontend state, validation/migration, artifact registry and caches | partial |
+| 10 | Durable async execution, checkpoints, resume, cancellation, tracing | partial |
+| 11 | Full-stack reference app, tooling, docs, security hardening | partial |
+| 12 | Release-readiness audit | done (audit; release not ready) |
 
 [`docs/implementation-ledger.md`](docs/implementation-ledger.md) is the source of
 truth for what works and what has test evidence. Do not assume a feature works
@@ -51,6 +51,7 @@ unless the ledger cites a passing test.
 - [`docs/architecture.md`](docs/architecture.md) — the pipeline and crates.
 - [`docs/security-model.md`](docs/security-model.md) — threat model and invariants.
 - [`docs/conformance.md`](docs/conformance.md) — requirement-to-test matrix.
+- [`docs/release-readiness.md`](docs/release-readiness.md) — release audit, evidence, and open gaps.
 - [`docs/decisions/`](docs/decisions/) — architecture decision records.
 
 ## Layout
@@ -86,7 +87,7 @@ toolchain notes).
 cargo check --workspace
 cargo test --workspace
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo run -p axiom-cli -- check examples/src/*.ax
 cargo run -p axiom-cli -- config check examples/axiom.yaml
 cargo run -p axiom-cli -- workspace check examples/src/agents.ax

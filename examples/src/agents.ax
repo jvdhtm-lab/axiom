@@ -8,34 +8,24 @@ export workspace frontend_edit {
   write: ["examples/src/frontend.ax"];
   deny: ["examples/src/server.ax", "axiom.yaml", "db/migrations/**"];
   isolation: copy_on_write;
-  limits: { max_files: 200; max_file_bytes: 1000000; max_changed_files: 30; }
+  limits: { max_files: 200, max_file_bytes: 1000000, max_changed_files: 30 };
 }
 
 export agent FrontendDesigner(input: FrontendChange) -> FrontendPatch {
   model: "coding";
   workspace: frontend_edit;
   tools: [fs.read, fs.search, fs.write, compiler.check];
-  limits: { max_calls: 6; timeout: 120s; max_output_bytes: 1000000; }
+  limits: { max_calls: 6, timeout: 120s, max_output_bytes: 1000000 };
 }
 
-export async fn update_frontend(
-  input: FrontendChange
-) -> Result<FrontendRelease, AppError>
-  effects [model, fs.read, fs.write, workspace.create, command.run, artifact.publish] {
-  let candidate = await agents.iterate(
-    agent: FrontendDesigner,
-    input: input,
-    max_attempts: 3,
-    validate: [
-      checks.ax_compile,
-      checks.wasm_build,
-      checks.api_compatibility,
-      checks.workspace_scope,
-      checks.browser_tests
-    ]
-  );
+export async fn update_frontend(input: FrontendChange) -> Result<FrontendRelease, AppError> effects [model, fs.read, fs.write, workspace.create, command.run, artifact.publish] {
+  let candidate = await agents.iterate(agent: FrontendDesigner, input: input, max_attempts: 3, validate: [checks.ax_compile, checks.wasm_build, checks.api_compatibility, checks.workspace_scope, checks.browser_tests]);
   match candidate.accepted_artifact() {
-    Ok(artifact) => return await frontend.publish(artifact);
-    Err(_) => return Err(AppError.ValidationFailed);
+    Ok(artifact) => {
+      return await frontend.publish(artifact);
+    }
+    Err(_) => {
+      return Err(AppError.ValidationFailed);
+    }
   }
 }

@@ -1,20 +1,21 @@
 module examples.shared;
 
 export type DashboardInput = { team_id: string; };
+
 export type DashboardSummary = { team_id: string; completed: int; };
-export enum TimeRange { Week; Month; Quarter; }
-export enum DashboardEventKind { Refresh; SetRange; }
-export type DashboardEvent = {
-  kind: DashboardEventKind;
-  range: Option<TimeRange>;
-};
-export type DashboardState = {
-  team_id: string;
-  completed: int;
-  range: TimeRange;
-  loading: bool;
-};
-export enum AppError { NotFound; DatabaseUnavailable; ValidationFailed; Unauthorized; }
+
+export enum TimeRange { Week; Month; Quarter }
+
+export enum DashboardEventKind { Refresh; SetRange }
+
+export type DashboardEvent = { kind: DashboardEventKind; range: Option<TimeRange>; };
+
+export type DashboardState = { team_id: string; completed: int; range: TimeRange; loading: bool; };
+
+export enum AppError { NotFound; DatabaseUnavailable; ValidationFailed; Unauthorized }
+
 export type FrontendChange = { request: string; };
+
 export type FrontendPatch = { candidate_id: string; workspace_id: string; };
+
 export type FrontendRelease = { release_id: string; content_hash: string; };

@@ -4,7 +4,7 @@ Tracks Axiom 1.0 requirements against implementation status. **Do not mark an
 item complete without test evidence.** Statuses: `done` (implemented + tested),
 `partial`, `not started`. Phase numbers follow `agents.md` §15.
 
-Last updated: 2026-10-20 (Phase 11 partial: `axiom init`, deterministic `axiom fmt`/`--check`, and `axiom lint` are wired to the CLI; the reference server API is now guarded by `api_policies` in a mock-DB end-to-end test; no real browser run and no LSP yet).
+Last updated: 2026-10-20 (Phase 12: `docs/release-readiness.md` records the DoD audit, commands, supported surface, gaps, and residual risks; the audit decision is **not release-ready**).
 
 ## Phase status
 
@@ -22,7 +22,7 @@ Last updated: 2026-10-20 (Phase 11 partial: `axiom init`, deterministic `axiom f
 | 9 | Frontend state, state validation/migration, artifact registry and build/data caches | partial — `axiom-state` validates typed state, refuses credential/authorization fields, isolates tenant/principal partitions, migrates by registered pure functions with atomic commit, hot-swaps same-version layout changes, snapshots/restores, and quarantines on logout. `axiom-artifacts` adds an immutable content-addressed release registry (pinned refs, ABI/artifact re-verification, evidence bound to the candidate, revocation, rollback, retention) and reproducible build/data caches (integrity re-check, TTL/tags, partition isolation, stale-on-error default off). `axiom.yaml` gains `frontend_state`. **Missing:** no browser-loader/runtime integration, no persistent state backend, no CLI for publishing/activating releases; caches are process-local |
 | 10 | Durable async execution, checkpoints, resume, cancellation, tracing, approvals | partial - `axiom-runtime::DurableHost` journals effects, replays completed ones without re-invoking them, records fingerprinted checkpoints, resumes crashed runs, requires an idempotency key or a single-use `ResumeApproval` before retrying an indeterminate non-idempotent effect, propagates cancellation to child runs, and enforces effect/checkpoint/output/nesting budgets; traces carry IDs, statuses, fingerprints, and sizes only. **Missing:** persistent journal/exporter, `runtime.retry` (retry is explicit via resume or `agents.iterate`), and exactly-once semantics (delivery is at-least-once) |
 | 11 | Full-stack reference app, tooling, docs, security hardening | partial - the CLI now scaffolds projects (`init`), formats deterministically with a `--check` mode, and reports lint diagnostics; examples are checked and the formatter is exercised by generated-input fixed-point tests. The reference `get_dashboard` handler runs against a mock database only after `api_policies` authentication, capability, and tenant checks pass. **Missing:** no real browser run, release/state integration tests are library-only, and there is no LSP or `axiom test`/`dev`/`status`/`inspect`/`resume`/`cancel` |
-| 12 | Release-readiness audit | not started |
+| 12 | Release-readiness audit | done (audit) - `docs/release-readiness.md` maps all 15 Definition-of-Done items to evidence and gaps, records commands/results, and decides `0.1.0` is **not** a 1.0 release. Open blockers: WASM/browser, HTTP API enforcement, real providers, persistent stores, PostgreSQL wire, LSP, and full type inference |
 
 ## Requirement ledger
 

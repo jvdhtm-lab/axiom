@@ -22,9 +22,9 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.99"
 license = "MIT OR Apache-2.0"
-repository = "https://example.invalid/axiom"
+repository = "https://github.com/jvdhtm-lab/axiom"
 
 [workspace.dependencies]
 axiom-syntax = { path = "crates/axiom-syntax", version = "0.1.0" }
