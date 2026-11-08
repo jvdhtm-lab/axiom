@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use axiom_cli::tooling::{format_source, scaffold};
+use axiom_cli::tooling::{format_source, scaffold, scaffold_app};
 use axiom_config::parse_config;
 
 fn temp_root(label: &str) -> PathBuf {
@@ -56,4 +56,50 @@ fn scaffold_writes_a_loadable_project_and_refuses_overwrite() {
     let error = scaffold(&root).unwrap_err();
     assert!(error.contains("already exists"), "{error}");
     std::fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn createapp_writes_a_server_frontend_and_config() {
+    let parent = temp_root("createapp");
+    let paths = scaffold_app(&parent, "my_app").expect("createapp");
+    assert_eq!(paths.len(), 3);
+    let root = parent.join("my_app");
+
+    let config = std::fs::read_to_string(root.join("config.yml")).expect("config");
+    let report = parse_config("config.yml", &config);
+    assert!(!report.has_errors(), "{:?}", report.diagnostics);
+    assert!(config.contains("module: my_app.server"));
+    assert!(config.contains("module: my_app.frontend"));
+
+    for (file, module) in [
+        ("server/main.ax", "my_app.server"),
+        ("frontend/main.ax", "my_app.frontend"),
+    ] {
+        let source = std::fs::read_to_string(root.join(file)).expect("source");
+        let parsed = axiom_syntax::parse(&source);
+        assert!(
+            !parsed.diagnostics.iter().any(|d| d.is_error()),
+            "{:?}",
+            parsed.diagnostics
+        );
+        assert_eq!(
+            parsed.file.module.as_ref().expect("module").dotted(),
+            module
+        );
+    }
+
+    let error = scaffold_app(&parent, "my_app").unwrap_err();
+    assert!(error.contains("already exists"), "{error}");
+    std::fs::remove_dir_all(&parent).ok();
+}
+
+#[test]
+fn createapp_rejects_unsafe_or_invalid_names() {
+    let parent = temp_root("createapp-names");
+    for name in ["", "../escape", "my-app", "1app", "my app"] {
+        let error = scaffold_app(&parent, name).unwrap_err();
+        assert!(!error.is_empty(), "{name}");
+    }
+    assert!(!parent.join("escape").exists());
+    std::fs::remove_dir_all(&parent).ok();
 }

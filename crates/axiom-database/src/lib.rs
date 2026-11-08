@@ -4,13 +4,12 @@
 //! Axiom has no `query`/`migration` declarations. Axiom code calls `db.*`
 //! library APIs; this crate supplies the trusted runtime behind them. SQL text
 //! is validated as a single statement with named placeholders, then executed
-//! through a role connection. SQLite is the offline engine; PostgreSQL target
-//! policy is enforced even where no driver is linked.
+//! through a role connection. The API is driver-independent; SQLite is the
+//! bundled reference driver.
 
 pub mod approval;
 pub mod audit;
 pub mod migrations;
-pub mod postgres;
 pub mod roles;
 pub mod sql;
 pub mod sqlite;
@@ -22,7 +21,6 @@ pub use migrations::{
     apply_plan, plan_migrations, DestructiveChange, MigrationApproval, MigrationFile,
     MigrationLock, MigrationPlan, MigrationWorkspace,
 };
-pub use postgres::{PostgresPolicy, PostgresTarget};
 pub use roles::{Database, DatabaseRole, DatabaseSpec, RoleAudit, WriteOutcome};
 pub use sql::{SqlClass, SqlStatement};
 pub use value::{Params, Row, Value};

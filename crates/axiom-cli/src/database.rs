@@ -2,16 +2,14 @@
 //!
 //! Configuration is descriptive; `axiom-database` is the boundary that opens
 //! least-privilege connections, bounds statements, and audits access. This
-//! module builds the runtime [`DatabaseSpec`] (SQLite) or [`PostgresPolicy`]
-//! (PostgreSQL target policy) from a parsed configuration, and never logs a
-//! connection URL.
+//! module builds the runtime [`DatabaseSpec`] for the bundled `sqlite` driver
+//! from a parsed configuration, and never logs a connection URL.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use axiom_config::{DatabaseConfig, Secret};
 use axiom_database::migrations::{plan_migrations, MigrationPlan};
-use axiom_database::postgres::{PostgresPolicy, PostgresTarget};
 use axiom_database::sqlite::Connection;
 use axiom_database::{DatabaseSpec, DbError};
 
@@ -25,10 +23,10 @@ pub fn spec_from_config(
     name: &str,
     config: &DatabaseConfig,
 ) -> Result<DatabaseSpec, String> {
-    if config.engine != "sqlite" {
+    if config.driver != "sqlite" {
         return Err(format!(
-            "database `{name}` uses engine `{}`; only `sqlite` opens a local spec",
-            config.engine
+            "database `{name}` uses driver `{}`, which is not registered in this build",
+            config.driver
         ));
     }
     let Some(relative) = config.path.as_deref() else {
@@ -81,25 +79,6 @@ fn is_absolute_path(path: &Path) -> bool {
     bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
 }
 
-/// Build the PostgreSQL target policy. This validates the release target only;
-/// Phase 7 ships no PostgreSQL wire adapter.
-pub fn postgres_policy(name: &str, config: &DatabaseConfig) -> Result<PostgresTarget, String> {
-    if config.engine != "postgres" {
-        return Err(format!(
-            "database `{name}` does not use the `postgres` engine"
-        ));
-    }
-    let Some(url) = config.url.as_ref() else {
-        return Err(format!("database `{name}` is missing `url`"));
-    };
-    let policy = PostgresPolicy {
-        allow_private_network: config.allow_private_network.unwrap_or(false),
-    };
-    policy
-        .parse(url.expose())
-        .map_err(|error| format!("database `{name}`: {}", error.message()))
-}
-
 /// Plan the reviewed migrations a configured SQLite database would apply.
 pub fn plan(base: &Path, name: &str, config: &DatabaseConfig) -> Result<MigrationPlan, DbError> {
     let spec = spec_from_config(base, name, config).map_err(DbError::Config)?;
@@ -118,31 +97,22 @@ pub fn plan(base: &Path, name: &str, config: &DatabaseConfig) -> Result<Migratio
     plan_migrations(&dir, &connection)
 }
 
-/// A redacted one-line summary of a database target.
+/// A redacted one-line summary of a database connection.
 pub fn describe(name: &str, config: &DatabaseConfig) -> String {
-    match config.engine.as_str() {
-        "postgres" => {
-            let target = config.url.as_ref().and_then(|url| {
-                let policy = PostgresPolicy {
-                    allow_private_network: config.allow_private_network.unwrap_or(false),
-                };
-                policy.parse(url.expose()).ok()
-            });
-            let target = target
-                .map(|target| target.sanitized())
-                .unwrap_or_else(|| "(invalid url)".to_string());
-            format!("{name}: postgres {target} (release CI only, no local driver)")
-        }
-        engine => {
-            let path = config.path.as_deref().unwrap_or("(missing)");
-            format!(
-                "{name}: {engine} {path} (tables {}, max_rows {}, timeout {}s)",
-                config.allowed_tables.len(),
-                config.max_rows.unwrap_or(100),
-                config.timeout_seconds.unwrap_or(5)
-            )
-        }
-    }
+    let location = if config.driver == "sqlite" {
+        config.path.as_deref().unwrap_or("(missing)")
+    } else if config.url.as_ref().is_some_and(|url| !url.is_empty()) {
+        "(url redacted)"
+    } else {
+        "(missing)"
+    };
+    format!(
+        "{name}: {} {location} (tables {}, max_rows {}, timeout {}s)",
+        config.driver,
+        config.allowed_tables.len(),
+        config.max_rows.unwrap_or(100),
+        config.timeout_seconds.unwrap_or(5)
+    )
 }
 
 /// A redacted summary of a secret URL, for diagnostics.

@@ -1157,7 +1157,7 @@ fn build_database(value: &Value, label: &str, builder: &mut Builder<'_>) -> Opti
     check_allowed(
         mapping,
         &[
-            "engine",
+            "driver",
             "path",
             "url",
             "data_class",
@@ -1173,11 +1173,11 @@ fn build_database(value: &Value, label: &str, builder: &mut Builder<'_>) -> Opti
         builder,
     );
 
-    let engine = required_string(mapping, label, "engine", builder)?;
-    if !matches!(engine.as_str(), "sqlite" | "postgres") {
+    let driver = required_string(mapping, label, "driver", builder)?;
+    if !is_ident(&driver) {
         builder.error(
             label,
-            format!("unknown engine `{engine}`; use sqlite or postgres"),
+            "`driver` must be an identifier (letters, digits, and underscores)",
         );
         return None;
     }
@@ -1185,7 +1185,7 @@ fn build_database(value: &Value, label: &str, builder: &mut Builder<'_>) -> Opti
     let path = optional_string(mapping, label, "path", builder);
     let url = optional_string(mapping, label, "url", builder).map(Secret::new);
 
-    if engine == "sqlite" {
+    if driver == "sqlite" {
         match &path {
             Some(path) if is_safe_relative_path(path) => {}
             Some(_) => {
@@ -1194,21 +1194,22 @@ fn build_database(value: &Value, label: &str, builder: &mut Builder<'_>) -> Opti
                     "`path` must be a relative path inside the project root (no `..`)",
                 );
             }
-            None => builder.error(label, "sqlite databases require `path`"),
+            None => builder.error(label, "sqlite connections require `path`"),
         }
         if url.is_some() {
-            builder.error(label, "sqlite databases must not set `url`");
+            builder.error(label, "sqlite connections must not set `url`");
         }
     } else {
         match &url {
-            Some(url)
-                if url.expose().starts_with("postgres://")
-                    || url.expose().starts_with("postgresql://") => {}
-            Some(_) => builder.error(label, "`url` must use the postgres:// scheme"),
-            None => builder.error(label, "postgres databases require `url`"),
+            Some(url) if !url.expose().trim().is_empty() => {}
+            Some(_) => builder.error(label, "`url` must not be empty"),
+            None => builder.error(
+                label,
+                format!("`{driver}` connections require `url`; the driver is validated at runtime"),
+            ),
         }
         if path.is_some() {
-            builder.error(label, "postgres databases must not set `path`");
+            builder.error(label, "only `sqlite` connections may set `path`");
         }
     }
 
@@ -1220,7 +1221,7 @@ fn build_database(value: &Value, label: &str, builder: &mut Builder<'_>) -> Opti
     }
 
     Some(DatabaseConfig {
-        engine,
+        driver,
         path,
         url,
         data_class: optional_string(mapping, label, "data_class", builder),

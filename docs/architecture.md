@@ -100,9 +100,9 @@ logic that must be testable without executing a freshly built binary):
 - `sandbox plan`: turn a configured command profile plus arguments into a
   shell-free `CommandPlan`, rejecting unsafe inputs.
 - `artifacts hash`: print a file's content address for a chosen `ArtifactKind`.
-- `db check`: validate configured databases (`axiom-cli/src/database.rs` builds
-  the runtime `DatabaseSpec`/PostgreSQL target policy) and probe SQLite role
-  isolation.
+- `db check`: validate configured database connections
+  (`axiom-cli/src/database.rs` builds the runtime `DatabaseSpec`), probe the
+  bundled SQLite driver's role isolation, and report unregistered drivers.
 - `db migrations plan`: print pending reviewed migrations and destructive changes.
 
 The evaluator also has `run_with_host`: `axiom_runtime::WorkspaceHost` implements

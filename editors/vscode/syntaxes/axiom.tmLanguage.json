@@ -1,0 +1,372 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Axiom",
+  "scopeName": "source.axiom",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#import-from"
+    },
+    {
+      "include": "#import"
+    },
+    {
+      "include": "#module"
+    },
+    {
+      "include": "#declarations"
+    },
+    {
+      "include": "#effects"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#literals"
+    },
+    {
+      "include": "#builtin-types"
+    },
+    {
+      "include": "#member-access"
+    },
+    {
+      "include": "#function-call"
+    },
+    {
+      "include": "#type-names"
+    },
+    {
+      "include": "#field-keys"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.axiom",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.axiom",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.axiom",
+          "begin": "\"",
+          "end": "\"|(?=\\n)",
+          "patterns": [
+            {
+              "name": "constant.character.escape.axiom",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.duration.axiom",
+          "match": "\\b\\d+(?:ms|s|m|h)\\b"
+        },
+        {
+          "name": "constant.numeric.size.axiom",
+          "match": "\\b\\d+(?:B|kB|KB|MB|GB|TB|KiB|MiB|GiB|TiB)\\b"
+        },
+        {
+          "name": "constant.numeric.float.axiom",
+          "match": "\\b\\d+\\.\\d+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.axiom",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "module": {
+      "patterns": [
+        {
+          "match": "\\b(module)\\s+([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.module.axiom"
+            },
+            "2": {
+              "name": "entity.name.namespace.axiom"
+            }
+          }
+        }
+      ]
+    },
+    "import-from": {
+      "patterns": [
+        {
+          "match": "\\b(from)\\s*(\"(?:\\\\.|[^\"\\\\])*\")",
+          "captures": {
+            "1": {
+              "name": "keyword.control.import.axiom"
+            },
+            "2": {
+              "name": "string.quoted.double.axiom"
+            }
+          }
+        }
+      ]
+    },
+    "import": {
+      "patterns": [
+        {
+          "begin": "\\b(import)\\s*(\\{)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.import.axiom"
+            },
+            "2": {
+              "name": "punctuation.section.block.begin.axiom"
+            }
+          },
+          "end": "(\\})",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.section.block.end.axiom"
+            }
+          },
+          "patterns": [
+            {
+              "match": "[A-Za-z_][A-Za-z0-9_]*",
+              "name": "entity.name.type.import.axiom"
+            },
+            {
+              "match": ",",
+              "name": "punctuation.separator.comma.axiom"
+            }
+          ]
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "match": "\\b(type|enum)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.axiom"
+            },
+            "2": {
+              "name": "entity.name.type.axiom"
+            }
+          }
+        },
+        {
+          "match": "\\b(fn)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.function.axiom"
+            },
+            "2": {
+              "name": "entity.name.function.axiom"
+            }
+          }
+        },
+        {
+          "match": "\\b(agent)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.agent.axiom"
+            },
+            "2": {
+              "name": "entity.name.agent.axiom"
+            }
+          }
+        },
+        {
+          "match": "\\b(workspace)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.workspace.axiom"
+            },
+            "2": {
+              "name": "entity.name.workspace.axiom"
+            }
+          }
+        }
+      ]
+    },
+    "effects": {
+      "patterns": [
+        {
+          "begin": "\\b(effects)\\s*(\\[)",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.effects.axiom"
+            },
+            "2": {
+              "name": "punctuation.section.brackets.begin.axiom"
+            }
+          },
+          "end": "(\\])",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.section.brackets.end.axiom"
+            }
+          },
+          "patterns": [
+            {
+              "match": "[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+",
+              "name": "support.type.effect.axiom"
+            },
+            {
+              "match": ",",
+              "name": "punctuation.separator.comma.axiom"
+            }
+          ]
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "match": "\\b(module|import|export|from|type|enum|fn|agent|workspace|api|async|effects|let|if|else|match|for|in|return|await)\\b",
+          "name": "keyword.control.axiom"
+        }
+      ]
+    },
+    "literals": {
+      "patterns": [
+        {
+          "match": "\\b(true|false)\\b",
+          "name": "constant.language.boolean.axiom"
+        },
+        {
+          "match": "\\bNone\\b",
+          "name": "constant.language.none.axiom"
+        },
+        {
+          "match": "\\b(Some|Ok|Err)\\b",
+          "name": "support.function.constructor.axiom"
+        }
+      ]
+    },
+    "builtin-types": {
+      "patterns": [
+        {
+          "match": "\\b(string|bool|int|float|bytes|duration|timestamp)\\b",
+          "name": "support.type.primitive.axiom"
+        },
+        {
+          "match": "\\b(Option|Result|Map|UiTree)\\b",
+          "name": "support.type.builtin.axiom"
+        }
+      ]
+    },
+    "member-access": {
+      "patterns": [
+        {
+          "match": "\\.([A-Z][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "constant.other.enum.axiom"
+            }
+          }
+        },
+        {
+          "match": "\\.([a-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.method.axiom"
+            }
+          }
+        },
+        {
+          "match": "\\.([a-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "variable.other.property.axiom"
+            }
+          }
+        }
+      ]
+    },
+    "function-call": {
+      "patterns": [
+        {
+          "match": "\\b([a-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.call.axiom"
+            }
+          }
+        }
+      ]
+    },
+    "type-names": {
+      "patterns": [
+        {
+          "match": "\\b[A-Z][A-Za-z0-9_]*\\b",
+          "name": "entity.name.type.axiom"
+        }
+      ]
+    },
+    "field-keys": {
+      "patterns": [
+        {
+          "match": "\\b([a-z_][A-Za-z0-9_]*)\\s*:",
+          "captures": {
+            "1": {
+              "name": "variable.other.member.axiom"
+            }
+          }
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "match": "==|!=|<=|>=|->|=>|&&|\\|\\||[+\\-*/%!<>=]",
+          "name": "keyword.operator.axiom"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "match": "[{}]",
+          "name": "punctuation.section.block.axiom"
+        },
+        {
+          "match": "[\\[\\]]",
+          "name": "punctuation.section.brackets.axiom"
+        },
+        {
+          "match": "[()]",
+          "name": "punctuation.section.parens.axiom"
+        },
+        {
+          "match": "[;,]",
+          "name": "punctuation.separator.axiom"
+        }
+      ]
+    }
+  }
+}

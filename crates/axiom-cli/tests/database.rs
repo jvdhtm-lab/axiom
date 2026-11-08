@@ -1,4 +1,4 @@
-//! Config → runtime database spec/policy bridging.
+//! Config → runtime database spec bridging.
 
 use std::path::Path;
 
@@ -7,7 +7,7 @@ use axiom_config::{DatabaseConfig, Secret};
 
 fn sqlite_config(path: Option<&str>, migrations: Option<&str>) -> DatabaseConfig {
     DatabaseConfig {
-        engine: "sqlite".to_string(),
+        driver: "sqlite".to_string(),
         path: path.map(str::to_string),
         url: None,
         data_class: Some("internal".to_string()),
@@ -21,9 +21,9 @@ fn sqlite_config(path: Option<&str>, migrations: Option<&str>) -> DatabaseConfig
     }
 }
 
-fn postgres_config(url: &str, allow_private: bool) -> DatabaseConfig {
+fn remote_config(driver: &str, url: &str) -> DatabaseConfig {
     DatabaseConfig {
-        engine: "postgres".to_string(),
+        driver: driver.to_string(),
         path: None,
         url: Some(Secret::new(url)),
         data_class: None,
@@ -32,7 +32,7 @@ fn postgres_config(url: &str, allow_private: bool) -> DatabaseConfig {
         timeout_seconds: None,
         migrations: None,
         destructive_migrations: None,
-        allow_private_network: Some(allow_private),
+        allow_private_network: None,
         require_write_approval: None,
     }
 }
@@ -55,7 +55,7 @@ fn builds_a_bounded_sqlite_spec_under_the_project_root() {
 }
 
 #[test]
-fn unsafe_paths_and_wrong_engines_are_refused() {
+fn unsafe_paths_and_unregistered_drivers_are_refused() {
     let absolute = sqlite_config(Some("C:/etc/app.sqlite"), None);
     assert!(database::spec_from_config(Path::new("proj"), "app", &absolute).is_err());
     let absolute_unix = sqlite_config(Some("/etc/app.sqlite"), None);
@@ -69,41 +69,24 @@ fn unsafe_paths_and_wrong_engines_are_refused() {
     let windows_migrations = sqlite_config(Some("data/app.sqlite"), Some("C:/migrations"));
     assert!(database::spec_from_config(Path::new("proj"), "app", &windows_migrations).is_err());
 
-    let postgres = postgres_config(
-        "postgres://u:p@db.example.com:5432/app?sslmode=require",
-        false,
+    let remote = remote_config("postgres", "postgres://u:p@db.example.com:5432/app");
+    assert!(
+        database::spec_from_config(Path::new("proj"), "reporting", &remote)
+            .unwrap_err()
+            .contains("not registered")
     );
-    assert!(database::spec_from_config(Path::new("proj"), "reporting", &postgres).is_err());
-}
-
-#[test]
-fn postgres_policy_requires_tls_and_refuses_private_hosts() {
-    let public = postgres_config(
-        "postgres://u:p@db.example.com:5432/app?sslmode=require",
-        false,
-    );
-    let target = database::postgres_policy("reporting", &public).unwrap();
-    assert_eq!(target.host, "db.example.com");
-    assert_eq!(target.database, "app");
-
-    let no_ssl = postgres_config("postgres://u:p@db.example.com:5432/app", false);
-    assert!(database::postgres_policy("reporting", &no_ssl).is_err());
-
-    let private = postgres_config("postgres://u:p@10.0.0.5:5432/app?sslmode=require", false);
-    assert!(database::postgres_policy("reporting", &private).is_err());
-    let allowed = postgres_config("postgres://u:p@10.0.0.5:5432/app?sslmode=require", true);
-    assert!(database::postgres_policy("reporting", &allowed).is_ok());
 }
 
 #[test]
 fn descriptions_and_secrets_are_redacted() {
-    let public = postgres_config(
-        "postgres://alice:supersecret@db.example.com:5432/app?sslmode=require",
-        false,
+    let remote = remote_config(
+        "postgres",
+        "postgres://alice:supersecret@db.example.com:5432/app",
     );
-    let summary = database::describe("reporting", &public);
+    let summary = database::describe("reporting", &remote);
     assert!(!summary.contains("supersecret"), "{summary}");
-    assert!(summary.contains("db.example.com"), "{summary}");
+    assert!(!summary.contains("db.example.com"), "{summary}");
+    assert!(summary.contains("postgres (url redacted)"), "{summary}");
 
     let sqlite = database::describe("app", &sqlite_config(Some("data/app.sqlite"), None));
     assert!(sqlite.contains("sqlite data/app.sqlite"), "{sqlite}");

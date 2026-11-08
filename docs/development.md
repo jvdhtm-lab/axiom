@@ -27,7 +27,7 @@ the Windows env prefix:
 
 ```sh
 cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace
 ```
 
@@ -35,6 +35,9 @@ Additional smoke commands:
 
 ```sh
 cargo run -p axiom-cli -- init .axiom-smoke
+cargo run -p axiom-cli -- createapp my_app
+cargo run -p axiom-cli -- check my_app/server/main.ax my_app/frontend/main.ax --config my_app/config.yml
+cargo run -p axiom-cli -- build --target wasm_browser my_app/frontend/main.ax
 cargo run -p axiom-cli -- fmt examples/src/deterministic.ax --check
 cargo run -p axiom-cli -- lint examples/src/deterministic.ax
 cargo run -p axiom-cli -- check examples/src/*.ax
@@ -50,34 +53,52 @@ cargo run -p axiom-cli -- db migrations plan --config examples/axiom.yaml --data
 referenced integration API-key environment variables are set (or given defaults
 in the config).
 
+## Editor support
+
+`editors/vscode/` contains a grammar-only VS Code extension for `.ax` files. Open
+that folder and press **F5** for an Extension Development Host, or package it:
+
+```sh
+cd editors/vscode
+npx @vscode/vsce package
+code --install-extension axiom-language-0.1.0.vsix
+```
+
+It provides syntax highlighting, comment toggling, bracket matching, and
+indentation only; diagnostics still come from `axiom check`/`axiom lint`.
+
+The documentation site is a Jekyll site rooted at `docs/` (`docs/index.md`,
+`docs/_config.yml`). GitHub Pages setup, local preview, custom domains, and the
+(currently blocked) Axiom frontend deployment are documented in
+[`github-pages.md`](github-pages.md).
+
 ## Application Control (`os error 4551`)
 
 If a build fails with *"An Application Control policy has blocked this file"*, an
-unsigned binary, build script, or proc-macro was content-blocked. Keep the default
-build dependency-light and sign generated artifacts when needed:
+unsigned binary, build script, proc-macro, or the MinGW linker was content-blocked.
+Set up the local signing workaround once (and re-run it after a WinGet/MinGW
+upgrade):
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sign-windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1
 ```
 
-On this machine `scripts/sign-windows.ps1` can hang while writing the trust
-stores. A working fallback for a **specific blocked test/binary** is to run a
-copy outside `target/`, strip debug info, sign it with the already-trusted dev
-certificate, and retry (the policy is content-based and intermittent):
+That script:
 
-```powershell
-$cert = Get-Item Cert:\CurrentUser\My\14EDB8E45DC1F916AD782B2B2BB31875F5378992
-$strip = "C:\Users\jvdht\AppData\Local\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.POSIX.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\mingw64\bin\strip.exe"
-Copy-Item target\debug\deps\some_test-*.exe $env:TEMP\some_test.exe -Force
-& $strip --strip-debug $env:TEMP\some_test.exe
-Set-AuthenticodeSignature -FilePath $env:TEMP\some_test.exe -Certificate $cert -HashAlgorithm SHA256
-& $env:TEMP\some_test.exe
-```
+- signs the MinGW `x86_64-w64-mingw32\bin\ld.exe` with the already-trusted dev
+  certificate (backing up the original as `ld.exe.unsigned.bak`), which fixes
+  `collect2.exe: fatal error: CreateProcess: No such file or directory`;
+- writes a local `.cargo/config.toml` runner that copies each test/binary out of
+  `target/`, strips debug info, signs it, and retries when the policy blocks it.
 
-`cargo test --workspace` still works on CI and on unaffected machines; run the
-test binaries from the package directory (cargo's working directory) when doing
-this manually. `axiom-syntax` has no third-party dependencies, so the `.ax` front
-end should not trigger this. `axiom-config` adds `yaml_serde` (ADR-0009).
+The local Cargo config is machine-specific and excluded from git. Use
+`-SkipToolchain` if the linker already works. Override the certificate with
+`-CertThumbprint`. On CI and unaffected machines, `cargo test --workspace` runs
+normally without these scripts.
+
+The policy is content-based and intermittent; a signed copy can still be blocked
+once. The runner retries with a fresh copy, which is why it is preferred over
+running `target/` binaries directly.
 
 ## Dependency policy
 
@@ -102,12 +123,12 @@ source of truth.
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | partial |
 | 5 | Config, model integrations, registered tools and commands | partial |
 | 6 | Filesystem, workspaces, patch/artifact APIs, command sandbox | done |
-| 7 | Database APIs, roles, parameter checks, approval/audit, migrations | partial |
+| 7 | Database APIs, roles, parameter checks, approval/audit, migrations | done (SQLite driver) |
 | 8 | Agent calls, iteration/validation APIs, budgets, typed results | partial |
 | 9 | Frontend state, validation/migration, artifact registry and caches | partial |
 | 10 | Durable async execution, checkpoints, resume, cancellation, tracing | partial |
 | 11 | Full-stack reference app, tooling, docs, security hardening | partial |
-| 12 | Release-readiness audit | not started |
+| 12 | Release-readiness audit | done (audit; release not ready) |
 
 Every phase ends with a compiling repository and passing relevant tests. Nothing
 is marked done without evidence in the ledger.

@@ -134,10 +134,12 @@ We threat-model at least:
   explicit approval, and `apply_plan` acquires `.axiom/migrations.lock`,
   validates pending steps against a scratch database, and records per-migration
   history.
-- PostgreSQL release targets require TLS (`sslmode=require|verify-ca|verify-full`)
-  and refuse loopback/private/link-local/metadata hosts unless explicitly
-  allowed. **Phase 7 ships no PostgreSQL wire adapter** — this is a target policy
-  plus a gated validation test, not a working remote connection.
+- Database connections are driver-independent: `.ax` code selects a named
+  connection and always goes through the same parameterized, bounded, audited
+  API. `sqlite` is the bundled reference driver. A remote driver is expected to
+  enforce TLS and to refuse loopback/private/link-local/metadata targets unless
+  `allow_private_network` is set, but the repository ships no remote driver, so
+  those claims are not proven against a live server.
 - Agent acceptance is runtime-owned: `agents.iterate` builds a candidate and runs
   required validators; a model's text claiming success is never evidence.
   Required validation fails closed (missing/errored/unsupported/failed all block
@@ -163,8 +165,9 @@ We threat-model at least:
 - The SQL analyzer is conservative token-level analysis, not a full SQL parser;
   it rejects by class and table scope rather than proving query intent, and
   SQLite is opened through a dynamically loaded system library.
-- The PostgreSQL policy is validated but no driver connects yet, so its
-  enforcement claims are unproven against a live server.
+- Only the bundled SQLite driver is exercised. Remote drivers are optional host
+  adapters, so their TLS/private-network enforcement is unproven in this
+  repository until an adapter and integration test exist.
 - Command execution has process isolation but no container/kernel network
   sandbox; network-enabled profiles are refused rather than isolated. A child
   may still open sockets if a profile is misconfigured to allow them.

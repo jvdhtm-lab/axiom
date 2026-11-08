@@ -6,7 +6,7 @@
 //! `axiom sandbox plan`, and `axiom artifacts hash`. No command contacts a model
 //! integration.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use axiom_artifacts::{ArtifactKind, ArtifactStore};
@@ -28,6 +28,7 @@ USAGE:
 
 COMMANDS:
     init [DIR]                   Create a minimal project skeleton
+    createapp <NAME>             Create <NAME>/{server,frontend,config.yml}
     check <FILE>...              Load the module graph and report diagnostics
     lint <FILE>... [--config <FILE>]
                                  Report the same stable diagnostics as `check`
@@ -75,6 +76,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("init") => run_init(&args[1..]),
+        Some("createapp") => run_createapp(&args[1..]),
         Some("check") => run_check_as(&args[1..], "check"),
         Some("lint") => run_check_as(&args[1..], "lint"),
         Some("fmt") => run_fmt(&args[1..]),
@@ -130,6 +132,30 @@ fn run_init(arguments: &[String]) -> ExitCode {
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."));
     match tooling::scaffold(&root) {
+        Ok(paths) => {
+            for path in paths {
+                println!("created: {}", path.display());
+            }
+            ExitCode::SUCCESS
+        }
+        Err(message) => {
+            eprintln!("error: {message}");
+            ExitCode::from(1)
+        }
+    }
+}
+
+fn run_createapp(arguments: &[String]) -> ExitCode {
+    let names: Vec<&String> = arguments
+        .iter()
+        .filter(|arg| !arg.starts_with('-'))
+        .collect();
+    if names.len() != 1 {
+        eprintln!("error: `createapp` needs exactly one app name\n");
+        eprint!("{USAGE}");
+        return ExitCode::from(2);
+    }
+    match tooling::scaffold_app(Path::new("."), names[0]) {
         Ok(paths) => {
             for path in paths {
                 println!("created: {}", path.display());
@@ -832,8 +858,8 @@ fn database_config(config_path: &str) -> Result<(axiom_config::ProjectConfig, Pa
     Ok((config, root))
 }
 
-/// Validate configured databases: engine settings, the PostgreSQL target
-/// policy, and (for SQLite) that the least-privilege roles behave as claimed.
+/// Validate configured database connections: the registered driver, connection
+/// fields, and (for SQLite) that the least-privilege roles behave as claimed.
 fn run_db_check(arguments: &[String]) -> ExitCode {
     let Some(config_path) = flag_value(arguments, "--config") else {
         eprintln!("error: `db check` needs `--config <FILE>`\n");
@@ -852,13 +878,7 @@ fn run_db_check(arguments: &[String]) -> ExitCode {
     let mut failed = false;
     for (name, database_config) in &config.databases {
         println!("{}", database::describe(name, database_config));
-        match database_config.engine.as_str() {
-            "postgres" => {
-                if let Err(message) = database::postgres_policy(name, database_config) {
-                    eprintln!("error: {message}");
-                    failed = true;
-                }
-            }
+        match database_config.driver.as_str() {
             "sqlite" => {
                 let spec = match database::spec_from_config(&root, name, database_config) {
                     Ok(spec) => spec,
@@ -893,7 +913,9 @@ fn run_db_check(arguments: &[String]) -> ExitCode {
                 }
             }
             other => {
-                eprintln!("error: database `{name}` uses unknown engine `{other}`");
+                eprintln!(
+                    "error: database `{name}` uses driver `{other}`, which is not registered in this build"
+                );
                 failed = true;
             }
         }

@@ -1,0 +1,45 @@
+{
+  "name": "axiom-language",
+  "displayName": "Axiom",
+  "description": "Syntax highlighting and language configuration for the Axiom language (.ax).",
+  "version": "0.1.0",
+  "publisher": "jvdhtm-lab",
+  "license": "MIT OR Apache-2.0",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "axiom",
+    "ax",
+    "wasm",
+    "agents"
+  ],
+  "scripts": {
+    "test": "node test/validate.mjs"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "axiom",
+        "aliases": [
+          "Axiom",
+          "axiom"
+        ],
+        "extensions": [
+          ".ax"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "axiom",
+        "scopeName": "source.axiom",
+        "path": "./syntaxes/axiom.tmLanguage.json"
+      }
+    ]
+  }
+}

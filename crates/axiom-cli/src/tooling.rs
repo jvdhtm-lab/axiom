@@ -69,3 +69,93 @@ export fn main() -> string {
   return \"hello from Axiom\";
 }
 ";
+
+/// Create a two-target application scaffold:
+/// `<name>/config.yml`, `<name>/server/main.ax`, `<name>/frontend/main.ax`.
+/// The name must be a valid Axiom module identifier.
+pub fn scaffold_app(parent: &Path, name: &str) -> Result<Vec<PathBuf>, String> {
+    validate_app_name(name)?;
+    let root = parent.join(name);
+    if root.exists() {
+        return Err(format!("`{}` already exists", root.display()));
+    }
+    let server_dir = root.join("server");
+    let frontend_dir = root.join("frontend");
+    let config = root.join("config.yml");
+    let server_source = server_dir.join("main.ax");
+    let frontend_source = frontend_dir.join("main.ax");
+
+    std::fs::create_dir_all(&server_dir)
+        .map_err(|error| format!("cannot create `{}`: {error}", server_dir.display()))?;
+    std::fs::create_dir_all(&frontend_dir)
+        .map_err(|error| format!("cannot create `{}`: {error}", frontend_dir.display()))?;
+    write(&config, &app_config(name))?;
+    write(&server_source, &app_server(name))?;
+    write(&frontend_source, &app_frontend(name))?;
+    Ok(vec![config, server_source, frontend_source])
+}
+
+fn write(path: &Path, contents: &str) -> Result<(), String> {
+    std::fs::write(path, contents)
+        .map_err(|error| format!("cannot write `{}`: {error}", path.display()))
+}
+
+fn validate_app_name(name: &str) -> Result<(), String> {
+    let mut chars = name.chars();
+    match chars.next() {
+        Some(first) if first.is_ascii_alphabetic() => {}
+        _ => return Err(format!("app name `{name}` must start with an ASCII letter")),
+    }
+    if let Some(bad) = chars.find(|c| !c.is_ascii_alphanumeric() && *c != '_') {
+        return Err(format!(
+            "app name `{name}` contains `{bad}`; use ASCII letters, digits, or `_`"
+        ));
+    }
+    Ok(())
+}
+
+fn app_config(name: &str) -> String {
+    format!(
+        "\
+# Axiom project configuration (Axiom 1.0 schema).
+version: 1
+language: \"1.0\"
+
+sources:
+  - \"server/**/*.ax\"
+  - \"frontend/**/*.ax\"
+
+compilation:
+  targets: [server, wasm_browser]
+  entrypoints:
+    server:
+      module: {name}.server
+    wasm_browser:
+      module: {name}.frontend
+"
+    )
+}
+
+fn app_server(name: &str) -> String {
+    format!(
+        "\
+module {name}.server;
+
+export api async fn health() -> string {{
+  return \"ok\";
+}}
+"
+    )
+}
+
+fn app_frontend(name: &str) -> String {
+    format!(
+        "\
+module {name}.frontend;
+
+export fn main() -> string {{
+  return \"hello from {name}\";
+}}
+"
+    )
+}

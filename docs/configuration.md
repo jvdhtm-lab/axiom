@@ -184,27 +184,52 @@ profiles; command lines are never assembled from model output.
 
 ### `databases`
 
-A mapping of database id → configuration. SQLite databases open locally with
-separate least-privilege read/write/schema connections; PostgreSQL entries
-declare the release target only (Phase 7 ships no remote driver).
+A mapping of database id → **named connection plus policy**. `.ax` code is
+driver-independent: it selects a connection by name
+(`database: "app"`) and the same `db.query`/`db.query_one`/`db.execute` calls
+work across drivers. Multiple connections may be declared, each with its own
+data class, table scope, row/time limits, approval rule, and migrations.
+
+`sqlite` is the bundled reference driver. Other drivers are host-registered
+adapters; a driver that is configured but not registered in the current host is
+refused by `axiom db check` and at runtime.
 
 | Key | Type | Notes |
 | --- | --- | --- |
-| `engine` | string (required) | `sqlite` or `postgres` |
-| `path` | string (optional) | SQLite file, safe relative path (sqlite only) |
-| `url` | string (optional) | PostgreSQL URL (postgres only, redacted in output) |
+| `driver` | string (required) | registered driver name, e.g. `sqlite` |
+| `path` | string (optional) | local file, safe relative path (`sqlite` only) |
+| `url` | string (optional) | connection URL for non-local drivers (redacted in output) |
 | `data_class` | string (optional) | data classification (default `internal`) |
 | `allowed_tables` | sequence of string (optional) | tables application SQL may reference |
 | `max_rows` | integer (optional) | read row cap |
 | `timeout_seconds` | integer (optional) | statement timeout |
 | `migrations` | string (optional) | reviewed migration directory (safe relative path) |
 | `destructive_migrations` | bool (optional) | whether destructive migrations are configured as allowed |
-| `allow_private_network` | bool (optional) | permit private/link-local PostgreSQL hosts |
+| `allow_private_network` | bool (optional) | permit private/link-local targets for remote drivers |
 | `require_write_approval` | bool (optional) | require a write approval (default true) |
 
-`axiom db check` validates each entry, probes SQLite role isolation, and checks
-the PostgreSQL target policy; `axiom db migrations plan --database <name>`
-prints pending migrations and destructive changes.
+The configuration layer validates the connection shape and rejects unsafe local
+paths; it does not hard-code vendor names. `axiom db check` probes the bundled
+SQLite driver's role isolation and reports unregistered drivers. `axiom db
+migrations plan --database <name>` prints pending migrations and destructive
+changes.
+
+```yaml
+databases:
+  app:
+    driver: sqlite
+    path: "var/app.sqlite"
+    data_class: internal
+    allowed_tables: [teams, tasks]
+    migrations: "db/migrations"
+  analytics:
+    driver: sqlite
+    path: "var/analytics.sqlite"
+    data_class: confidential
+    allowed_tables: [events]
+    max_rows: 500
+    require_write_approval: true
+```
 
 ## Providers (`axiom-providers`)
 

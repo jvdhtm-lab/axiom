@@ -148,18 +148,19 @@ pub struct FilesystemConfig {
     pub protect_vcs_metadata: Option<bool>,
 }
 
-/// A configured database (agents.md §10).
+/// A configured database connection (agents.md §10).
 ///
-/// SQLite databases are files under the project root; PostgreSQL targets are
-/// remote URLs. The connection URL is a [`Secret`] so credentials cannot leak
+/// A connection is a registered driver plus shared policy. The bundled
+/// `sqlite` driver opens a file under the project root; other drivers connect
+/// through a URL. The connection URL is a [`Secret`] so credentials cannot leak
 /// into diagnostics, IR dumps, or traces.
 #[derive(Debug, Clone, Default)]
 pub struct DatabaseConfig {
-    /// `sqlite` or `postgres`.
-    pub engine: String,
-    /// SQLite file path, relative to the project root.
+    /// Registered driver name, for example `sqlite`.
+    pub driver: String,
+    /// Local file path for the bundled `sqlite` driver.
     pub path: Option<String>,
-    /// PostgreSQL connection URL (redacted in debug output).
+    /// Connection URL for non-local drivers (redacted in debug output).
     pub url: Option<Secret>,
     /// The data class this database holds (default `internal`).
     pub data_class: Option<String>,
@@ -173,7 +174,7 @@ pub struct DatabaseConfig {
     pub migrations: Option<String>,
     /// Whether destructive migrations are configured as allowed at all.
     pub destructive_migrations: Option<bool>,
-    /// Permit private/link-local PostgreSQL targets (default false).
+    /// Permit private/link-local network targets for remote drivers.
     pub allow_private_network: Option<bool>,
     /// Require a write approval (default true).
     pub require_write_approval: Option<bool>,

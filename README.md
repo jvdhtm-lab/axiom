@@ -32,7 +32,7 @@ the current [`agents.md`](agents.md) specification. The phase numbers below foll
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | partial |
 | 5 | Config, model integrations, registered tools and commands | partial |
 | 6 | Filesystem, workspaces, patch/artifact APIs, command sandbox | done |
-| 7 | Database APIs, roles, parameter checks, approval/audit, migrations | partial |
+| 7 | Database APIs, roles, parameter checks, approval/audit, migrations | done (SQLite driver) |
 | 8 | Agent calls, iteration/validation APIs, budgets, typed results | partial |
 | 9 | Frontend state, validation/migration, artifact registry and caches | partial |
 | 10 | Durable async execution, checkpoints, resume, cancellation, tracing | partial |
@@ -52,6 +52,7 @@ unless the ledger cites a passing test.
 - [`docs/security-model.md`](docs/security-model.md) — threat model and invariants.
 - [`docs/conformance.md`](docs/conformance.md) — requirement-to-test matrix.
 - [`docs/release-readiness.md`](docs/release-readiness.md) — release audit, evidence, and open gaps.
+- [`docs/github-pages.md`](docs/github-pages.md) — publish the docs site and deploy Axiom frontends to GitHub Pages.
 - [`docs/decisions/`](docs/decisions/) — architecture decision records.
 
 ## Layout
@@ -74,6 +75,7 @@ crates/
   axiom-database/  parameterized SQL, roles, audit, approvals, migrations
   axiom-cli/       the `axiom` binary
 browser/           trusted host shell + Node smoke harness
+editors/vscode/    VS Code syntax highlighting for .ax
 examples/          axiom.yaml and src/ (the reference project)
 docs/              spec, grammar, configuration, architecture, security, ledger, ADRs
 ```
@@ -89,6 +91,8 @@ cargo test --workspace
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo run -p axiom-cli -- check examples/src/*.ax
+cargo run -p axiom-cli -- createapp my_app
+cargo run -p axiom-cli -- check my_app/server/main.ax my_app/frontend/main.ax --config my_app/config.yml
 cargo run -p axiom-cli -- config check examples/axiom.yaml
 cargo run -p axiom-cli -- workspace check examples/src/agents.ax
 cargo run -p axiom-cli -- sandbox plan --config examples/axiom.yaml --command cargo_check
@@ -102,6 +106,17 @@ node browser/host-smoke.mjs out/app.wasm out/app.manifest.json
 `config check` and `sandbox plan` fail closed on `examples/axiom.yaml` until the
 referenced integration API-key environment variables are set (or given defaults
 in the config).
+
+## Editor support
+
+`editors/vscode/` is a syntax-highlighting extension for `.ax` files. Open that
+folder in VS Code and press **F5**, or package it:
+
+```sh
+cd editors/vscode
+npx @vscode/vsce package
+code --install-extension axiom-language-0.1.0.vsix
+```
 
 ## License
 

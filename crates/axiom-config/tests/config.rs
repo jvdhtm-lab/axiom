@@ -122,7 +122,7 @@ fn bundled_example_configuration_loads() {
     assert_eq!(cargo_check.timeout_seconds, Some(300));
 
     let app = &config.databases["app"];
-    assert_eq!(app.engine, "sqlite");
+    assert_eq!(app.driver, "sqlite");
     assert_eq!(app.path.as_deref(), Some("var/app.sqlite"));
     assert_eq!(app.data_class.as_deref(), Some("internal"));
     assert_eq!(
@@ -133,16 +133,16 @@ fn bundled_example_configuration_loads() {
     assert_eq!(app.migrations.as_deref(), Some("db/migrations"));
     assert_eq!(app.require_write_approval, Some(true));
 
-    let reporting = &config.databases["reporting"];
-    assert_eq!(reporting.engine, "postgres");
-    assert_eq!(reporting.data_class.as_deref(), Some("confidential"));
-    assert_eq!(reporting.allow_private_network, Some(false));
-    assert!(reporting.url.is_some());
+    let analytics = &config.databases["analytics"];
+    assert_eq!(analytics.driver, "sqlite");
+    assert_eq!(analytics.path.as_deref(), Some("var/analytics.sqlite"));
+    assert_eq!(analytics.data_class.as_deref(), Some("confidential"));
+    assert_eq!(analytics.allowed_tables, vec!["events"]);
 }
 
 #[test]
 fn database_urls_are_redacted_in_debug_output() {
-    let text = "version: 1\ndatabases:\n  prod:\n    engine: postgres\n    \
+    let text = "version: 1\ndatabases:\n  prod:\n    driver: postgres\n    \
                 url: \"postgres://user:supersecret@db.example.com/app?sslmode=verify-full\"\n";
     let report = parse("inline.yaml", text);
     assert_eq!(report.error_count(), 0, "{}", messages(&report));
@@ -154,28 +154,28 @@ fn database_urls_are_redacted_in_debug_output() {
 fn invalid_database_configurations_are_rejected() {
     let cases = [
         (
-            "unknown engine",
-            "version: 1\ndatabases:\n  app:\n    engine: mysql\n    path: \"a.sqlite\"\n",
+            "invalid driver name",
+            "version: 1\ndatabases:\n  app:\n    driver: \"my-driver\"\n    url: \"postgres://app@db.example.com/app\"\n",
         ),
         (
             "sqlite without path",
-            "version: 1\ndatabases:\n  app:\n    engine: sqlite\n",
+            "version: 1\ndatabases:\n  app:\n    driver: sqlite\n",
         ),
         (
             "sqlite with absolute path",
-            "version: 1\ndatabases:\n  app:\n    engine: sqlite\n    path: \"/etc/app.sqlite\"\n",
+            "version: 1\ndatabases:\n  app:\n    driver: sqlite\n    path: \"/etc/app.sqlite\"\n",
         ),
         (
             "sqlite escaping the root",
-            "version: 1\ndatabases:\n  app:\n    engine: sqlite\n    path: \"../app.sqlite\"\n",
+            "version: 1\ndatabases:\n  app:\n    driver: sqlite\n    path: \"../app.sqlite\"\n",
         ),
         (
-            "postgres without url",
-            "version: 1\ndatabases:\n  app:\n    engine: postgres\n",
+            "remote driver without url",
+            "version: 1\ndatabases:\n  app:\n    driver: postgres\n",
         ),
         (
-            "postgres with path",
-            "version: 1\ndatabases:\n  app:\n    engine: postgres\n    \
+            "remote driver with path",
+            "version: 1\ndatabases:\n  app:\n    driver: postgres\n    \
              url: \"postgres://app@db.example.com/app?sslmode=require\"\n    path: \"app.sqlite\"\n",
         ),
     ];
@@ -187,6 +187,18 @@ fn invalid_database_configurations_are_rejected() {
             messages(&report)
         );
     }
+}
+
+#[test]
+fn unregistered_drivers_are_accepted_by_the_config_layer() {
+    let text = "version: 1\ndatabases:\n  app:\n    driver: mysql\n    \
+                url: \"mysql://app@db.example.com/app\"\n";
+    let report = parse("inline.yaml", text);
+    assert_eq!(report.error_count(), 0, "{}", messages(&report));
+    assert_eq!(
+        report.config.as_ref().unwrap().databases["app"].driver,
+        "mysql"
+    );
 }
 
 #[test]

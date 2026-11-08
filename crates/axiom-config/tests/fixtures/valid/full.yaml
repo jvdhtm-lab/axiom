@@ -41,7 +41,7 @@ filesystem:
 
 databases:
   app:
-    engine: sqlite
+    driver: sqlite
     path: "var/app.sqlite"
     allowed_tables: [teams, tasks]
     max_rows: 100
@@ -50,7 +50,7 @@ databases:
     destructive_migrations: false
     require_write_approval: true
   reporting:
-    engine: postgres
+    driver: postgres
     url: "${AXIOM_REPORTING_DATABASE_URL:-postgres://reporting@db.example.com/reporting?sslmode=verify-full}"
     data_class: confidential
     allow_private_network: false

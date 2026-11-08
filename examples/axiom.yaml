@@ -154,7 +154,7 @@ filesystem:
 
 databases:
   app:
-    engine: sqlite
+    driver: sqlite
     path: "var/app.sqlite"
     data_class: internal
     allowed_tables: [teams, tasks, v_team_performance]
@@ -164,14 +164,14 @@ databases:
     destructive_migrations: false
     require_write_approval: true
 
-  reporting:
-    engine: postgres
-    url: "${AXIOM_REPORTING_DATABASE_URL:-postgres://reporting@db.example.com:5432/reporting?sslmode=verify-full}"
+  analytics:
+    driver: sqlite
+    path: "var/analytics.sqlite"
     data_class: confidential
-    allowed_tables: [v_team_performance]
+    allowed_tables: [events]
     max_rows: 500
     timeout_seconds: 10
-    allow_private_network: false
+    require_write_approval: true
 
 commands:
   cargo_check:

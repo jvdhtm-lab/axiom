@@ -564,11 +564,11 @@ Command profiles in config contain an executable, structured argument list, work
 
 ## 10. Database subsystem
 
-Database behavior is a library/runtime feature, not a `query` language declaration. Axiom code calls typed database APIs, for example `db.query<Row>(database: "app", sql: "...", params: {...})` or `db.execute(...)`.
+Database behavior is a library/runtime feature, not a `query` language declaration. Axiom code calls typed database APIs, for example `db.query<Row>(database: "app", sql: "...", params: {...})` or `db.execute(...)`. Connections are database-independent named configurations: `.ax` code selects a connection by name and never names a vendor. SQLite is the bundled reference driver; other backends are optional host-registered drivers behind the same API. Multiple connections with different policies may coexist.
 
 ### 10.1 Required database rules
 
-- SQLite for offline deterministic tests and PostgreSQL support in release CI.
+- SQLite as the bundled offline reference driver with deterministic tests. Additional drivers are optional host adapters; no specific remote vendor requires a wire adapter for 1.0.
 - Separate connection roles for read, write, schema/migration, and provisioning. Ordinary agents/tools do not receive administrator credentials.
 - Parameterized SQL only. SQL text must be a source string literal or another compile-time constant that passes validation; model-generated SQL text at runtime is forbidden.
 - Check SQL statement class, placeholders, parameter names/types, row type mapping, row/affected-row limits, timeout, and allowed schema/table scope. The parser/scanner is defense in depth; actual DB roles and server configuration are the security boundary.
@@ -577,7 +577,7 @@ Database behavior is a library/runtime feature, not a `query` language declarati
 - Write approval binds to the exact SQL fingerprint, parameter hash, database/role, row limit, candidate/action hash, and expiry. Any change invalidates approval. Use idempotency keys and crash-safe ledger semantics where writes can be retried.
 - Migrations run only in a dedicated migration workspace and use reviewed, versioned migration files. Plan and test against a scratch database before applying. Destructive production changes require explicit flag and approval.
 - Provisioning is disabled by default, requires separate authority, and is isolated from ordinary agents.
-- Reject SSRF/private metadata access in connection setup unless explicitly configured; require TLS verification for remote PostgreSQL.
+- Reject SSRF/private metadata access in connection setup unless explicitly configured; remote drivers are expected to require TLS verification and to declare their security policy.
 
 ### 10.2 API surface
 
@@ -594,7 +594,7 @@ Schema/provision/migration APIs have their own effects and are never available t
 
 ### 10.3 Required database tests
 
-Test SQL injection strings, multiple-statement rejection, nonliteral/model-produced SQL rejection, placeholder mismatch, unknown tables/columns, result-type mismatch, row/time limits, restricted role enforcement, write approval hash mismatch/expiry/replay, idempotency across crashes, concurrent migrations, destructive migration gates, scratch isolation, secret redaction, SSRF restrictions, TLS failure, and fuzzing of SQL/config parsing. Postgres release tests use `AXIOM_TEST_POSTGRES_URL`; do not make a real database necessary for the offline default test suite.
+Test SQL injection strings, multiple-statement rejection, nonliteral/model-produced SQL rejection, placeholder mismatch, unknown tables/columns, result-type mismatch, row/time limits, restricted role enforcement, write approval hash mismatch/expiry/replay, idempotency across crashes, concurrent migrations, destructive migration gates, scratch isolation, secret redaction, SSRF restrictions, TLS failure, and fuzzing of SQL/config parsing. A remote-driver test suite is optional and separately gated; a real remote database must never be necessary for the offline default test suite.
 
 ## 11. Runtime, durability, and errors
 
@@ -851,7 +851,7 @@ Every phase ends with a compiling repository and passing relevant tests. Update 
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | Real browser smoke tests; forbidden imports rejected; reproducible build fixture |
 | 5 | Config, model integrations, registered tools and commands | Mock-provider tests; no secrets in output; model alias switch requires no source edits |
 | 6 | Filesystem, workspaces, patch/artifact APIs and command sandbox | Path/security/property tests; isolation and integration gates pass |
-| 7 | Database APIs, roles, parameter checks, approval/audit and migrations | Offline SQLite suite and gated Postgres release suite; security tests pass |
+| 7 | Database APIs, roles, parameter checks, approval/audit and migrations | Offline SQLite reference-driver suite; security tests pass; optional remote-driver tests are separately gated |
 | 8 | Agent calls, iteration/validation APIs, budgets, typed results | Pass-first, repair-pass, exhaustion, forged-evidence rejection tests |
 | 9 | Frontend state, state validation/migration, artifact registry and build/data caches | Hot-swap, invalidation, cache-isolation, reproducibility and rollback tests |
 | 10 | Durable async execution, checkpoints, resume, cancellation, tracing, approvals | Crash/resume and cancellation tests; no duplicated non-idempotent action without idempotency handling |

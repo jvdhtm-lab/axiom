@@ -16,6 +16,7 @@
 | [0012](0012-semantic-analysis-scope.md) | Semantic analysis scope for Phase 2 | superseded by 0014 |
 | [0013](0013-strict-resolution-and-multi-target.md) | Strict name resolution and multi-target/frontend scope | superseded by 0014 |
 | [0014](0014-small-language-rebaseline.md) | Re-baseline Axiom 1.0 to the small language | accepted |
+| [0015](0015-database-independent-connections.md) | Database-independent connections over registered drivers | accepted |
 
 ADRs are immutable once accepted; a later ADR supersedes an earlier one rather
 than editing it.
