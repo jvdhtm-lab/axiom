@@ -1,0 +1,15 @@
+---
+layout: default
+---
+<article class="doc">
+  <header class="doc-header">
+    <p class="eyebrow">Documentation</p>
+    <h1>{{ page.title | default: site.title | escape }}</h1>
+    {% if page.description %}
+      <p class="doc-lede">{{ page.description | escape }}</p>
+    {% endif %}
+  </header>
+  <div class="prose">
+    {{ content }}
+  </div>
+</article>

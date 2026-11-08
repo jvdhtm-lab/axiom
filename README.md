@@ -45,6 +45,10 @@ unless the ledger cites a passing test.
 
 ## Documentation
 
+- [`docs/quickstart.md`](docs/quickstart.md) — install, scaffold, check, run, and build.
+- [`docs/language-tour.md`](docs/language-tour.md) — types, control flow, Option/Result, effects, modules.
+- [`docs/examples.md`](docs/examples.md) — server, database, frontend, agent, and configuration examples.
+- [`docs/cli.md`](docs/cli.md) — every CLI command and flag.
 - [`docs/language-spec.md`](docs/language-spec.md) — the language.
 - [`docs/grammar.ebnf`](docs/grammar.ebnf) — the normative grammar.
 - [`docs/configuration.md`](docs/configuration.md) — `axiom.yaml`.

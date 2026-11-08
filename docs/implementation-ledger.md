@@ -4,7 +4,7 @@ Tracks Axiom 1.0 requirements against implementation status. **Do not mark an
 item complete without test evidence.** Statuses: `done` (implemented + tested),
 `partial`, `not started`. Phase numbers follow `agents.md` §15.
 
-Last updated: 2026-11-07 (database connections are driver-independent per ADR-0015; `editors/vscode` adds `.ax` syntax highlighting; `docs/github-pages.md` documents the docs site and the blocked frontend deployment; `axiom createapp <NAME>` writes `<NAME>/server/main.ax`, `<NAME>/frontend/main.ax`, and `<NAME>/config.yml` with both targets configured).
+Last updated: 2026-11-07 (database connections are driver-independent per ADR-0015; `editors/vscode` adds `.ax` syntax highlighting; the Pages site adds a quickstart, language tour, examples cookbook, and CLI reference; `docs/github-pages.md` documents the docs site and the blocked frontend deployment; `axiom createapp <NAME>` writes `<NAME>/server/main.ax`, `<NAME>/frontend/main.ax`, and `<NAME>/config.yml` with both targets configured).
 
 ## Phase status
 
@@ -89,7 +89,8 @@ Last updated: 2026-11-07 (database connections are driver-independent per ADR-00
 | App scaffold (`axiom createapp`) | 11 | done | `tooling.rs`: creates `<NAME>/config.yml` + `<NAME>/server/main.ax` + `<NAME>/frontend/main.ax`, the config loads, both modules parse with the expected names, unsafe names are refused, and a second run refuses to overwrite | `docs/development.md` | Two empty modules; no HTTP server or UI runtime generated |
 | Deterministic formatter (`axiom fmt`, `--check`) and lint diagnostics | 11 | done | `tooling.rs`: messy source formats to the canonical layout, re-formatting is a no-op, invalid source reports diagnostics; `axiom-format/tests/properties.rs` (500 generated programs): parse, format, reparse, and fixed-point equality | `docs/development.md` | `lint` reports the existing semantic diagnostics; no separate lint rule set, autofix, or LSP |
 | VS Code syntax extension for `.ax` | 11 | done | `editors/vscode/test/validate.mjs` → `ok: 41 regexes, 44 scopes, .ax registered`; JSON parse + every TextMate regex compiles | `editors/vscode/README.md` | Highlighting and editor config only; diagnostics come from `axiom check`/`lint` |
-| GitHub Pages documentation site + frontend deployment guide | 11 | done (docs) | `docs/index.md`, `docs/_config.yml`, `docs/github-pages.md`; `_config.yml` parses; relative links in both pages resolve | `docs/github-pages.md` | Docs site is deployable now; interactive Axiom app deployment is documented but blocked by the missing browser host shell, DOM renderer, and typed API stubs (Phase 4) |
+| Quickstart, language tour, examples, and CLI reference | 11 | done (docs) | `docs/quickstart.md`, `docs/language-tour.md`, `docs/examples.md`, `docs/cli.md`; snippets drawn from checked example files; commands smoke-tested (`createapp`, `check`, `run`, `build`, `db check`) | `docs/quickstart.md` | Documents the implemented subset and names the incomplete phases honestly |
+| GitHub Pages documentation site + frontend deployment guide | 11 | done (docs) | `docs/index.md`, `docs/_layouts/`, `docs/assets/`, `docs/_config.yml`, `docs/github-pages.md`; `_config.yml` parses; `node scripts/check-docs-links.mjs` → `ok: 45 links in 6 pages` | `docs/github-pages.md` | Docs site is deployable now; interactive Axiom app deployment is documented but blocked by the missing browser host shell, DOM renderer, and typed API stubs (Phase 4) |
 | CLI `check`/`build`/`explain`/`run`/`config check`/`workspace check`/`sandbox plan`/`artifacts hash`/`db` | 3-11 | done | existing CLI tests + development smoke commands | `docs/development.md` | `axiom test`/`dev`/`status`/`inspect`/`resume`/`cancel` and LSP are not implemented |
 
 ## Truthfulness note

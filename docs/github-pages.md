@@ -25,7 +25,13 @@ The `docs/` directory is a Jekyll-compatible site:
 | File | Purpose |
 | --- | --- |
 | `docs/index.md` | Landing page and navigation |
-| `docs/_config.yml` | Jekyll title, theme, plugins, `baseurl` |
+| `docs/_config.yml` | Jekyll title, defaults, plugins, `baseurl` |
+| `docs/_layouts/` | Custom site and documentation page layouts |
+| `docs/assets/` | Site CSS and favicon |
+| `docs/quickstart.md` | Install, scaffold, check, run, and build |
+| `docs/language-tour.md` | Construct-by-construct language guide |
+| `docs/examples.md` | Complete server, database, frontend, and agent examples |
+| `docs/cli.md` | Complete CLI reference |
 | `docs/*.md` | Language spec, configuration, architecture, security, ledger, etc. |
 | `docs/decisions/*.md` | ADRs; `decisions/README.md` becomes the section index |
 | `docs/grammar.ebnf` | Served as a downloadable plain file |
@@ -119,16 +125,18 @@ Notes:
 
 ### Preview the site locally
 
-With Docker (recommended on Windows):
+With Docker (recommended on Windows). The site enables GitHub Pages plugins, so
+install them in the container before serving:
 
 ```powershell
 docker run --rm -it -p 4000:4000 `
   -v "${PWD}/docs:/srv/jekyll" `
+  -w /srv/jekyll `
   jekyll/jekyll:latest `
-  jekyll serve --host 0.0.0.0 --baseurl ""
+  bash -lc "gem install jekyll-optional-front-matter jekyll-default-layout jekyll-readme-index jekyll-relative-links jekyll-titles-from-headings jekyll-sitemap jekyll-seo-tag jekyll-feed --no-document && jekyll serve --host 0.0.0.0 --baseurl ''"
 ```
 
-Open <http://localhost:4000/>. `--baseurl ""` overrides the production
+Open <http://localhost:4000/>. The empty `--baseurl` overrides the production
 `/axiom` prefix so local links resolve.
 
 With Ruby and Bundler:
@@ -142,7 +150,8 @@ bundle exec jekyll serve --baseurl ""
 ```
 
 The `github-pages` gem matches the plugin set and versions GitHub uses. A plain
-`jekyll` gem may support plugins that GitHub Pages does not.
+`jekyll` gem may support plugins that GitHub Pages does not, and it must be
+installed with the plugins listed in `docs/_config.yml`.
 
 ### Custom domain
 

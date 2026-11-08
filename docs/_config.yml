@@ -2,9 +2,15 @@ title: Axiom
 description: A small, strongly typed language and runtime for full-stack applications with AI agents.
 url: "https://jvdhtm-lab.github.io"
 baseurl: "/axiom"
+lang: en
 
-theme: minima
 markdown: kramdown
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: page
 
 plugins:
   - jekyll-optional-front-matter
