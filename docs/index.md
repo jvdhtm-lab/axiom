@@ -28,26 +28,20 @@ description: A small, strongly typed language and runtime for full-stack applica
 
 <div class="hero-code">
 {% highlight typescript %}
-module demo.dashboard;
+export workspace frontend_edit {
+  root: ".";
+  read: ["examples/src/frontend.ax", "examples/src/shared.ax"];
+  write: ["examples/src/frontend.ax"];
+  deny: ["examples/src/server.ax", "axiom.yaml", "db/migrations/**"];
+  isolation: copy_on_write;
+  limits: { max_files: 200; max_file_bytes: 1000000; max_changed_files: 30 };
+}
 
-export type DashboardInput = { team_id: string; };
-export type DashboardSummary = { team_id: string; completed: int; };
-export enum AppError { NotFound; DatabaseUnavailable; }
-
-export api async fn get_dashboard(
-  input: DashboardInput
-) -> Result<DashboardSummary, AppError>
-  effects [db.read] {
-  match await db.query_one<DashboardSummary>(
-    database: "app",
-    sql: "SELECT team_id, completed FROM v_team_performance
-          WHERE team_id = :team_id LIMIT 1",
-    params: { team_id: input.team_id },
-    timeout: 5s
-  ) {
-    Ok(summary) => return Ok(summary);
-    Err(_) => return Err(AppError.DatabaseUnavailable);
-  }
+export agent FrontendDesigner(input: FrontendChange) -> FrontendPatch {
+  model: "coding";
+  workspace: frontend_edit;
+  tools: [fs.read, fs.search, fs.write, compiler.check];
+  limits: { max_calls: 6; timeout: 120s; max_output_bytes: 1000000 };
 }
 {% endhighlight %}
 </div>
