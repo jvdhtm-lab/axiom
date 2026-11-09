@@ -72,6 +72,15 @@ The documentation site is a Jekyll site rooted at `docs/` (`docs/index.md`,
 (currently blocked) Axiom frontend deployment are documented in
 [`github-pages.md`](github-pages.md).
 
+The site highlights Axiom code with a small Prism grammar
+(`docs/assets/prism-axiom.js`, vendored core under `docs/assets/vendor/`).
+Validate the docs plumbing with:
+
+```sh
+node scripts/check-axiom-highlight.mjs
+node scripts/check-docs-links.mjs
+```
+
 ## Application Control (`os error 4551`)
 
 If a build fails with *"An Application Control policy has blocked this file"*, an

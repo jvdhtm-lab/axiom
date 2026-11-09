@@ -59,6 +59,7 @@ Run from the repository root unless noted.
 | `node browser/host-smoke.mjs ...` | `ok` (hash, ABI v1, IR v1) |
 | `node editors/vscode/test/validate.mjs` | `ok: 41 regexes, 44 scopes, .ax registered` |
 | `node scripts/check-docs-links.mjs` | `ok: 49 links in 6 pages` |
+| `node scripts/check-axiom-highlight.mjs` | `ok: axiom grammar (12 token rules, 4325 bytes)` |
 | `python -c "import yaml; yaml.safe_load(open('docs/_config.yml'))"` | pass (GitHub Pages Jekyll config parses) |
 | `axiom build --target wasm_browser examples/src/{shared,frontend,server}.ax` | **fails**: `get_dashboard` uses `db.read`, which is not available on `wasm_browser` |
 | Clean checkout: `cargo build --workspace --all-targets --all-features` | pass at `7f63c1e` (see below) |
@@ -104,7 +105,7 @@ for the required aliases only.
 | API authorization | `ApiGuard` library boundary; no HTTP server or identity provider |
 | CLI tooling | `init`, `createapp`, `fmt`, `lint`, `check`, `build`, `explain`, `run`, `config`, `workspace`, `sandbox`, `artifacts`, `db`; no `test`/`dev`/`status`/`inspect`/`resume`/`cancel` |
 | VS Code extension | `.ax` TextMate highlighting + language configuration (`editors/vscode`); no LSP |
-| GitHub Pages docs site | Custom layout/CSS, quickstart, language tour, examples, CLI reference, and deployment guide (`docs/github-pages.md`) |
+| GitHub Pages docs site | Custom layout/CSS, Prism Axiom highlighting, quickstart, language tour, examples, CLI reference, and deployment guide (`docs/github-pages.md`) |
 | GitHub Pages Axiom app | blocked: no browser host shell/DOM renderer/API stubs; guide documents the target contract |
 | LSP | not started |
 

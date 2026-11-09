@@ -42,7 +42,7 @@ so it runs without environment variables.
 
 `examples/src/deterministic.ax` is the smallest complete module:
 
-```ts
+```axiom
 module examples.deterministic;
 
 export enum Sign { Negative; Zero; Positive }
@@ -97,7 +97,7 @@ The full breakdown is in the [language tour](language-tour.md).
 
 Shared types live in `examples/src/shared.ax`:
 
-```ts
+```axiom
 module examples.shared;
 
 export type DashboardInput = { team_id: string; };
@@ -110,7 +110,7 @@ export enum AppError { NotFound; DatabaseUnavailable; ValidationFailed; Unauthor
 The server handler is an ordinary exported function with `api` and `async`
 modifiers:
 
-```ts
+```axiom
 module examples.server;
 
 import { DashboardInput, DashboardSummary, AppError } from "./shared.ax";
@@ -184,7 +184,7 @@ databases:
 
 Reads use `db.query` or `db.query_one`; writes use `db.execute`:
 
-```ts
+```axiom
 let rows = await db.query<DashboardSummary>(
   database: "analytics",
   sql: "SELECT team_id, completed FROM v_team_performance WHERE team_id = :team_id",
@@ -224,7 +224,7 @@ drivers are optional host adapters and none ship in this repository.
 A frontend module follows a small convention: `init`, `render`, and
 `handle_event`.
 
-```ts
+```axiom
 module examples.frontend;
 
 import { DashboardInput, DashboardState, DashboardEvent,
@@ -324,7 +324,7 @@ Important limitations:
 A workspace is the maximum filesystem authority; an agent's workspace cannot
 widen it:
 
-```ts
+```axiom
 export workspace frontend_edit {
   root: ".";
   read: ["examples/src/frontend.ax", "examples/src/shared.ax"];
@@ -337,7 +337,7 @@ export workspace frontend_edit {
 
 An agent declares typed input/output, a model alias, tools, and limits:
 
-```ts
+```axiom
 export agent FrontendDesigner(input: FrontendChange) -> FrontendPatch {
   model: "coding";
   workspace: frontend_edit;
@@ -348,7 +348,7 @@ export agent FrontendDesigner(input: FrontendChange) -> FrontendPatch {
 
 The workflow is an ordinary async function that calls `agents.iterate`:
 
-```ts
+```axiom
 export async fn update_frontend(
   input: FrontendChange
 ) -> Result<FrontendRelease, AppError>

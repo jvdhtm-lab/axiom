@@ -27,7 +27,7 @@ The `docs/` directory is a Jekyll-compatible site:
 | `docs/index.md` | Landing page and navigation |
 | `docs/_config.yml` | Jekyll title, defaults, plugins, `baseurl` |
 | `docs/_layouts/` | Custom site and documentation page layouts |
-| `docs/assets/` | Site CSS and favicon |
+| `docs/assets/` | Site CSS, favicon, Prism Axiom grammar, and vendored Prism core (MIT) |
 | `docs/quickstart.md` | Install, scaffold, check, run, and build |
 | `docs/language-tour.md` | Construct-by-construct language guide |
 | `docs/examples.md` | Complete server, database, frontend, and agent examples |

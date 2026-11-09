@@ -17,7 +17,7 @@ the runnable source below is
 
 ## A complete module
 
-```ts
+```axiom
 module examples.deterministic;
 
 // Enums are finite tagged sets.
@@ -77,13 +77,13 @@ Expected:
 
 Every file starts with one module declaration:
 
-```ts
+```axiom
 module example.dashboard;
 ```
 
 Imports are explicit, acyclic, and use source-relative paths:
 
-```ts
+```axiom
 import { DashboardInput, AppError } from "./shared.ax";
 ```
 
@@ -110,7 +110,7 @@ Composite and built-in types:
 
 Records use named fields:
 
-```ts
+```axiom
 export type DashboardInput = { team_id: string; };
 
 export type DashboardState = {
@@ -123,7 +123,7 @@ export type DashboardState = {
 
 Enums are finite tagged values. Prefer them over string flags:
 
-```ts
+```axiom
 export enum TimeRange { Week; Month; Quarter; }
 
 export enum AppError { NotFound; DatabaseUnavailable; ValidationFailed; Unauthorized; }
@@ -138,7 +138,7 @@ unvalidated JSON or model output.
 
 Functions are pure unless they declare effects:
 
-```ts
+```axiom
 export fn add(a: int, b: int) -> int {
   return a + b;
 }
@@ -147,7 +147,7 @@ export fn add(a: int, b: int) -> int {
 A function that may await asynchronous work must be `async`; `await` is required
 at the call site:
 
-```ts
+```axiom
 export async fn handle_event(
   state: DashboardState,
   event: DashboardEvent
@@ -179,7 +179,7 @@ are a fixed, small vocabulary:
 Statements are immutable bindings, `if`/`else`, `match`, finite `for`, `return`,
 and expression statements.
 
-```ts
+```axiom
 export fn first(xs: string[]) -> string {
   for x in xs {
     return x;
@@ -188,7 +188,7 @@ export fn first(xs: string[]) -> string {
 }
 ```
 
-```ts
+```axiom
 export fn label(n: int) -> string {
   if n == 0 {
     return "zero";
@@ -207,7 +207,7 @@ standard-library APIs with run-wide limits.
 Use an exhaustive `match` for enums and `Option`/`Result` when every case must be
 handled:
 
-```ts
+```axiom
 match result {
   Ok(summary) => return Ok(summary);
   Err(_) => return Err(AppError.DatabaseUnavailable);
@@ -224,7 +224,7 @@ Supported expressions include literals, list and record construction,
 member/index access, function calls with named arguments, named generic calls,
 arithmetic/comparison/boolean operators, `if`/`else`, `match`, and `await`.
 
-```ts
+```axiom
 let p = { x: add(2, 3), y: 0 };
 let xs = ["a", "b"];
 let head = xs[0];
@@ -251,7 +251,7 @@ Literals include integers, floats, durations (`120s`, `250ms`), sizes (`2MB`,
 
 `Option<T>` is `Some(value)` or `None`:
 
-```ts
+```axiom
 export fn maybe(flag: bool) -> Option<int> {
   if flag {
     return Some(42);
@@ -263,7 +263,7 @@ export fn maybe(flag: bool) -> Option<int> {
 `Result<T, E>` is `Ok(value)` or `Err(error)`. It is the normal way to report
 recoverable failure; Axiom has no `throw`/`try`/`catch` in 1.0.
 
-```ts
+```axiom
 export api async fn get_dashboard(
   input: DashboardInput
 ) -> Result<DashboardSummary, AppError>
@@ -283,7 +283,7 @@ export api async fn get_dashboard(
 
 ## Comments
 
-```ts
+```axiom
 // Line comment.
 
 /* Block comment.

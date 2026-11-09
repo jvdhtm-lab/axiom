@@ -27,7 +27,7 @@ description: A small, strongly typed language and runtime for full-stack applica
 </section>
 
 <div class="hero-code">
-{% highlight typescript %}
+{% highlight axiom %}
 export workspace frontend_edit {
   root: ".";
   read: ["examples/src/frontend.ax", "examples/src/shared.ax"];
@@ -60,7 +60,7 @@ export agent FrontendDesigner(input: FrontendChange) -> FrontendPatch {
   </div>
 
   <div class="hero-code">
-{% highlight typescript %}
+{% highlight axiom %}
 export workspace frontend_edit {
   root: ".";
   read: ["examples/src/frontend.ax", "examples/src/shared.ax"];

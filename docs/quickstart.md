@@ -170,7 +170,7 @@ iteration with runtime-owned validation.
 
 Create `agents/designer.ax`:
 
-```ts
+```axiom
 module hello.agents;
 
 export type FrontendChange = { request: string; };

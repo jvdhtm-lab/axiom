@@ -91,7 +91,7 @@ Evaluation order and numeric/string behavior are defined in the semantics
 
 ## 5. Declarations
 
-```ts
+```axiom
 module example.dashboard;
 
 import { DashboardInput, AppError } from "./shared.ax";
