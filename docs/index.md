@@ -20,8 +20,10 @@ description: A small, strongly typed language and runtime for full-stack applica
   <div class="hero-meta">
     <span class="badge"><span class="badge-dot"></span> v0.1.0 development snapshot</span>
     <span class="badge">targets: server + wasm_browser</span>
+    <span class="badge">type inference + exhaustiveness</span>
     <span class="badge">effects checked</span>
     <span class="badge">agent orchestration</span>
+    <span class="badge">HTTP server core</span>
     <span class="badge">SQLite reference driver</span>
   </div>
 </section>
@@ -151,7 +153,7 @@ release: release:7d10…  content_hash sha256:9e2b…</code></pre>
     </div>
     <div class="card">
       <h3>Two targets, one checker</h3>
-      <p>The same parser, module model, type checks, and typed IR feed the server evaluator and the browser WASM artifact.</p>
+      <p>The same parser, module model, expression inference, match exhaustiveness, effect checks, and typed IR feed the server evaluator and the browser WASM artifact.</p>
     </div>
     <div class="card">
       <h3>Agents inside boundaries</h3>
@@ -164,6 +166,10 @@ release: release:7d10…  content_hash sha256:9e2b…</code></pre>
     <div class="card">
       <h3>Driver-independent data</h3>
       <p>Database access is parameterized SQL over named connections. SQLite ships as the reference driver; more can be registered by the host.</p>
+    </div>
+    <div class="card">
+      <h3>HTTP boundary</h3>
+      <p><code>axiom-server</code> enforces <code>ApiGuard</code> before a handler runs, bounds requests, and bridges JSON to runtime values. Missing policy and failed authentication fail closed.</p>
     </div>
   </div>
 </section>
@@ -232,7 +238,7 @@ release: release:7d10…  content_hash sha256:9e2b…</code></pre>
 <section class="section">
   <div class="callout">
     <p><strong>Axiom 1.0 is not complete.</strong> The implementation ledger is the source of truth: a feature is not claimed unless a passing test is cited there.</p>
-    <p>Server execution, checks, SQLite, artifacts, workspaces, and agent iteration are implemented for the tested subsets. An HTTP server core now enforces `ApiGuard` on registered routes, but the reference handler is not wired over HTTP yet. The browser target emits a verifiable WASM artifact that embeds checked IR, but the DOM renderer and trusted browser host shell are not implemented yet.</p>
+    <p>Server execution, checks, SQLite, artifacts, workspaces, and agent iteration are implemented for the tested subsets. Phase 13 added conservative expression inference and match exhaustiveness. Phase 14 added an HTTP server core that enforces <code>ApiGuard</code> on registered routes, but the reference handler is not wired over HTTP yet. The browser target emits a verifiable WASM artifact that embeds checked IR, but the DOM renderer and trusted browser host shell are not implemented yet.</p>
   </div>
 </section>
 

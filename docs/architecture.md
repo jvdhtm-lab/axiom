@@ -65,7 +65,7 @@ or silently skipped.
 crates/
   axiom-syntax/      lexer, parser, AST, spans, diagnostics   (no dependencies)
   axiom-format/      deterministic formatter
-  axiom-types/       module graph, symbols, type/effect/target/SQL checks
+  axiom-types/       module graph, symbols, inference/exhaustiveness, type/effect/target/SQL checks
   axiom-hash/        dependency-free SHA-256 content addressing
   axiom-ir/          shared typed IR, lowering, deterministic JSON
   axiom-runtime/     deterministic evaluator, runtime hosts (workspace/database/agents/durable), budgets

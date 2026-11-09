@@ -91,9 +91,10 @@ axiom fmt server/main.ax frontend/main.ax --check
 axiom lint server/main.ax frontend/main.ax
 ```
 
-`check` parses, resolves modules and names, and applies the effect and target
-checks it implements. `lint` reports the same stable diagnostics. `fmt --check`
-does not rewrite files; omit `--check` to format in place.
+`check` parses, resolves modules and names, infers expression types, checks
+match exhaustiveness, and applies the implemented effect and target checks.
+`lint` reports the same stable diagnostics. `fmt --check` does not rewrite files;
+omit `--check` to format in place.
 
 Example output:
 

@@ -69,8 +69,9 @@ digits, or underscores). The command refuses to overwrite an existing directory.
 
 ## `check`
 
-Parse the module graph, resolve names and types, and apply the implemented
-effect, target, and SQL-policy checks.
+Parse the module graph, resolve names and types, infer expression types, check
+match exhaustiveness, and apply the implemented effect, target, and SQL-policy
+checks.
 
 ```sh
 axiom check <FILE>... [--config <FILE>]
@@ -86,8 +87,8 @@ axiom check examples/src/shared.ax examples/src/server.ax --config examples/axio
 ```
 
 Diagnostics carry stable codes such as `AX0010` (forbidden declaration),
-`AX0201` (missing import), `AX0303` (undeclared effect), and `AX0320`
-(non-literal SQL).
+`AX0201` (missing import), `AX0303` (undeclared effect), `AX0320` (non-literal
+SQL), `AX0401` (type mismatch), and `AX0408` (non-exhaustive match).
 
 ## `lint`
 
