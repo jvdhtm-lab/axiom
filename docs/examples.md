@@ -386,6 +386,49 @@ axiom check examples/src/agent_designer.ax
 axiom workspace check examples/src/agent_designer.ax
 ```
 
+### Request: “let’s update the frontend”
+
+The workflow takes the typed `FrontendChange` record. A concrete request is:
+
+```json
+{
+  "request": "Add a dark-mode toggle to the dashboard and keep refresh working."
+}
+```
+
+The model may propose changes, but the workspace already limits what it can do:
+
+```text
+read:  examples/src/frontend.ax, examples/src/shared.ax
+write: examples/src/frontend.ax
+deny:  examples/src/server.ax, axiom.yaml, db/migrations/**
+```
+
+### Result: candidate, validation, release
+
+The first attempt is content-addressed and validated by the runtime. A repairable
+failure is sent back as structured findings; the model does not decide
+acceptance:
+
+```text
+attempt 1  candidate:c4f1…  checks.ax_compile=pass
+                            checks.wasm_build=pass
+                            checks.api_compatibility=pass
+                            checks.workspace_scope=pass
+                            checks.browser_tests=fail
+                              finding: toggle state is not persisted
+
+attempt 2  candidate:9e2b…  all required checks pass
+status: accepted
+release: release:7d10…      content_hash sha256:9e2b…
+```
+
+If every attempt fails, the outcome is `exhausted`, `update_frontend` returns
+`Err(AppError.ValidationFailed)`, and no release pointer changes. If a check is
+missing, errored, unsupported, or non-repairable, acceptance fails closed. The
+hashes above are illustrative; the runtime computes real SHA-256 content hashes
+and binds evidence to the exact candidate.
+
 The runtime library runs `agents.iterate` with runtime-owned acceptance, a
 fail-closed validator registry, content-addressed candidates, and declared
 budgets. The repository ships an offline mock provider only. There are no
@@ -395,21 +438,42 @@ covered by runtime tests.
 ## 6. Configuration for models, tools, and commands
 
 Model aliases point at integrations; `.ax` files reference the alias, never
-credentials:
+credentials. External and internal/local LLM endpoints use the same schema:
 
 ```yaml
 integrations:
-  default_cloud:
+  cloud:
     adapter: openai_compatible
     base_url: "${AXIOM_MODEL_BASE_URL:-https://api.example.com/v1}"
     api_key: "${AXIOM_MODEL_API_KEY}"
     timeout_seconds: 120
+    allowed_data_classes: [public, internal]
+
+  local:
+    adapter: openai_compatible
+    base_url: "${AXIOM_LOCAL_BASE_URL:-http://localhost:11434/v1}"
+    api_key: "${AXIOM_LOCAL_API_KEY}"
+    api_key_optional: true
+    timeout_seconds: 180
+    allowed_data_classes: [public, internal, pii]
 
 models:
   coding:
-    integration: default_cloud
+    integration: cloud
     model: "${AXIOM_CODING_MODEL:-example-coder}"
+    capabilities: [chat, tool_calling]
+
+  local_coding:
+    integration: local
+    model: "${AXIOM_LOCAL_MODEL:-qwen3-coder:30b}"
+    capabilities: [chat, tool_calling]
 ```
+
+The agent declaration selects the alias (`model: "coding"` or
+`model: "local_coding"`). Switching between an external provider and an internal
+endpoint is a configuration change; source stays the same. A local endpoint can
+opt out of an API key with `api_key_optional: true`, but external endpoints still
+need a key and their configured network policy.
 
 Command profiles are allowlisted executable plus fixed arguments — never a shell
 string assembled from model output:

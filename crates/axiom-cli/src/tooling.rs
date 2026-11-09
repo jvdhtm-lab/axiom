@@ -125,6 +125,35 @@ sources:
   - \"server/**/*.ax\"
   - \"frontend/**/*.ax\"
 
+# Optional model connections. External and internal/local endpoints use the
+# same schema; only the URL, key, and policy differ. Uncomment, select the alias
+# in the agent declaration (`model: \"coding\"`), and set the environment
+# variables. Use `model: \"local_coding\"` for an internal endpoint.
+# integrations:
+#   cloud:
+#     adapter: openai_compatible
+#     base_url: \"${{AXIOM_MODEL_BASE_URL:-https://api.example.com/v1}}\"
+#     api_key: \"${{AXIOM_MODEL_API_KEY}}\"
+#     timeout_seconds: 120
+#     allowed_data_classes: [public, internal]
+#   local:
+#     adapter: openai_compatible
+#     base_url: \"${{AXIOM_LOCAL_BASE_URL:-http://localhost:11434/v1}}\"
+#     api_key: \"${{AXIOM_LOCAL_API_KEY}}\"
+#     api_key_optional: true
+#     timeout_seconds: 180
+#     allowed_data_classes: [public, internal, pii]
+#
+# models:
+#   coding:
+#     integration: cloud
+#     model: \"${{AXIOM_CODING_MODEL:-example-coder}}\"
+#     capabilities: [chat, tool_calling]
+#   local_coding:
+#     integration: local
+#     model: \"${{AXIOM_LOCAL_MODEL:-qwen3-coder:30b}}\"
+#     capabilities: [chat, tool_calling]
+
 compilation:
   targets: [server, wasm_browser]
   entrypoints:

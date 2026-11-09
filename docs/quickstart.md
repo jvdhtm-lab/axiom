@@ -255,11 +255,76 @@ What the runtime enforces when this runs:
 - Nested runs share the outer run's budgets for model calls, time, concurrency,
   output bytes, and artifacts.
 
+### Model connection
+
+The agent selects `model: "coding"`. Declare the connection in `config.yml`.
+External and internal/local LLM endpoints use the same schema; only the URL,
+credentials, and policy differ:
+
+```yaml
+integrations:
+  cloud:
+    adapter: openai_compatible
+    base_url: "${AXIOM_MODEL_BASE_URL:-https://api.example.com/v1}"
+    api_key: "${AXIOM_MODEL_API_KEY}"
+    timeout_seconds: 120
+    allowed_data_classes: [public, internal]
+
+  local:
+    adapter: openai_compatible
+    base_url: "${AXIOM_LOCAL_BASE_URL:-http://localhost:11434/v1}"
+    api_key: "${AXIOM_LOCAL_API_KEY}"
+    api_key_optional: true
+    timeout_seconds: 180
+    allowed_data_classes: [public, internal, pii]
+
+models:
+  coding:
+    integration: cloud
+    model: "${AXIOM_CODING_MODEL:-example-coder}"
+    capabilities: [chat, tool_calling]
+
+  local_coding:
+    integration: local
+    model: "${AXIOM_LOCAL_MODEL:-qwen3-coder:30b}"
+    capabilities: [chat, tool_calling]
+```
+
+Switch the agent to `model: "local_coding"` to use the internal endpoint. The
+source does not change. Uncomment the generated `config.yml` block, or add this
+section yourself, then run `axiom config check config.yml`.
+
+### Request and result
+
+Input to `update_frontend` is the declared record, not free-form prompt state:
+
+```json
+{ "request": "Add a dark-mode toggle to the dashboard and keep refresh working." }
+```
+
+The agent works only inside `frontend_edit`, so it may read
+`frontend/**` and write only `frontend/**`. On a successful run you get:
+
+```text
+attempt 1: candidate:c4f1…  checks.ax_compile=pass
+                            checks.workspace_scope=pass
+                            checks.browser_tests=fail (toggle not persisted)
+attempt 2: candidate:9e2b…  all required checks pass
+status: accepted
+release: release:7d10…  content_hash sha256:9e2b…
+```
+
+The first attempt is repairable, so structured findings go back to the agent.
+The runtime, not the model, sets `accepted`. If attempts run out, the result is
+`exhausted` and `update_frontend` returns `Err(AppError.ValidationFailed)`; no
+release is published. The hashes above are illustrative; the runtime computes
+real SHA-256 content hashes.
+
 The source checks today. The runtime library implements `agents.iterate` with a
 fail-closed validator registry and an **offline mock provider**; networked
-provider adapters are not implemented. The generated `config.yml` also has no
-model aliases, so running the workflow needs a `models.coding` integration in
-configuration. See [Configuration](configuration.md) and the
+provider adapters are not implemented, so the YAML above is the connection
+contract rather than a live network call in this build. See
+[Configuration](configuration.md) and the
 [full agent example](examples.md#5-agents-workspaces-and-validation).
 
 ## 9. Add a database connection

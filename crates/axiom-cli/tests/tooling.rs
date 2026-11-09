@@ -70,6 +70,10 @@ fn createapp_writes_a_server_frontend_and_config() {
     assert!(!report.has_errors(), "{:?}", report.diagnostics);
     assert!(config.contains("module: my_app.server"));
     assert!(config.contains("module: my_app.frontend"));
+    assert!(config.contains("# Optional model connections"));
+    assert!(config.contains("# models:"));
+    assert!(config.contains("#   local_coding:"));
+    assert!(config.contains("#     model: \"${AXIOM_CODING_MODEL:-example-coder}\""));
 
     for (file, module) in [
         ("server/main.ax", "my_app.server"),

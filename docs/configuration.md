@@ -77,6 +77,44 @@ vendor.
 Declared capabilities are expectations, not proof; unsupported operations must
 fail explicitly.
 
+An external LLM endpoint and an internal/local LLM endpoint use the same
+integration + model schema. Only the URL, credentials, and policy differ, and
+application source never changes when you switch between them:
+
+```yaml
+integrations:
+  cloud:
+    adapter: openai_compatible
+    base_url: "${AXIOM_MODEL_BASE_URL:-https://api.example.com/v1}"
+    api_key: "${AXIOM_MODEL_API_KEY}"
+    timeout_seconds: 120
+    allowed_data_classes: [public, internal]
+
+  local:
+    adapter: openai_compatible
+    base_url: "${AXIOM_LOCAL_BASE_URL:-http://localhost:11434/v1}"
+    api_key: "${AXIOM_LOCAL_API_KEY}"
+    api_key_optional: true
+    timeout_seconds: 180
+    allowed_data_classes: [public, internal, pii]
+
+models:
+  coding:
+    integration: cloud
+    model: "${AXIOM_CODING_MODEL:-example-coder}"
+    capabilities: [chat, tool_calling]
+
+  local_coding:
+    integration: local
+    model: "${AXIOM_LOCAL_MODEL:-qwen3-coder:30b}"
+    capabilities: [chat, tool_calling]
+```
+
+An agent selects an alias with `model: "coding"` (or `model: "local_coding"`).
+Switching from an external provider to a local model is a config change, not a
+source change. `api_key_optional: true` allows an internal endpoint that does not
+require a key; it does not bypass TLS or network policy for external endpoints.
+
 ### `runtime`
 
 Environment-independent defaults and hard per-run budgets.
