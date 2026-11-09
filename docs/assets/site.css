@@ -416,6 +416,22 @@ kbd {
   line-height: 1.55;
 }
 
+.card pre {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--code-bg);
+  color: var(--code-text);
+  overflow-x: auto;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.card pre code {
+  white-space: pre;
+}
+
 .link-card .kicker {
   display: inline-block;
   margin-bottom: 9px;

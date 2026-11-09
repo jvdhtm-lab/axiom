@@ -34,47 +34,14 @@ export workspace frontend_edit {
   write: ["examples/src/frontend.ax"];
   deny: ["examples/src/server.ax", "axiom.yaml", "db/migrations/**"];
   isolation: copy_on_write;
-  limits: { max_files: 200; max_file_bytes: 1000000; max_changed_files: 30 };
+  limits: { max_files: 200, max_file_bytes: 1000000, max_changed_files: 30 };
 }
 
 export agent FrontendDesigner(input: FrontendChange) -> FrontendPatch {
   model: "coding";
   workspace: frontend_edit;
   tools: [fs.read, fs.search, fs.write, compiler.check];
-  limits: { max_calls: 6; timeout: 120s; max_output_bytes: 1000000 };
-}
-{% endhighlight %}
-</div>
-
-<section class="section">
-  <div class="section-head">
-    <p class="eyebrow">Agent orchestration</p>
-    <h2>Workspaces bound the work. Validators decide acceptance.</h2>
-    <p>
-      Axiom is not a prompt wrapper. An agent is a typed declaration with a
-      model alias, tools, a workspace, and hard limits. An ordinary async
-      function drives bounded iteration; the runtime owns acceptance and binds
-      evidence to the exact candidate hash. A model cannot widen its authority,
-      mark its own work accepted, or publish a release.
-    </p>
-  </div>
-
-  <div class="hero-code">
-{% highlight axiom %}
-export workspace frontend_edit {
-  root: ".";
-  read: ["examples/src/frontend.ax", "examples/src/shared.ax"];
-  write: ["examples/src/frontend.ax"];
-  deny: ["examples/src/server.ax", "axiom.yaml", "db/migrations/**"];
-  isolation: copy_on_write;
-  limits: { max_files: 200; max_file_bytes: 1000000; max_changed_files: 30 };
-}
-
-export agent FrontendDesigner(input: FrontendChange) -> FrontendPatch {
-  model: "coding";
-  workspace: frontend_edit;
-  tools: [fs.read, fs.search, fs.write, compiler.check];
-  limits: { max_calls: 6; timeout: 120s; max_output_bytes: 1000000 };
+  limits: { max_calls: 6, timeout: 120s, max_output_bytes: 1000000 };
 }
 
 export async fn update_frontend(
@@ -100,6 +67,35 @@ export async fn update_frontend(
   }
 }
 {% endhighlight %}
+</div>
+
+<section class="section">
+  <div class="section-head">
+    <p class="eyebrow">Agent orchestration</p>
+    <h2>Workspaces bound the work. Validators decide acceptance.</h2>
+    <p>
+      Axiom is not a prompt wrapper. An agent is a typed declaration with a
+      model alias, tools, a workspace, and hard limits. An ordinary async
+      function drives bounded iteration; the runtime owns acceptance and binds
+      evidence to the exact candidate hash. A model cannot widen its authority,
+      mark its own work accepted, or publish a release.
+    </p>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>Request</h3>
+      <pre><code>{ "request": "Add a dark-mode toggle to the dashboard and keep refresh working." }</code></pre>
+      <p>The agent may read shared/frontend source and write only the frontend file.</p>
+    </div>
+    <div class="card">
+      <h3>Accepted result</h3>
+      <pre><code>attempt 1: candidate:c4f1…  browser_tests=fail
+attempt 2: candidate:9e2b…  all required checks pass
+status: accepted
+release: release:7d10…  content_hash sha256:9e2b…</code></pre>
+      <p>Repairable findings go back to the agent. Exhaustion returns <code>Err</code> and publishes nothing.</p>
+    </div>
   </div>
 
   <div class="hero-actions">
