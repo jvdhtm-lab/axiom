@@ -82,8 +82,16 @@ We threat-model at least:
 - Every exported API needs a declared `api_policies` entry. `axiom_runtime::ApiGuard`
   fails closed when the entry is missing and checks authentication, required
   capabilities, and tenant scope before the handler runs; a refused call never
-  reaches the database. Capabilities come from the authenticated principal, never
-  from the request body.
+  reaches the database. `axiom-server` applies that guard to registered HTTP
+  routes before invoking a handler and resolves the principal through an
+  injected authenticator. Capabilities come from the authenticated principal,
+  never the request body.
+- The trusted browser host verifies the WASM content hash, ABI, IR version,
+  target, and imports before executing. It renders only known `UiTree` nodes
+  with `textContent`, caps node count at 10,000, and accepts an event only when
+  `handle_event` returns `Ok(new_state)`. Unknown imports, unknown nodes, and
+  non-`Ok` results fail closed. The host has no ambient filesystem, database,
+  secret, or unrestricted network access.
 - Artifacts and approvals bind to content hashes and versions and are revalidated
   at activation time.
 - Frontend state is validated before commit: it must be a record, respect its

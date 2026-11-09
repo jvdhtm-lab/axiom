@@ -10,7 +10,7 @@ Status: `done`, `in progress`, `not started`.
 | --- | --- | --- |
 | 13 | Type checker completion: conservative expression inference, record/list/enum/`Option`/`Result` typing, user/imported function signatures, match exhaustiveness | done |
 | 14 | HTTP API server + typed browser stubs: enforce `ApiGuard` on every protected route and generate the caller-side contract | in progress ? server core and reference route test done; production server binary, identity provider, and typed browser stubs pending |
-| 15 | Browser runtime: function-level WASM codegen or IR execution, trusted host shell, DOM renderer, event loop, real headless-browser test, Pages deployment | not started |
+| 15 | Browser runtime: function-level WASM codegen or IR execution, trusted host shell, DOM renderer, event loop, real headless-browser test, Pages deployment | in progress ? IR-interpreting host, DOM renderer, event loop, headless browser test, and pure-demo Pages path done; function-level codegen, typed API stubs, and reference-frontend deployment pending |
 | 16 | Providers and persistence: a networked provider adapter, persistent state/release/cache stores, durable journal, trace export, timeout scheduling | not started |
 | 17 | Tooling: LSP diagnostics/completion/hover/definition, `axiom test`, `dev`, `status`, `inspect`, `resume`, `cancel` | not started |
 | 18 | Hardening: coverage-guided fuzzing, concurrency stress, license files, clean-checkout release audit | not started |
@@ -45,16 +45,16 @@ Evidence: `crates/axiom-types/tests/semantics.rs` (25 tests), full
 
 ## Phase 14 — HTTP API server + typed browser stubs
 
-Next. The server must call `ApiGuard` on every protected route, and the browser
-build must emit only a typed stub with caller-side `api.call`. The reference
-`get_dashboard` flow should run over HTTP rather than a mock runtime boundary.
+The server core and a reference `get_dashboard` route are done. Still pending: a
+production server binary, an identity-provider adapter, CORS/TLS integration, and
+typed browser stubs with caller-side `api.call`.
 
 ## Phase 15 — Browser runtime
 
-Depends on Phase 14 for real API calls. The compiler emits a verifiable WASM
-artifact today, but it embeds IR and has no DOM renderer. This phase must produce
-a running UI, a real headless-browser test, and a Pages deployment that satisfies
-`docs/github-pages.md`.
+The IR-interpreting host, UiTree renderer, event loop, and real headless test are
+done, and a pure-demo Pages path works. Still pending: function-level WASM
+codegen, typed API stubs, storage/navigation imports, worker isolation, and the
+reference frontend build.
 
 ## Phase 16 — Providers and persistence
 

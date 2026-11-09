@@ -144,7 +144,23 @@ Expected shape:
 ok: sha256 … abi v1 ir v1 … bytes, 1 module(s)
 ```
 
-This is an artifact/ABI smoke test, not a DOM or browser UI test yet.
+This is an artifact/ABI smoke test. The repository also ships a pure frontend
+demo and a real headless-browser test:
+
+```sh
+axiom build --target wasm_browser --out dist examples/src/ui_demo.ax
+node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json
+```
+
+Expected:
+
+```text
+ok: headless browser rendered UiTree and forwarded a button event
+```
+
+The host is `browser/index.html` + `browser/host.js`. It verifies the artifact,
+interprets the embedded IR, renders `UiTree`, and forwards button events. See
+[Browser host](browser-host.md) for the supported nodes and limits.
 
 ## 7. Edit with syntax highlighting
 
@@ -374,7 +390,7 @@ reference driver; other drivers are host-registered adapters. See
 | Module graph, symbol tables, name/type resolution, effect and target checks | works for the tested subset; conservative expression inference and match exhaustiveness included |
 | Deterministic server evaluator (`axiom run`) | works for the pure subset |
 | Typed IR (`axiom explain`, `axiom build`) | works |
-| WASM artifact + ABI verification | artifact embeds IR; no per-function codegen or DOM renderer |
+| WASM artifact + browser host | artifact embeds IR; `browser/host.js` renders `UiTree`, forwards events, and passes a real headless-browser test; no per-function codegen or typed API stubs |
 | SQLite roles, approvals, audit, migrations | works offline |
 | Workspaces, patches, artifacts, command sandbox | works for the tested subset |
 | Agent iteration and validation | library/runtime tests; networked providers are not implemented |

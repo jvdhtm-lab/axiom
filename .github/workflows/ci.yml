@@ -23,3 +23,9 @@ jobs:
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: Test
         run: cargo test --workspace
+      - name: Build the CLI
+        run: cargo build -p axiom-cli --release
+      - name: Build the browser demo
+        run: ./target/release/axiom build --target wasm_browser --out dist examples/src/ui_demo.ax
+      - name: Browser host smoke test
+        run: node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json

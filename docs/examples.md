@@ -37,6 +37,7 @@ so it runs without environment variables.
 | `examples/src/frontend.ax` | `init`, `render`, `handle_event`, typed state, `api.call` | parse, check; browser host not implemented |
 | `examples/src/agents.ax` | `workspace`, `agent`, `agents.iterate`, validators | parse, check; runtime library with mock provider |
 | `examples/src/agent_designer.ax` | Self-contained workspace + agent + bounded orchestration | parse, check, `workspace check` |
+| `examples/src/ui_demo.ax` | Pure `init`/`render`/`handle_event` frontend | parse, check, browser build, real headless-browser test |
 
 ## 1. A pure program
 
@@ -316,9 +317,11 @@ Important limitations:
   ```sh
   axiom build --target wasm_browser --out dist hello/frontend/main.ax
   ```
-- This produces a verifiable artifact, not a rendered UI. See
-  [GitHub Pages](github-pages.md)
-  for the deployment contract.
+- The pure demo `examples/src/ui_demo.ax` does render: `browser/host.js`
+  interprets its IR, draws the `UiTree`, and `browser/headless-smoke.mjs` clicks
+  the increment button in a real headless browser. See [Browser host](browser-host.md).
+- The reference frontend still needs typed API stubs. See
+  [GitHub Pages](github-pages.md) for the deployment contract.
 
 ## 5. Agents, workspaces, and validation
 

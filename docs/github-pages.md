@@ -8,11 +8,12 @@ this project:
 2. **An Axiom `wasm_browser` frontend** (a compiled `.wasm` artifact plus a
    trusted host shell), published as static files.
 
-Part 1 works today. Part 2 is **not a working interactive application yet**:
-Axiom emits a verifiable browser artifact, but the trusted browser host shell,
-DOM renderer, event loop, and typed API stubs are still missing. Part 2 documents
-the intended layout and CI so the deployment can be enabled when that host
-lands. Do not advertise an interactive Axiom app on Pages before then.
+Part 1 works today. Part 2 also works for **pure frontend modules**: the trusted
+browser host, IR interpreter, `UiTree` renderer, event loop, and real
+headless-browser test are implemented. Typed browser API stubs and the reference
+`examples/src/frontend.ax` deployment are still missing, so an app that calls a
+server API is not deployable yet. The demo module `examples/src/ui_demo.ax` is
+deployable now.
 
 ---
 
@@ -196,16 +197,23 @@ installed with the plugins listed in `docs/_config.yml`.
 | --- | --- |
 | `axiom build --target wasm_browser --out <dir> <browser-safe .ax>` | works; writes `app.wasm` + `app.manifest.json` |
 | Artifact verification (`node browser/host-smoke.mjs`) | works; checks magic, version, SHA-256, ABI, IR, imports |
-| Trusted browser host shell (`index.html`, host JS, worker) | **not implemented**; `browser/` contains only the Node smoke harness |
-| DOM renderer, `UiTree` rendering, event forwarding | **not implemented** |
+| Trusted browser host shell (`browser/index.html`, `browser/host.js`) | **implemented** |
+| DOM renderer, `UiTree` rendering, event forwarding | **implemented** for `column`, `row`, `heading`, `text`, `metric`, `button` |
+| Real headless-browser test | **implemented** (`browser/headless-smoke.mjs`, Chrome/Edge via DevTools protocol) |
 | Typed browser API stubs for `api` functions | **not implemented** |
 | Reference frontend (`examples/src/frontend.ax`) build for `wasm_browser` | **refused**: it imports `get_dashboard`, whose server body uses `db.read` |
-| Interactive Axiom app on GitHub Pages | **not possible yet** |
+| Interactive Axiom app on GitHub Pages | **possible for pure frontend modules** (for example `ui_demo.ax`); API-calling apps are blocked |
 
-What you *can* publish today is the artifact plus a hand-written static status
-page. That is useful for smoke-testing deployment plumbing, not for shipping a
-UI. The rest of this section defines the target deployment and the constraints
-the host must satisfy.
+The demo host is deployable today:
+
+```powershell
+axiom build --target wasm_browser --out dist examples/src/ui_demo.ax
+node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json
+```
+
+Copy `browser/index.html` and `browser/host.js` into `dist/`, add `.nojekyll`,
+and publish `dist/`. The rest of this section defines the deployment contract and
+the constraints the host satisfies.
 
 ### What GitHub Pages can and cannot do
 
@@ -271,17 +279,18 @@ does not support. That is intentional.
 
 ### Required site layout
 
-When the host shell exists, a Pages artifact should look like this:
+A Pages artifact for the demo looks like this:
 
 ```text
 dist/
-  index.html                 # trusted host page
-  host.js                    # loads and verifies the artifact
-  host.worker.js             # optional: dedicated worker isolation
+  index.html                 # trusted host page from browser/index.html
+  host.js                    # verifies and interprets the artifact
   app.wasm                   # compiled browser artifact
   app.manifest.json          # hashes, ABI, exports, IR version
   .nojekyll                  # for branch-based Pages deploys
 ```
+
+There is no worker file yet. The host runs on the main thread for the demo.
 
 `index.html` and the host JS are **trusted runtime code**, not generated
 application logic. Application UI, state, and business logic stay in `.ax`.
@@ -322,10 +331,11 @@ The host must:
 `browser/host-smoke.mjs` implements the Node-side subset of steps 1-3 and is the
 reference for the verification logic the browser host must repeat.
 
-### Target GitHub Actions workflow
+### Working GitHub Actions workflow
 
-**Do not enable this until `browser/host-shell/` exists and the host passes a
-real headless-browser test.** It shows the intended shape.
+This workflow deploys the pure `ui_demo.ax` host and runs the real headless test
+before publishing. It is ready to enable for a demo site. It is not yet a
+workflow for the reference app, which needs typed API stubs.
 
 ```yaml
 name: Deploy Axiom frontend to GitHub Pages
@@ -360,15 +370,16 @@ jobs:
           ./target/release/axiom build \
             --target wasm_browser \
             --out dist \
-            my_app/frontend/main.ax
+            examples/src/ui_demo.ax
       - name: Copy the trusted host shell
         run: |
-          cp browser/host-shell/index.html dist/
-          cp browser/host-shell/host.js dist/
-          cp browser/host-shell/host.worker.js dist/  # if used
+          cp browser/index.html dist/
+          cp browser/host.js dist/
           touch dist/.nojekyll
-      - name: Verify the artifact
-        run: node browser/host-smoke.mjs dist/app.wasm dist/app.manifest.json
+      - name: Verify the artifact and browser host
+        run: |
+          node browser/host-smoke.mjs dist/app.wasm dist/app.manifest.json
+          node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
@@ -488,8 +499,8 @@ Expected shape:
 ok: sha256 <prefix>… abi v1 ir v1 <bytes> bytes, 1 module(s)
 ```
 
-If that passes locally, the same two files can be uploaded by a Pages workflow.
-They will not render an application until the host shell exists.
+If that passes locally, the same `dist/` can be uploaded by a Pages workflow and
+rendered by the shipped browser host.
 
 ### Troubleshooting an Axiom Pages deployment
 

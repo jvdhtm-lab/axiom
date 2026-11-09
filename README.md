@@ -40,6 +40,7 @@ the current [`agents.md`](agents.md) specification. The phase numbers below foll
 | 12 | Release-readiness audit | done (audit; release not ready) |
 | 13 | Expression inference and match exhaustiveness | done |
 | 14 | HTTP server core + ApiGuard | partial (core + reference route tested) |
+| 15 | Browser host, UiTree renderer, event loop, headless test | partial (IR host + demo done) |
 
 [`docs/implementation-ledger.md`](docs/implementation-ledger.md) is the source of
 truth for what works and what has test evidence. Do not assume a feature works
@@ -82,7 +83,7 @@ crates/
   axiom-database/  parameterized SQL, roles, audit, approvals, migrations
   axiom-server/    HTTP server core, routes, ApiGuard boundary, JSON bridge
   axiom-cli/       the `axiom` binary
-browser/           trusted host shell + Node smoke harness
+browser/           trusted browser host, IR interpreter, headless smoke harness
 editors/vscode/    VS Code syntax highlighting for .ax
 examples/          axiom.yaml and src/ (the reference project)
 docs/              spec, grammar, configuration, architecture, security, ledger, ADRs
@@ -109,6 +110,8 @@ cargo run -p axiom-cli -- explain examples/src/deterministic.ax
 cargo run -p axiom-cli -- run examples/src/deterministic.ax
 cargo run -p axiom-cli -- build --target wasm_browser --out out examples/src/deterministic.ax
 node browser/host-smoke.mjs out/app.wasm out/app.manifest.json
+cargo run -p axiom-cli -- build --target wasm_browser --out dist examples/src/ui_demo.ax
+node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json
 ```
 
 `config check` and `sandbox plan` fail closed on `examples/axiom.yaml` until the

@@ -1,0 +1,17 @@
+module examples.ui_demo;
+
+export type DemoState = { count: int; };
+
+export enum AppError { BadEvent }
+
+export fn init(input: int) -> DemoState {
+  return { count: input };
+}
+
+export fn render(state: DemoState) -> UiTree {
+  return ui.column([ui.heading("Axiom browser smoke"), ui.text("Count: " + state.count.to_string()), ui.button("Increment", 1)]);
+}
+
+export fn handle_event(state: DemoState, event: int) -> Result<DemoState, AppError> {
+  return Ok({ count: state.count + event });
+}

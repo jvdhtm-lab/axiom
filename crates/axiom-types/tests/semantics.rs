@@ -69,6 +69,7 @@ fn reference_examples_have_no_semantic_errors() {
         example("frontend.ax"),
         example("agents.ax"),
         example("agent_designer.ax"),
+        example("ui_demo.ax"),
     ];
     let errors = error_messages(&roots, &CheckOptions::none());
     assert!(errors.is_empty(), "unexpected errors: {errors:#?}");

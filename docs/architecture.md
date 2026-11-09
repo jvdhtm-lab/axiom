@@ -81,7 +81,7 @@ crates/
   axiom-state/       typed frontend state: validation, migrations, hot-swap, snapshots (Phase 9)
   axiom-compiler/    target pipeline and code generation (planned)
   axiom-cli/         the `axiom` binary
-browser/             trusted minimal host shell + Node smoke harness
+browser/             trusted host, IR interpreter, UiTree renderer, headless/Node smoke harness
 ```
 
 Dependency direction stays acyclic: the type system and IR never depend on

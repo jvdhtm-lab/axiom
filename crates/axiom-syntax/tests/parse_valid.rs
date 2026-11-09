@@ -186,6 +186,7 @@ fn reference_examples_parse_cleanly() {
         "frontend.ax",
         "agents.ax",
         "agent_designer.ax",
+        "ui_demo.ax",
     ];
     for name in files {
         let path = format!("{}/../../examples/src/{name}", env!("CARGO_MANIFEST_DIR"));

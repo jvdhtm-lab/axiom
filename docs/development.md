@@ -29,6 +29,9 @@ the Windows env prefix:
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace
+cargo build -p axiom-cli --release
+./target/release/axiom build --target wasm_browser --out dist examples/src/ui_demo.ax
+node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json
 ```
 
 Additional smoke commands:
@@ -47,6 +50,9 @@ cargo run -p axiom-cli -- sandbox plan --config examples/axiom.yaml --command ca
 cargo run -p axiom-cli -- artifacts hash examples/axiom.yaml
 cargo run -p axiom-cli -- db check --config examples/axiom.yaml
 cargo run -p axiom-cli -- db migrations plan --config examples/axiom.yaml --database app
+cargo run -p axiom-cli -- build --target wasm_browser --out dist examples/src/ui_demo.ax
+node browser/host-smoke.mjs dist/app.wasm dist/app.manifest.json
+node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json
 ```
 
 `config check` and `sandbox plan` fail closed on `examples/axiom.yaml` until the
@@ -166,6 +172,7 @@ source of truth.
 | 12 | Release-readiness audit | done (audit; release not ready) |
 | 13 | Expression inference and match exhaustiveness | done |
 | 14 | HTTP server core + ApiGuard boundary | partial (core + reference route tested) |
+| 15 | Browser host, UiTree renderer, event loop, headless test | partial (IR host + demo done) |
 
 Every phase ends with a compiling repository and passing relevant tests. Nothing
 is marked done without evidence in the ledger.
