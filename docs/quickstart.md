@@ -370,7 +370,7 @@ reference driver; other drivers are host-registered adapters. See
 | Area | Status |
 | --- | --- |
 | Lexer, parser, AST, spans, diagnostics | works |
-| Module graph, symbol tables, name/type resolution, effect and target checks | works for the tested subset; general expression inference and match exhaustiveness are incomplete |
+| Module graph, symbol tables, name/type resolution, effect and target checks | works for the tested subset; conservative expression inference and match exhaustiveness included |
 | Deterministic server evaluator (`axiom run`) | works for the pure subset |
 | Typed IR (`axiom explain`, `axiom build`) | works |
 | WASM artifact + ABI verification | artifact embeds IR; no per-function codegen or DOM renderer |

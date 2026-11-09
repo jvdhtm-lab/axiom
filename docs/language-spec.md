@@ -224,3 +224,24 @@ Parsing never panics on malformed input. Every diagnostic carries a stable code
 and a byte span, rendered with a line/column pointer and a source excerpt. The
 parser performs error recovery, so one file can yield multiple diagnostics in a
 single pass.
+
+Type inference and match checking add these codes:
+
+| Code | Meaning |
+| --- | --- |
+| `AX0401` | Type mismatch (let annotation, return, branch, list element, record field, comparison) |
+| `AX0402` | Condition or operand has the wrong type |
+| `AX0403` | Unknown field or record member |
+| `AX0404` | Expected a list |
+| `AX0405` | List index must be an integer |
+| `AX0406` | Argument count or name mismatch |
+| `AX0407` | Argument type mismatch |
+| `AX0408` | Non-exhaustive match |
+| `AX0409` | Unknown match variant, or a payload on a payload-less enum variant |
+| `AX0410` | Duplicate match arm |
+| `AX0411` | Return type mismatch or missing return value |
+| `AX0412` | Pattern type mismatch |
+
+The checker is conservative at the boundaries: unresolved names and unknown
+standard-library members become an unknown type and do not cascade. Generic type
+substitution through user-defined records is not yet performed.

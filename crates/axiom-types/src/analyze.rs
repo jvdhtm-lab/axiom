@@ -118,6 +118,8 @@ pub fn analyze(project: &Project, options: &CheckOptions, out: &mut Vec<ModuleDi
             }
         }
     }
+
+    crate::typing::analyze_types(project, out);
 }
 
 fn build_index(graph: &ModuleGraph, id: ModuleId) -> ModuleIndex {

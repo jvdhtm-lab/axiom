@@ -109,6 +109,32 @@ The policy is content-based and intermittent; a signed copy can still be blocked
 once. The runner retries with a fresh copy, which is why it is preferred over
 running `target/` binaries directly.
 
+### Build, sign, and install the CLI
+
+Use the installer instead of running an unsigned `target/` binary:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-axiom.ps1
+```
+
+It builds `axiom-cli` in release mode, signs `target/release/axiom.exe` with the
+trusted `Axiom Dev Signing`/`MeshCloud Dev Signing` certificate, copies it to
+`%USERPROFILE%\.cargo\bin\axiom.exe`, and verifies the installed signature. Then:
+
+```powershell
+axiom version
+```
+
+Use `-SkipBuild` to sign and install an existing release build. `sign-axiom.ps1`
+can sign other Axiom binaries directly:
+
+```powershell
+powershell -File scripts/sign-axiom.ps1 -Path target\release\axiom.exe
+```
+
+If no trusted signing certificate exists, create one, trust it in
+`CurrentUser\TrustedPublisher`, and pass its thumbprint with `-CertThumbprint`.
+
 ## Dependency policy
 
 - Minimize dependencies; pin to currently-stable, compatible versions, and record
@@ -127,7 +153,7 @@ source of truth.
 | --- | --- | --- |
 | 0 | Small grammar, types, effects, target matrix, browser ABI, threat model | done |
 | 1 | Lexer, parser, AST, source maps, diagnostics, formatter skeleton | done |
-| 2 | Module resolution, types, generics, Option/Result, effects, target checks | partial |
+| 2 | Module resolution, types, generics, Option/Result, effects, target checks | done (conservative inference) |
 | 3 | Typed IR + deterministic server evaluator + compiler commands | done |
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | partial |
 | 5 | Config, model integrations, registered tools and commands | partial |

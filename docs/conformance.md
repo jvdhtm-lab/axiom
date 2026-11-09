@@ -15,7 +15,7 @@ entry is only meaningful when the cited test exists and passes.
 | Types (§3.4) | primitives, `T[]`, records, `Option`/`Result`/`Map`, generics | `parse_invalid.rs`: `unknown_type_syntax` |
 | Module graph (§7.1) | `axiom-types`: import resolution, cycles | `axiom-types`: `missing_import`, `unexported_name`, `import_cycle` |
 | Name resolution (§7.1) | `axiom-types`: local/module/import/builtin/namespace | `axiom-types`: `unresolved_name` |
-| Types/inference | `axiom-types`: `type_check.rs` | `axiom-types`: `type_mismatch`, `arity_mismatch` |
+| Types/inference | `axiom-types/tests/semantics.rs`: `exhaustive_enum_and_result_matches_are_accepted`, `option_unwrap_and_record_construction_are_checked`, `reference_examples_have_no_semantic_errors` | `semantics.rs`: `type_mismatch_in_let_is_reported`, `return_type_mismatch_is_reported`, `non_exhaustive_enum_match_is_reported`, `non_exhaustive_result_match_is_reported`, `unknown_enum_variant_and_duplicate_arm_are_reported`, `field_index_and_argument_errors_are_reported` |
 | Effects (§3.5) | `axiom-types`: declared/subset/min intersection | `axiom-types`: `undeclared_effect`, `unknown_effect` |
 | Target compatibility (§7.1) | `axiom-types`: server uses `db.read` | `axiom-types`: `browser_uses_db_read` |
 | SQL policy (§10) | `axiom-database`/checker: literal SQL + matched placeholders | `axiom-types`: `nonliteral_sql`, `placeholder_mismatch` |

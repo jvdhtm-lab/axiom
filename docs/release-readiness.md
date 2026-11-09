@@ -43,7 +43,9 @@ Run from the repository root unless noted.
 | --- | --- |
 | `cargo fmt --all -- --check` | pass |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | pass (after replacing `chunks_exact` with `as_chunks` in `axiom-hash`) |
-| `cargo test --workspace` | pass: 52 test executables, 274 tests, 1 ignored (Node smoke requires `--ignored`); executed via the Windows sign helper |
+| `cargo test --workspace` | pass at the audit commit: 52 test executables, 274 tests, 1 ignored (Node smoke requires `--ignored`); executed via the Windows sign helper |
+| `cargo test -p axiom-types --test semantics` | pass: 25 tests, including Phase 13 inference/exhaustiveness cases |
+| `cargo clippy -p axiom-types --all-targets --all-features -- -D warnings` | pass |
 | `cargo tree --workspace --duplicates` | no duplicate dependencies reported |
 | `cargo metadata --no-deps` | 16 workspace packages, all `MIT OR Apache-2.0` |
 | `axiom config check examples/axiom.yaml` | 0 errors, 1 warning (`AXIOM_LOCAL_API_KEY` unset; optional integration) |
@@ -58,7 +60,7 @@ Run from the repository root unless noted.
 | `axiom build --target wasm_browser --out ... examples/src/deterministic.ax` | artifact written |
 | `node browser/host-smoke.mjs ...` | `ok` (hash, ABI v1, IR v1) |
 | `node editors/vscode/test/validate.mjs` | `ok: 41 regexes, 44 scopes, .ax registered` |
-| `node scripts/check-docs-links.mjs` | `ok: 49 links in 6 pages` |
+| `node scripts/check-docs-links.mjs` | `ok: 50 links in 6 pages` |
 | `node scripts/check-axiom-highlight.mjs` | `ok: axiom grammar (12 token rules, 4325 bytes)` |
 | `python -c "import yaml; yaml.safe_load(open('docs/_config.yml'))"` | pass (GitHub Pages Jekyll config parses) |
 | `axiom build --target wasm_browser examples/src/{shared,frontend,server}.ax` | **fails**: `get_dashboard` uses `db.read`, which is not available on `wasm_browser` |
@@ -91,7 +93,7 @@ for the required aliases only.
 | Area | Status |
 | --- | --- |
 | Parser, formatter, diagnostics, source maps | working; generated-input formatter fixed point |
-| Module graph, symbols, effect/target checks | partial; expression inference and match exhaustiveness pending |
+| Module graph, symbols, type/effect/target checks | working for the implemented subset; conservative expression inference and match exhaustiveness now included |
 | Typed IR + deterministic server evaluator | working for the implemented subset |
 | WASM artifact + host ABI | artifact embeds IR; no function-level WASM codegen or DOM renderer |
 | Config schema and secret references | working; strict unknown-key checks |
@@ -116,7 +118,7 @@ with a named gap; **not met** = no credible implementation.
 
 | # | Requirement | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- |
-| 1 | Spec, EBNF, parser, formatter, type/effect checker, IR, and examples agree | partial | `parse_valid.rs`, `parse_invalid.rs`, `lower.rs`, `analyze.rs`, `check.rs`, formatter fixed-point test, examples check | Type checker lacks general expression inference and match exhaustiveness; spec covers more than the checker proves |
+| 1 | Spec, EBNF, parser, formatter, type/effect checker, IR, and examples agree | partial | `parse_valid.rs`, `parse_invalid.rs`, `lower.rs`, `analyze.rs`, `check.rs`, `typing.rs`, `semantics.rs` (25), formatter fixed-point test, examples check | Conservative inference and exhaustiveness are implemented; user-defined generic substitution and unknown stdlib member typing remain conservative |
 | 2 | Only the small declaration/expression/control-flow surface | met | `parse_valid.rs`, `parse_invalid.rs` (`AX0010`-`AX0012`), grammar | - |
 | 3 | Shared IR compiles and runs on `server` and `wasm_browser` for portable constructs | partial | IR/lowering tests; server evaluator tests; deterministic WASM artifact + Node ABI smoke | WASM embeds IR, no per-function codegen; reference app WASM build refused |
 | 4 | Server APIs compile to secure handlers and typed browser stubs, authorization on every request | partial | `ApiGuard` + `reference_app.rs` (fail-closed policy, auth, capability, tenant; mock DB); IR marks `api` | No HTTP server, no typed browser stubs, no identity-provider integration |
@@ -166,8 +168,10 @@ against `7f63c1e`, not the audit commit.
 5. **Only the SQLite driver ships.** Connections are driver-independent and
    other drivers can be registered by a host, but no remote adapter or live
    remote-database test exists in this repository (ADR-0015).
-6. **Type checker is partial.** General expression inference, match
-   exhaustiveness, and some cross-module typing are not proven.
+6. **Type checker is conservative at its edges.** Expression inference and match
+   exhaustiveness are implemented for the small-language subset, but
+   user-defined generic substitution and unknown stdlib member typing remain
+   conservative.
 7. **Tool execution is not an agent-callable host path.** Plans and process
    execution are tested separately.
 8. **No LSP and incomplete CLI lifecycle.** `axiom test`, `dev`, `status`,
@@ -211,7 +215,8 @@ against `7f63c1e`, not the audit commit.
 3. Implement at least one real provider adapter with gated integration tests.
 4. Add persistent state, release registry, cache, and durable journal backends;
    add trace export and timeout scheduling.
-5. Complete type inference/exhaustiveness or narrow the documented type system.
+5. Finish user-defined generic substitution and stdlib member typing, or narrow
+   the documented type surface.
 6. Add LSP diagnostics and the missing CLI lifecycle commands.
 7. Add a coverage-guided fuzz target and concurrency tests; run the full suite on
    Windows and Linux in CI.

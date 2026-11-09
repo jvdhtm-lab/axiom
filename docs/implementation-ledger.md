@@ -4,7 +4,7 @@ Tracks Axiom 1.0 requirements against implementation status. **Do not mark an
 item complete without test evidence.** Statuses: `done` (implemented + tested),
 `partial`, `not started`. Phase numbers follow `agents.md` §15.
 
-Last updated: 2026-11-07 (database connections are driver-independent per ADR-0015; `editors/vscode` adds `.ax` syntax highlighting; the Pages site adds a quickstart, language tour, examples cookbook, and CLI reference; `docs/github-pages.md` documents the docs site and the blocked frontend deployment; `axiom createapp <NAME>` writes `<NAME>/server/main.ax`, `<NAME>/frontend/main.ax`, and `<NAME>/config.yml` with both targets configured).
+Last updated: 2026-11-07 (Phase 13 completes conservative expression inference and match exhaustiveness; database connections are driver-independent per ADR-0015; `editors/vscode` adds `.ax` syntax highlighting; the Pages site adds a quickstart, language tour, examples cookbook, and CLI reference; `docs/github-pages.md` documents the docs site and the blocked frontend deployment; `axiom createapp <NAME>` writes `<NAME>/server/main.ax`, `<NAME>/frontend/main.ax`, and `<NAME>/config.yml` with both targets configured).
 
 ## Phase status
 
@@ -12,7 +12,7 @@ Last updated: 2026-11-07 (database connections are driver-independent per ADR-00
 | --- | --- | --- |
 | 0 | Design: small grammar, core types, effects, IR plan, API modifier, workspace model, target matrix, browser ABI, threat model | done — `docs/grammar.ebnf`, `docs/language-spec.md`, `docs/conformance.md`, `docs/security-model.md`, ADR-0014 |
 | 1 | Lexer, parser, AST, source maps, diagnostics, formatter skeleton | done — `axiom-syntax` + `axiom-format`; positive/negative fixtures |
-| 2 | Module resolution, types, generics, Option/Result, effect and target checking | partial — module graph, symbols, duplicates, name/type resolution, effect propagation, target checks, and SQL literal/placeholder policy done; expression type inference and match exhaustiveness pending |
+| 2 | Module resolution, types, generics, Option/Result, effect and target checking | done - module graph, symbols, duplicates, name/type resolution, effect propagation, target checks, SQL literal/placeholder policy, conservative expression inference, and match exhaustiveness are implemented and tested; generic substitution through user-defined records remains conservative |
 | 3 | Typed IR and deterministic server evaluator; basic compiler commands | done — `axiom-ir` (deterministic JSON IR with types/effects/capabilities/provenance), `axiom-runtime` evaluator, `axiom build/explain/run`; WASM emission explicitly refused until Phase 4 |
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | partial — `axiom-wasm` emits a valid, content-addressed WASM module embedding the checked IR; `axiom-browser-host` verifies header/ABI/hash/imports; Node integration smoke harness passes. **Missing:** function-level WASM codegen, the DOM renderer/event loop, and the real headless-browser smoke test |
 | 5 | Config, model integrations, registered tools and commands | partial — `axiom.yaml` now matches the §4 schema (integrations, models, runtime budgets, `api_policies`, `compilation`/`entrypoints`/`wasm`, `browser`, `frontend`, `filesystem`, `commands`) with strict unknown-key checks; `axiom-providers` resolves model aliases to a vendor-neutral spec and builds an offline mock provider; `axiom-tools` registers builtins + configured commands. **Missing:** networked adapters and real tool execution/sandbox (Phase 6) |
@@ -41,7 +41,7 @@ Last updated: 2026-11-07 (database connections are driver-independent per ADR-00
 | Effect propagation + subset rule (pure discipline, `await`⇒`async`) | 2 | done | `undeclared_effect_is_reported` (`AX0303`), `pure_function_performing_effects_is_reported` (`AX0304`), `await_in_sync_function_is_reported` (`AX0305`) | `docs/security-model.md` | Unmodelled stdlib members conservatively treated as pure (documented) |
 | Agent/workspace member shape + isolation modes | 2 | partial | `agent_requires_model` (`AX0211`), `unknown_isolation_mode_is_reported` (`AX0214`) | `docs/language-spec.md` §5 | `tools`/`limits` shape only |
 | Config cross-validation (model aliases) | 2,5 | partial | `unknown_model_alias_is_reported_when_configured` (`AX0217`) | `docs/configuration.md` | `axiom.yaml` schema itself is Phase 5 |
-| Static type system, inference, match exhaustiveness | 2 | partial | Name/type resolution tested; expression inference and `match` exhaustiveness not implemented | `docs/language-spec.md` §4 | No structural typing yet |
+| Static type system, inference, match exhaustiveness | 2 | done | `axiom-types/tests/semantics.rs` (25): let/return mismatches, record fields, list indexing, argument count/type, `Option.unwrap_or`, record construction, enum/Option/Result exhaustiveness, duplicate/unknown arms | `docs/language-spec.md` ?4, ?11 | Unknown stdlib members stay `Unknown`; user-defined generic substitution is conservative; no structural subtyping |
 | Target compatibility (server vs wasm_browser) | 2 | partial | `browser_target_rejects_server_effects` (`AX0310`) | `docs/language-spec.md` §8 | Whole-project target option; per-module targets are Phase 4 |
 | SQL literal + placeholder policy | 2,7 | partial | `non_literal_sql_is_reported` (`AX0320`), `sql_placeholder_mismatch_is_reported` (`AX0321`); the runtime `axiom-database` analyzer enforces the same rules at execution | `docs/language-spec.md` §7 | Static checks cover `db.query`/`db.query_one`/`db.execute` arguments; runtime analysis is the enforcing boundary |
 | Typed IR (types, effects, capabilities, provenance, target) | 3 | done | `axiom-ir/tests/lower.rs`: determinism, effects, enum constructors, `api` | `docs/architecture.md` | Declared types only; no inference (Phase 2 gap) |
@@ -91,7 +91,7 @@ Last updated: 2026-11-07 (database connections are driver-independent per ADR-00
 | VS Code syntax extension for `.ax` | 11 | done | `editors/vscode/test/validate.mjs` → `ok: 41 regexes, 44 scopes, .ax registered`; JSON parse + every TextMate regex compiles | `editors/vscode/README.md` | Highlighting and editor config only; diagnostics come from `axiom check`/`lint` |
 | Axiom code highlighting on the docs site (Prism) | 11 | done | `node scripts/check-axiom-highlight.mjs` → `ok: axiom grammar (12 token rules, 4325 bytes)`; Prism core vendored with its MIT license | `docs/github-pages.md`, `docs/development.md` | Client-side only; no build-time Axiom lexer |
 | Quickstart, language tour, examples, and CLI reference | 11 | done (docs) | `docs/quickstart.md`, `docs/language-tour.md`, `docs/examples.md`, `docs/cli.md`; snippets drawn from checked example files including `examples/src/agent_designer.ax`; commands smoke-tested (`createapp`, `check`, `run`, `build`, `workspace check`, `db check`) | `docs/quickstart.md` | Documents the implemented subset and names the incomplete phases honestly |
-| GitHub Pages documentation site + frontend deployment guide | 11 | done (docs) | `docs/index.md`, `docs/_layouts/`, `docs/assets/`, `docs/_config.yml`, `docs/github-pages.md`; `_config.yml` parses; `node scripts/check-docs-links.mjs` → `ok: 49 links in 6 pages` | `docs/github-pages.md` | Docs site is deployable now; interactive Axiom app deployment is documented but blocked by the missing browser host shell, DOM renderer, and typed API stubs (Phase 4) |
+| GitHub Pages documentation site + frontend deployment guide | 11 | done (docs) | `docs/index.md`, `docs/_layouts/`, `docs/assets/`, `docs/_config.yml`, `docs/github-pages.md`; `_config.yml` parses; `node scripts/check-docs-links.mjs` → `ok: 50 links in 6 pages` | `docs/github-pages.md` | Docs site is deployable now; interactive Axiom app deployment is documented but blocked by the missing browser host shell, DOM renderer, and typed API stubs (Phase 4) |
 | CLI `check`/`build`/`explain`/`run`/`config check`/`workspace check`/`sandbox plan`/`artifacts hash`/`db` | 3-11 | done | existing CLI tests + development smoke commands | `docs/development.md` | `axiom test`/`dev`/`status`/`inspect`/`resume`/`cancel` and LSP are not implemented |
 
 ## Truthfulness note
@@ -124,8 +124,7 @@ drivers are optional host adapters. `axiom_runtime::DatabaseHost` exposes
 builds agent specs from lowered IR and runs `agents.iterate`: a model produces a
 content-addressed candidate, required validators (fail-closed, with
 `ModelEvaluated`/`HumanReviewed` as advisory only) decide acceptance, and the
-agent's declared budgets bound every attempt. It does **not** infer expression
-types, report `match` exhaustiveness, generate function-level WASM or a DOM
+agent's declared budgets bound every attempt. It **does** perform conservative expression inference and `match` exhaustiveness for the implemented type subset. It does **not** generate function-level WASM or a DOM
 renderer, run a real browser test, talk to a networked model provider, connect
 through a remote database driver (only the bundled SQLite driver ships), run
 commands in a container/kernel network sandbox, persist durable journals outside

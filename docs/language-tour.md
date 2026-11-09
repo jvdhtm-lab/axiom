@@ -317,10 +317,13 @@ silently skipped. This is why the reference frontend cannot be built for
 
 ## What the checker does not do yet
 
-The implementation is phased. General expression type inference, `match`
-exhaustiveness proofs, and some cross-module typing are still incomplete. Do not
-assume a construct is fully verified because it parses; consult the
-[implementation ledger](implementation-ledger.md) for test evidence.
+Expression inference and `match` exhaustiveness are implemented for the small
+language subset, including records, lists, enums, `Option`, `Result`, user
+functions, and imported signatures. The checker remains conservative at its
+edges: unknown standard-library members become `unknown`, and user-defined
+generic substitution is not performed. Do not assume a construct is fully
+verified because it parses; consult the [implementation ledger](implementation-ledger.md)
+for test evidence.
 
 Next: [Examples](examples.md) shows complete server, database, frontend, and
 agent programs.

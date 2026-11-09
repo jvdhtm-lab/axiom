@@ -218,6 +218,10 @@ release: release:7d10…  content_hash sha256:9e2b…</code></pre>
       <strong>GitHub Pages</strong>
       <span>Publish this site and the deployment contract for Axiom frontends.</span>
     </a>
+    <a class="link-card" href="{{ '/remaining-phases.html' | relative_url }}">
+      <strong>Remaining phases</strong>
+      <span>The ordered plan for HTTP, browser runtime, providers, persistence, and tooling.</span>
+    </a>
   </div>
 </section>
 

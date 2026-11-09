@@ -248,3 +248,86 @@ fn import_cycle_is_reported() {
     let errors = error_messages(&[project.root("a.ax")], &CheckOptions::none());
     assert!(errors.iter().any(|m| m.contains("AX0201")), "{errors:#?}");
 }
+
+#[test]
+fn type_mismatch_in_let_is_reported() {
+    let project = TempProject::new(&[(
+        "a.ax",
+        "module a;\nexport fn f() -> int { let x: int = \"no\"; return 1; }\n",
+    )]);
+    let errors = error_messages(&[project.root("a.ax")], &CheckOptions::none());
+    assert!(errors.iter().any(|m| m.contains("AX0401")), "{errors:#?}");
+}
+
+#[test]
+fn return_type_mismatch_is_reported() {
+    let project = TempProject::new(&[(
+        "a.ax",
+        "module a;\nexport fn f() -> int { return \"no\"; }\n",
+    )]);
+    let errors = error_messages(&[project.root("a.ax")], &CheckOptions::none());
+    assert!(errors.iter().any(|m| m.contains("AX0411")), "{errors:#?}");
+}
+
+#[test]
+fn non_exhaustive_enum_match_is_reported() {
+    let project = TempProject::new(&[(
+        "a.ax",
+        "module a;\nexport enum E { A; B; }\nexport fn f(x: E) -> int { match x { E.A => return 1; } return 0; }\n",
+    )]);
+    let errors = error_messages(&[project.root("a.ax")], &CheckOptions::none());
+    assert!(errors.iter().any(|m| m.contains("AX0408")), "{errors:#?}");
+}
+
+#[test]
+fn non_exhaustive_result_match_is_reported() {
+    let project = TempProject::new(&[(
+        "a.ax",
+        "module a;\nexport fn f(x: Result<int, string>) -> int { match x { Ok(v) => return v; } return 0; }\n",
+    )]);
+    let errors = error_messages(&[project.root("a.ax")], &CheckOptions::none());
+    assert!(errors.iter().any(|m| m.contains("AX0408")), "{errors:#?}");
+}
+
+#[test]
+fn exhaustive_enum_and_result_matches_are_accepted() {
+    let project = TempProject::new(&[(
+        "a.ax",
+        "module a;\nexport enum E { A; B; }\nexport fn f(x: E, r: Result<int, string>) -> int {\n  match x { E.A => return 1; E.B => return 2; }\n  match r { Ok(v) => return v; Err(_) => return 0; }\n}\n",
+    )]);
+    let errors = error_messages(&[project.root("a.ax")], &CheckOptions::none());
+    assert!(errors.is_empty(), "unexpected errors: {errors:#?}");
+}
+
+#[test]
+fn unknown_enum_variant_and_duplicate_arm_are_reported() {
+    let project = TempProject::new(&[(
+        "a.ax",
+        "module a;\nexport enum E { A; }\nexport fn f(x: E) -> int { match x { E.A => return 1; E.A => return 2; E.Ghost => return 3; } }\n",
+    )]);
+    let errors = error_messages(&[project.root("a.ax")], &CheckOptions::none());
+    assert!(errors.iter().any(|m| m.contains("AX0410")), "{errors:#?}");
+    assert!(errors.iter().any(|m| m.contains("AX0409")), "{errors:#?}");
+}
+
+#[test]
+fn field_index_and_argument_errors_are_reported() {
+    let project = TempProject::new(&[(
+        "a.ax",
+        "module a;\nexport type R = { id: int; };\nexport fn add(a: int, b: int) -> int { return a + b; }\nexport fn f(r: R, xs: int[]) -> int { let a = r.missing; let b = xs[\"x\"]; return add(1); }\n",
+    )]);
+    let errors = error_messages(&[project.root("a.ax")], &CheckOptions::none());
+    assert!(errors.iter().any(|m| m.contains("AX0403")), "{errors:#?}");
+    assert!(errors.iter().any(|m| m.contains("AX0405")), "{errors:#?}");
+    assert!(errors.iter().any(|m| m.contains("AX0406")), "{errors:#?}");
+}
+
+#[test]
+fn option_unwrap_and_record_construction_are_checked() {
+    let project = TempProject::new(&[(
+        "a.ax",
+        "module a;\nexport type R = { id: int; };\nexport fn f(x: Option<int>, y: int) -> int { return x.unwrap_or(y); }\nexport fn g() -> R { return { id: \"no\" }; }\n",
+    )]);
+    let errors = error_messages(&[project.root("a.ax")], &CheckOptions::none());
+    assert!(errors.iter().any(|m| m.contains("AX0401")), "{errors:#?}");
+}

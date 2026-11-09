@@ -9,6 +9,7 @@ pub mod analyze;
 pub mod check;
 pub mod graph;
 pub mod symbols;
+mod typing;
 
 pub use analyze::{Target, BUILTIN_TYPES, NAMESPACES, PRELUDE_VALUES};
 pub use check::{check_project, CheckOptions, ModuleDiagnostic, ISOLATION_MODES, KNOWN_EFFECTS};

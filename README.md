@@ -27,7 +27,7 @@ the current [`agents.md`](agents.md) specification. The phase numbers below foll
 | --- | --- | --- |
 | 0 | Design: small grammar, types, effects, target matrix, ABI, threat model | done |
 | 1 | Lexer, parser, AST, source maps, diagnostics, formatter skeleton | done |
-| 2 | Module resolution, types, generics, Option/Result, effect/target checking | partial |
+| 2 | Module resolution, types, generics, Option/Result, effect/target checking | done (conservative inference) |
 | 3 | Typed IR and deterministic server evaluator; compiler commands | done |
 | 4 | WASM lowering, UI tree, host ABI, browser loader/renderer | partial |
 | 5 | Config, model integrations, registered tools and commands | partial |
@@ -56,6 +56,7 @@ unless the ledger cites a passing test.
 - [`docs/security-model.md`](docs/security-model.md) — threat model and invariants.
 - [`docs/conformance.md`](docs/conformance.md) — requirement-to-test matrix.
 - [`docs/release-readiness.md`](docs/release-readiness.md) — release audit, evidence, and open gaps.
+- [`docs/remaining-phases.md`](docs/remaining-phases.md) — the ordered plan for the remaining work.
 - [`docs/github-pages.md`](docs/github-pages.md) — publish the docs site and deploy Axiom frontends to GitHub Pages.
 - [`docs/decisions/`](docs/decisions/) — architecture decision records.
 
@@ -110,6 +111,14 @@ node browser/host-smoke.mjs out/app.wasm out/app.manifest.json
 `config check` and `sandbox plan` fail closed on `examples/axiom.yaml` until the
 referenced integration API-key environment variables are set (or given defaults
 in the config).
+
+On Windows, build, sign, and install the CLI so Application Control does not
+block it:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-axiom.ps1
+axiom version
+```
 
 ## Editor support
 
