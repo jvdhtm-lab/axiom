@@ -162,7 +162,107 @@ npx @vscode/vsce package
 code --install-extension axiom-language-0.1.0.vsix
 ```
 
-## 8. Add a database connection
+## 8. Orchestrate an agent
+
+This is the core of Axiom: a workspace bounds filesystem authority, an agent
+declares its model/tools/limits, and an ordinary async function runs bounded
+iteration with runtime-owned validation.
+
+Create `agents/designer.ax`:
+
+```ts
+module hello.agents;
+
+export type FrontendChange = { request: string; };
+export type FrontendPatch = { candidate_id: string; workspace_id: string; };
+export type FrontendRelease = { release_id: string; content_hash: string; };
+export enum AppError { ValidationFailed; }
+
+export workspace frontend_edit {
+  root: ".";
+  read: ["frontend/**"];
+  write: ["frontend/**"];
+  deny: ["config.yml", "server/**"];
+  isolation: copy_on_write;
+  limits: { max_files: 200; max_file_bytes: 1000000; max_changed_files: 30 };
+}
+
+export agent FrontendDesigner(input: FrontendChange) -> FrontendPatch {
+  model: "coding";
+  workspace: frontend_edit;
+  tools: [fs.read, fs.search, fs.write, compiler.check];
+  limits: { max_calls: 6; timeout: 120s; max_output_bytes: 1000000 };
+}
+
+export async fn update_frontend(
+  input: FrontendChange
+) -> Result<FrontendRelease, AppError>
+  effects [model, fs.read, fs.write, workspace.create,
+           command.run, artifact.publish] {
+  let candidate = await agents.iterate(
+    agent: FrontendDesigner,
+    input: input,
+    max_attempts: 3,
+    validate: [
+      checks.ax_compile,
+      checks.wasm_build,
+      checks.api_compatibility,
+      checks.workspace_scope,
+      checks.browser_tests
+    ]
+  );
+  match candidate.accepted_artifact() {
+    Ok(artifact) => {
+      return await frontend.publish(artifact);
+    }
+    Err(_) => {
+      return Err(AppError.ValidationFailed);
+    }
+  }
+}
+```
+
+Check the source and the workspace policy:
+
+```sh
+axiom check agents/designer.ax
+axiom workspace check agents/designer.ax
+```
+
+Expected shape:
+
+```text
+ok: agents/designer.ax (7 declaration(s))
+checked 1 file: 0 error(s), 0 warning(s)
+
+ok: agents/designer.ax::frontend_edit (isolation copy_on_write, read 1, write 1, deny 2)
+    limits: max_files=Some(200) max_file_bytes=Some(1000000) max_changed_files=Some(30)
+checked 1 workspace(s): 0 error(s)
+```
+
+What the runtime enforces when this runs:
+
+- `frontend_edit` is the **maximum** authority. The agent's `workspace` cannot
+  widen it, and a call-time workspace can only narrow it.
+- `FrontendDesigner` gets only the listed tools. Tools are resolved against a
+  registry; a model cannot add one.
+- `agents.iterate` is a library API, not a keyword. It runs at most
+  `max_attempts` bounded attempts and returns a runtime-owned outcome.
+- Validators fail closed. A model's text claiming success is not evidence.
+  Acceptance binds to the exact candidate hash.
+- The agent cannot publish a release. `frontend.publish` requires the trusted
+  runtime authority and an accepted candidate.
+- Nested runs share the outer run's budgets for model calls, time, concurrency,
+  output bytes, and artifacts.
+
+The source checks today. The runtime library implements `agents.iterate` with a
+fail-closed validator registry and an **offline mock provider**; networked
+provider adapters are not implemented. The generated `config.yml` also has no
+model aliases, so running the workflow needs a `models.coding` integration in
+configuration. See [Configuration](configuration.md) and the
+[full agent example](examples.md#5-agents-workspaces-and-validation).
+
+## 9. Add a database connection
 
 Add a named connection to `config.yml`. Code selects it by name, not vendor:
 
@@ -189,7 +289,7 @@ The configuration shape is driver-independent. `sqlite` is the bundled
 reference driver; other drivers are host-registered adapters. See
 [Configuration](configuration.md) and the [examples](examples.md).
 
-## 9. Where to go next
+## 10. Where to go next
 
 - [Language tour](language-tour.md) — types, enums, functions, control flow,
   `Option`/`Result`, modules, and effects.

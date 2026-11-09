@@ -36,6 +36,7 @@ so it runs without environment variables.
 | `examples/src/server.ax` | `api` function, `db.read`, parameterized SQL, `Result` | parse, check; runtime test with mock DB |
 | `examples/src/frontend.ax` | `init`, `render`, `handle_event`, typed state, `api.call` | parse, check; browser host not implemented |
 | `examples/src/agents.ax` | `workspace`, `agent`, `agents.iterate`, validators | parse, check; runtime library with mock provider |
+| `examples/src/agent_designer.ax` | Self-contained workspace + agent + bounded orchestration | parse, check, `workspace check` |
 
 ## 1. A pure program
 
@@ -375,6 +376,14 @@ Check the workspace policy:
 
 ```sh
 axiom workspace check examples/src/agents.ax
+```
+
+A self-contained version is also checked in as
+[`examples/src/agent_designer.ax`](https://github.com/jvdhtm-lab/axiom/blob/master/examples/src/agent_designer.ax):
+
+```sh
+axiom check examples/src/agent_designer.ax
+axiom workspace check examples/src/agent_designer.ax
 ```
 
 The runtime library runs `agents.iterate` with runtime-owned acceptance, a

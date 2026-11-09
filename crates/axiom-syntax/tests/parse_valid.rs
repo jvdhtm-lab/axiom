@@ -180,7 +180,13 @@ fn control_flow_and_literals_parse() {
 
 #[test]
 fn reference_examples_parse_cleanly() {
-    let files = ["shared.ax", "server.ax", "frontend.ax", "agents.ax"];
+    let files = [
+        "shared.ax",
+        "server.ax",
+        "frontend.ax",
+        "agents.ax",
+        "agent_designer.ax",
+    ];
     for name in files {
         let path = format!("{}/../../examples/src/{name}", env!("CARGO_MANIFEST_DIR"));
         let source = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));

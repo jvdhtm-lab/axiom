@@ -8,9 +8,9 @@ description: A small, strongly typed language and runtime for full-stack applica
   <p class="hero-eyebrow">Axiom 1.0 · language + runtime</p>
   <h1>A small language for full-stack apps with <span class="gradient-text">bounded AI agents</span>.</h1>
   <p class="hero-lede">
-    One source language and one shared type/effect system for a trusted Rust
-    server and a WebAssembly browser frontend. Agents propose changes; the
-    runtime decides what is accepted.
+    One source language and one shared type/effect system for orchestrating AI
+    agents across a trusted Rust server and a WebAssembly browser frontend.
+    Agents propose changes; the runtime decides what is accepted.
   </p>
   <div class="hero-actions">
     <a class="button button-primary" href="{{ '/quickstart.html' | relative_url }}">Quickstart</a>
@@ -21,6 +21,7 @@ description: A small, strongly typed language and runtime for full-stack applica
     <span class="badge"><span class="badge-dot"></span> v0.1.0 development snapshot</span>
     <span class="badge">targets: server + wasm_browser</span>
     <span class="badge">effects checked</span>
+    <span class="badge">agent orchestration</span>
     <span class="badge">SQLite reference driver</span>
   </div>
 </section>
@@ -50,6 +51,68 @@ export api async fn get_dashboard(
 }
 {% endhighlight %}
 </div>
+
+<section class="section">
+  <div class="section-head">
+    <p class="eyebrow">Agent orchestration</p>
+    <h2>Workspaces bound the work. Validators decide acceptance.</h2>
+    <p>
+      Axiom is not a prompt wrapper. An agent is a typed declaration with a
+      model alias, tools, a workspace, and hard limits. An ordinary async
+      function drives bounded iteration; the runtime owns acceptance and binds
+      evidence to the exact candidate hash. A model cannot widen its authority,
+      mark its own work accepted, or publish a release.
+    </p>
+  </div>
+
+  <div class="hero-code">
+{% highlight typescript %}
+export workspace frontend_edit {
+  root: ".";
+  read: ["examples/src/frontend.ax", "examples/src/shared.ax"];
+  write: ["examples/src/frontend.ax"];
+  deny: ["examples/src/server.ax", "axiom.yaml", "db/migrations/**"];
+  isolation: copy_on_write;
+  limits: { max_files: 200; max_file_bytes: 1000000; max_changed_files: 30 };
+}
+
+export agent FrontendDesigner(input: FrontendChange) -> FrontendPatch {
+  model: "coding";
+  workspace: frontend_edit;
+  tools: [fs.read, fs.search, fs.write, compiler.check];
+  limits: { max_calls: 6; timeout: 120s; max_output_bytes: 1000000 };
+}
+
+export async fn update_frontend(
+  input: FrontendChange
+) -> Result<FrontendRelease, AppError>
+  effects [model, fs.read, fs.write, workspace.create,
+           command.run, artifact.publish] {
+  let candidate = await agents.iterate(
+    agent: FrontendDesigner,
+    input: input,
+    max_attempts: 3,
+    validate: [
+      checks.ax_compile,
+      checks.wasm_build,
+      checks.api_compatibility,
+      checks.workspace_scope,
+      checks.browser_tests
+    ]
+  );
+  match candidate.accepted_artifact() {
+    Ok(artifact) => { return await frontend.publish(artifact); }
+    Err(_) => { return Err(AppError.ValidationFailed); }
+  }
+}
+{% endhighlight %}
+  </div>
+
+  <div class="hero-actions">
+    <a class="button button-primary" href="{{ '/examples.html' | relative_url }}">Full agent example</a>
+    <a class="button button-ghost" href="{{ '/security-model.html' | relative_url }}">Read the authority model</a>
+  </div>
+</section>
 
 <section class="section">
   <div class="section-head">

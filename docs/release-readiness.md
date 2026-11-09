@@ -58,7 +58,7 @@ Run from the repository root unless noted.
 | `axiom build --target wasm_browser --out ... examples/src/deterministic.ax` | artifact written |
 | `node browser/host-smoke.mjs ...` | `ok` (hash, ABI v1, IR v1) |
 | `node editors/vscode/test/validate.mjs` | `ok: 41 regexes, 44 scopes, .ax registered` |
-| `node scripts/check-docs-links.mjs` | `ok: 45 links in 6 pages` |
+| `node scripts/check-docs-links.mjs` | `ok: 49 links in 6 pages` |
 | `python -c "import yaml; yaml.safe_load(open('docs/_config.yml'))"` | pass (GitHub Pages Jekyll config parses) |
 | `axiom build --target wasm_browser examples/src/{shared,frontend,server}.ax` | **fails**: `get_dashboard` uses `db.read`, which is not available on `wasm_browser` |
 | Clean checkout: `cargo build --workspace --all-targets --all-features` | pass at `7f63c1e` (see below) |
