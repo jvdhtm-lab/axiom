@@ -39,7 +39,7 @@ the current [`agents.md`](agents.md) specification. The phase numbers below foll
 | 11 | Full-stack reference app, tooling, docs, security hardening | partial |
 | 12 | Release-readiness audit | done (audit; release not ready) |
 | 13 | Expression inference and match exhaustiveness | done |
-| 14 | HTTP server core + ApiGuard | partial (core done) |
+| 14 | HTTP server core + ApiGuard | partial (core + reference route tested) |
 
 [`docs/implementation-ledger.md`](docs/implementation-ledger.md) is the source of
 truth for what works and what has test evidence. Do not assume a feature works

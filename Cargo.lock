@@ -102,7 +102,9 @@ name = "axiom-server"
 version = "0.1.0"
 dependencies = [
  "axiom-config",
+ "axiom-ir",
  "axiom-runtime",
+ "axiom-syntax",
 ]
 
 [[package]]

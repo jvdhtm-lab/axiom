@@ -16,7 +16,7 @@ connections driver-independent; the affected rows below were updated.
   `docs/implementation-ledger.md`; Phase 11 is partial; Phase 12 is this audit.
 - The blocking gaps for 1.0 are listed under "Definition of Done" and
   "Known limitations". The largest are: no function-level WASM codegen or real
-  browser run, no reference HTTP route wiring or browser API stubs, no networked provider adapters,
+  browser run, no production HTTP server/identity provider or browser API stubs, no networked provider adapters,
   no LSP, and no persistent state/journal backends.
 - The database surface is driver-independent (ADR-0015). SQLite is the bundled
   reference driver; a PostgreSQL or other wire adapter is no longer required.
@@ -62,7 +62,7 @@ Run from the repository root unless noted.
 | `node editors/vscode/test/validate.mjs` | `ok: 41 regexes, 44 scopes, .ax registered` |
 | `node scripts/check-docs-links.mjs` | `ok: 53 links in 8 pages` |
 | `node scripts/check-axiom-highlight.mjs` | `ok: axiom grammar (12 token rules, 4325 bytes)` |
-| `cargo test -p axiom-server` | pass: JSON round-trip and 4 HTTP/ApiGuard/TCP tests |
+| `cargo test -p axiom-server` | pass: JSON round-trip, 4 HTTP/ApiGuard/TCP tests, and 3 reference-route tests |
 | `python -c "import yaml; yaml.safe_load(open('docs/_config.yml'))"` | pass (GitHub Pages Jekyll config parses) |
 | `axiom build --target wasm_browser examples/src/{shared,frontend,server}.ax` | **fails**: `get_dashboard` uses `db.read`, which is not available on `wasm_browser` |
 | Clean checkout: `cargo build --workspace --all-targets --all-features` | pass at `7f63c1e` (see below) |
@@ -105,7 +105,7 @@ for the required aliases only.
 | Frontend state, migrations, snapshots, quarantine | library only; not browser-bound |
 | Artifact registry and caches | library only; process-local |
 | Durable execution | in-memory journal/replay, cancellation, budgets, redacted traces |
-| API authorization | `axiom-server` enforces `ApiGuard` on registered routes with real TCP tests; no identity provider or reference-route wiring yet |
+| API authorization | `axiom-server` enforces `ApiGuard` on registered routes with real TCP tests; the reference `get_dashboard` route runs over HTTP with a mock DB; no identity provider yet |
 | CLI tooling | `init`, `createapp`, `fmt`, `lint`, `check`, `build`, `explain`, `run`, `config`, `workspace`, `sandbox`, `artifacts`, `db`; no `test`/`dev`/`status`/`inspect`/`resume`/`cancel` |
 | VS Code extension | `.ax` TextMate highlighting + language configuration (`editors/vscode`); no LSP |
 | GitHub Pages docs site | Custom layout/CSS, Prism Axiom highlighting, quickstart, language tour, examples, CLI reference, and deployment guide (`docs/github-pages.md`) |
@@ -122,7 +122,7 @@ with a named gap; **not met** = no credible implementation.
 | 1 | Spec, EBNF, parser, formatter, type/effect checker, IR, and examples agree | partial | `parse_valid.rs`, `parse_invalid.rs`, `lower.rs`, `analyze.rs`, `check.rs`, `typing.rs`, `semantics.rs` (25), formatter fixed-point test, examples check | Conservative inference and exhaustiveness are implemented; user-defined generic substitution and unknown stdlib member typing remain conservative |
 | 2 | Only the small declaration/expression/control-flow surface | met | `parse_valid.rs`, `parse_invalid.rs` (`AX0010`-`AX0012`), grammar | - |
 | 3 | Shared IR compiles and runs on `server` and `wasm_browser` for portable constructs | partial | IR/lowering tests; server evaluator tests; deterministic WASM artifact + Node ABI smoke | WASM embeds IR, no per-function codegen; reference app WASM build refused |
-| 4 | Server APIs compile to secure handlers and typed browser stubs, authorization on every request | partial | `axiom-server/tests/http.rs` (HTTP core, ApiGuard, JSON); `ApiGuard` + `reference_app.rs` (fail-closed policy, auth, capability, tenant; mock DB); IR marks `api` | Reference handler not wired over HTTP; no identity-provider integration or typed browser stubs |
+| 4 | Server APIs compile to secure handlers and typed browser stubs, authorization on every request | partial | `axiom-server/tests/http.rs` (HTTP core, ApiGuard, JSON); `tests/reference_http.rs` (real handler over HTTP, mock DB, refusals before handler); `reference_app.rs`; IR marks `api` | No production server binary, identity-provider adapter, or typed browser stubs |
 | 5 | Agents use registered tools and bounded run-wide budgets; cannot widen authority | partial | `agents.rs` (13 tests): specs, budgets, validators, forgery rejection; host defaults deny | Tools are registered but not executed through the agent host; mock provider only |
 | 6 | Validation evidence is runtime-owned and hash-bound; unaccepted work cannot publish/integrate | met | `agents.rs` (evidence, exhaustion, forged claim), `registry.rs` (evidence binding), `integration.rs` (exclusive gate) | Evidence is a runtime value; no dedicated Axiom evidence type |
 | 7 | Workspace/path/command/patch/artifact security passes | met | `workspace.rs` (8), `worktree.rs` (2), `sandbox.rs` (5), `process.rs` (6), `integration.rs` (5), `artifacts/store.rs` (5) | Process isolation only; network profiles refused, not isolated |
@@ -160,9 +160,10 @@ against `7f63c1e`, not the audit commit.
 1. **Browser target is incomplete.** No function-level WASM codegen, DOM
    renderer, event loop, or real headless-browser test. The reference frontend
    imports the server API and fails the `wasm_browser` build.
-2. **HTTP core exists, reference routes are not wired.** `axiom-server` enforces
-   `ApiGuard` and serves JSON over a socket, but `get_dashboard` is still exercised
-   through the mock runtime boundary, and no browser API stubs exist.
+2. **HTTP core and a reference route are tested; production wiring is missing.**
+   `axiom-server` enforces `ApiGuard` and `tests/reference_http.rs` runs
+   `get_dashboard` over HTTP with a mock DB. There is no production server binary,
+   identity-provider adapter, TLS/CORS setup, or browser API stub.
 3. **Providers are offline mocks.** No network adapters, retries, streaming, or
    provider-specific tool calling.
 4. **State, registry, caches, and durable journals are in memory.** Restart loses
@@ -212,8 +213,8 @@ against `7f63c1e`, not the audit commit.
 1. Implement function-level WASM codegen, DOM rendering, event forwarding, and a
    real headless-browser test; make the reference frontend build for
    `wasm_browser`.
-2. Wire the reference API handler to `axiom-server`, add an identity-provider
-   adapter, and add typed browser stubs.
+2. Add a production server binary, an identity-provider adapter, and typed browser
+   stubs on top of the tested `axiom-server` route.
 3. Implement at least one real provider adapter with gated integration tests.
 4. Add persistent state, release registry, cache, and durable journal backends;
    add trace export and timeout scheduling.

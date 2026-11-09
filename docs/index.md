@@ -169,7 +169,7 @@ release: release:7d10…  content_hash sha256:9e2b…</code></pre>
     </div>
     <div class="card">
       <h3>HTTP boundary</h3>
-      <p><code>axiom-server</code> enforces <code>ApiGuard</code> before a handler runs, bounds requests, and bridges JSON to runtime values. Missing policy and failed authentication fail closed.</p>
+      <p><code>axiom-server</code> enforces <code>ApiGuard</code> before a handler runs, bounds requests, and bridges JSON to runtime values. The reference <code>get_dashboard</code> route is tested over HTTP with a mock DB.</p>
     </div>
   </div>
 </section>
@@ -238,7 +238,7 @@ release: release:7d10…  content_hash sha256:9e2b…</code></pre>
 <section class="section">
   <div class="callout">
     <p><strong>Axiom 1.0 is not complete.</strong> The implementation ledger is the source of truth: a feature is not claimed unless a passing test is cited there.</p>
-    <p>Server execution, checks, SQLite, artifacts, workspaces, and agent iteration are implemented for the tested subsets. Phase 13 added conservative expression inference and match exhaustiveness. Phase 14 added an HTTP server core that enforces <code>ApiGuard</code> on registered routes, but the reference handler is not wired over HTTP yet. The browser target emits a verifiable WASM artifact that embeds checked IR, but the DOM renderer and trusted browser host shell are not implemented yet.</p>
+    <p>Server execution, checks, SQLite, artifacts, workspaces, and agent iteration are implemented for the tested subsets. Phase 13 added conservative expression inference and match exhaustiveness. Phase 14 added an HTTP server core that enforces <code>ApiGuard</code>, and the reference <code>get_dashboard</code> handler is tested over HTTP with a mock DB; a production server binary and identity provider remain. The browser target emits a verifiable WASM artifact that embeds checked IR, but the DOM renderer and trusted browser host shell are not implemented yet.</p>
   </div>
 </section>
 

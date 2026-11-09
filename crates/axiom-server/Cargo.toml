@@ -10,3 +10,7 @@ repository.workspace = true
 [dependencies]
 axiom-config = { workspace = true }
 axiom-runtime = { workspace = true }
+
+[dev-dependencies]
+axiom-ir = { workspace = true }
+axiom-syntax = { workspace = true }

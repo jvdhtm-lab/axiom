@@ -9,9 +9,12 @@ description: The axiom-server HTTP boundary, route registration, ApiGuard enforc
 that enforces [`ApiGuard`](security-model.md) before a handler runs and bridges
 JSON to the runtime `Value` model.
 
-It does **not** compile Axiom handlers, generate typed browser stubs, terminate
-TLS, or run the reference `get_dashboard` route yet. Those remain in Phase 14/15
-of the [remaining phases](remaining-phases.md).
+The reference `get_dashboard` handler is wired through this boundary in
+[`crates/axiom-server/tests/reference_http.rs`](https://github.com/jvdhtm-lab/axiom/blob/master/crates/axiom-server/tests/reference_http.rs):
+the real `examples/src/server.ax` handler runs over HTTP behind `ApiGuard` with a
+mock database. There is still no production server binary, identity-provider
+adapter, TLS termination, or typed browser stub; those remain in Phase 14/15 of
+the [remaining phases](remaining-phases.md).
 
 ## What the server does
 
@@ -95,6 +98,20 @@ Without a principal the response is `401`; with a principal that lacks
 | `List` | array |
 | `Function` | not serializable |
 
+## Reference route
+
+`tests/reference_http.rs` proves the full boundary:
+
+- loads `examples/src/shared.ax` and `examples/src/server.ax`;
+- lowers them to the server IR;
+- applies an `api_policies` guard for `get_dashboard`;
+- resolves a principal from the request;
+- runs the real handler with a mock database host;
+- returns the `DashboardSummary` JSON over the route.
+
+Refused calls return 401/403 before the handler runs, and the mock database is
+never reached.
+
 ## Tests
 
 ```sh
@@ -102,7 +119,8 @@ cargo test -p axiom-server
 ```
 
 The suite covers JSON round-trips, authentication/capability refusals, missing
-policy, unknown routes, method mismatch, malformed JSON, and a real TCP request.
+policy, unknown routes, method mismatch, malformed JSON, a real TCP request, and
+the reference handler over HTTP.
 
 ## Limitations
 

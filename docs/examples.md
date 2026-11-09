@@ -151,8 +151,9 @@ axiom check examples/src/shared.ax examples/src/server.ax --config examples/axio
 ```
 
 The runtime test runs `get_dashboard` against a mock database only after
-authentication, capability, and tenant checks pass. There is no HTTP server or
-identity-provider integration yet, so this is a library boundary today.
+authentication, capability, and tenant checks pass. The same handler is wired
+over HTTP in `crates/axiom-server/tests/reference_http.rs`. There is no production
+server binary or identity-provider integration yet.
 
 ## 3. Database access
 
