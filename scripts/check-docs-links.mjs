@@ -11,6 +11,8 @@ const files = [
   "language-tour.md",
   "examples.md",
   "cli.md",
+  "server.md",
+  "remaining-phases.md",
   "github-pages.md",
 ];
 let missing = 0;

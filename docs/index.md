@@ -218,6 +218,10 @@ release: release:7d10…  content_hash sha256:9e2b…</code></pre>
       <strong>GitHub Pages</strong>
       <span>Publish this site and the deployment contract for Axiom frontends.</span>
     </a>
+    <a class="link-card" href="{{ '/server.html' | relative_url }}">
+      <strong>HTTP server core</strong>
+      <span>Routes, ApiGuard enforcement, and the JSON runtime-value bridge.</span>
+    </a>
     <a class="link-card" href="{{ '/remaining-phases.html' | relative_url }}">
       <strong>Remaining phases</strong>
       <span>The ordered plan for HTTP, browser runtime, providers, persistence, and tooling.</span>
@@ -228,7 +232,7 @@ release: release:7d10…  content_hash sha256:9e2b…</code></pre>
 <section class="section">
   <div class="callout">
     <p><strong>Axiom 1.0 is not complete.</strong> The implementation ledger is the source of truth: a feature is not claimed unless a passing test is cited there.</p>
-    <p>Server execution, checks, SQLite, artifacts, workspaces, and agent iteration are implemented for the tested subsets. The browser target emits a verifiable WASM artifact that embeds checked IR, but the DOM renderer and trusted browser host shell are not implemented yet.</p>
+    <p>Server execution, checks, SQLite, artifacts, workspaces, and agent iteration are implemented for the tested subsets. An HTTP server core now enforces `ApiGuard` on registered routes, but the reference handler is not wired over HTTP yet. The browser target emits a verifiable WASM artifact that embeds checked IR, but the DOM renderer and trusted browser host shell are not implemented yet.</p>
   </div>
 </section>
 

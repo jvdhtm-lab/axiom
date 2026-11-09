@@ -16,6 +16,7 @@ members = [
     "crates/axiom-artifacts",
     "crates/axiom-database",
     "crates/axiom-state",
+    "crates/axiom-server",
     "crates/axiom-cli",
 ]
 
@@ -42,6 +43,7 @@ axiom-filesystem = { path = "crates/axiom-filesystem", version = "0.1.0" }
 axiom-artifacts = { path = "crates/axiom-artifacts", version = "0.1.0" }
 axiom-database = { path = "crates/axiom-database", version = "0.1.0" }
 axiom-state = { path = "crates/axiom-state", version = "0.1.0" }
+axiom-server = { path = "crates/axiom-server", version = "0.1.0" }
 yaml_serde = "0.10.7"
 
 [profile.release]

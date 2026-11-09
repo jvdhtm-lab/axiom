@@ -77,6 +77,7 @@ crates/
   axiom-filesystem/  secure workspaces: paths, policy, overlays, patches, worktrees, integration lock (Phase 6)
   axiom-artifacts/   content-addressed store, release registry, build/data caches (Phase 6/9)
   axiom-database/    parameterized SQL, roles, audit, approvals, migrations (Phase 7)
+  axiom-server/      HTTP/1.1 core, routes, ApiGuard boundary, JSON bridge (Phase 14)
   axiom-state/       typed frontend state: validation, migrations, hot-swap, snapshots (Phase 9)
   axiom-compiler/    target pipeline and code generation (planned)
   axiom-cli/         the `axiom` binary

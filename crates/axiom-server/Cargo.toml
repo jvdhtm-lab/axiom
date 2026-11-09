@@ -1,0 +1,12 @@
+[package]
+name = "axiom-server"
+description = "Axiom HTTP server core and API authorization boundary"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+axiom-config = { workspace = true }
+axiom-runtime = { workspace = true }

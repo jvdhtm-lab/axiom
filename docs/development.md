@@ -164,6 +164,8 @@ source of truth.
 | 10 | Durable async execution, checkpoints, resume, cancellation, tracing | partial |
 | 11 | Full-stack reference app, tooling, docs, security hardening | partial |
 | 12 | Release-readiness audit | done (audit; release not ready) |
+| 13 | Expression inference and match exhaustiveness | done |
+| 14 | HTTP server core + ApiGuard boundary | partial (core done) |
 
 Every phase ends with a compiling repository and passing relevant tests. Nothing
 is marked done without evidence in the ledger.

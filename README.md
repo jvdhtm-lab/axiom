@@ -38,6 +38,8 @@ the current [`agents.md`](agents.md) specification. The phase numbers below foll
 | 10 | Durable async execution, checkpoints, resume, cancellation, tracing | partial |
 | 11 | Full-stack reference app, tooling, docs, security hardening | partial |
 | 12 | Release-readiness audit | done (audit; release not ready) |
+| 13 | Expression inference and match exhaustiveness | done |
+| 14 | HTTP server core + ApiGuard | partial (core done) |
 
 [`docs/implementation-ledger.md`](docs/implementation-ledger.md) is the source of
 truth for what works and what has test evidence. Do not assume a feature works
@@ -78,6 +80,7 @@ crates/
   axiom-filesystem/ secure workspaces: policy, overlays, patches, worktrees, integration lock
   axiom-artifacts/ content-addressed immutable artifact store
   axiom-database/  parameterized SQL, roles, audit, approvals, migrations
+  axiom-server/    HTTP server core, routes, ApiGuard boundary, JSON bridge
   axiom-cli/       the `axiom` binary
 browser/           trusted host shell + Node smoke harness
 editors/vscode/    VS Code syntax highlighting for .ax
