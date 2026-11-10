@@ -9,7 +9,10 @@
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
+
+static SCRATCH_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 use axiom_hash::digest;
 
@@ -457,8 +460,9 @@ pub fn apply_plan(
 }
 
 fn apply_scratch(plan: &MigrationPlan, timeout: Duration) -> Result<(), DbError> {
+    let unique = SCRATCH_COUNTER.fetch_add(1, Ordering::SeqCst);
     let path = std::env::temp_dir().join(format!(
-        "axiom-migration-scratch-{}-{}.sqlite",
+        "axiom-migration-scratch-{}-{unique}-{}.sqlite",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
