@@ -45,7 +45,8 @@
         background: var(--surface);
       }
       label { color: var(--muted); font-size: 14px; font-weight: 600; }
-      select {
+      select,
+      input {
         padding: 9px 12px;
         border: 1px solid var(--border);
         border-radius: 9px;
@@ -53,6 +54,7 @@
         color: var(--text);
         font: inherit;
       }
+      input { min-width: 280px; flex: 1; }
       button {
         padding: 9px 15px;
         border: 0;
@@ -87,12 +89,18 @@
         injects arbitrary source.
       </p>
       <div class="bar">
-        <label for="theme">Requested UI</label>
+        <label for="theme">Preset</label>
         <select id="theme">
           <option value="light">light dashboard</option>
           <option value="dark">dark dashboard</option>
           <option value="minimal">minimal dashboard</option>
         </select>
+        <label for="request">Or describe the UI</label>
+        <input
+          id="request"
+          type="text"
+          placeholder="e.g. dark analytics dashboard with three metrics"
+        >
         <button id="update" type="button">Ask agent to update UI</button>
         <p id="status" role="status">Ready.</p>
       </div>
@@ -107,6 +115,7 @@
     <script>
       const status = document.getElementById("status");
       const theme = document.getElementById("theme");
+      const requestInput = document.getElementById("request");
       const update = document.getElementById("update");
       const preview = document.getElementById("preview");
 
@@ -125,14 +134,16 @@
               "content-type": "application/json",
               "x-axiom-principal": "demo-admin"
             },
-            body: JSON.stringify({ request: theme.value })
+            body: JSON.stringify({
+              request: requestInput.value.trim() || theme.value
+            })
           });
           const result = await response.json();
           if (!response.ok) {
             setStatus(`Refused: ${result.message ?? response.status}`, true);
             return;
           }
-          setStatus(`Published ${result.release_id} · theme ${result.theme} · ${result.content_hash.slice(0, 12)}…`);
+          setStatus(`Published ${result.release_id} ? ${result.agent ?? "template"} ? ${result.theme} ? ${result.content_hash.slice(0, 12)}?`);
           preview.src = `/app/?manifest=/api/frontend/manifest&wasm=/api/frontend/wasm&v=${encodeURIComponent(result.content_hash)}`;
         } catch (error) {
           setStatus(`Update failed: ${error.message}`, true);

@@ -9,3 +9,4 @@ dist_ref/
 examples/var/
 *.sqlite
 *.sqlite-journal
+.tools/

@@ -4,7 +4,9 @@ param(
     [switch]$NoOpen,
     [switch]$Record,
     [switch]$Detach,
-    [switch]$Stop
+    [switch]$Stop,
+    [ValidateSet('template', 'opencode')]
+    [string]$Agent = 'template'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -66,6 +68,15 @@ try {
         }
     }
 
+    $env:AXIOM_UI_AGENT = $Agent
+    if ($Agent -eq 'opencode') {
+        $opencode = Join-Path $root '.tools\opencode\opencode.exe'
+        if (-not (Test-Path -LiteralPath $opencode)) {
+            & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'install-opencode.ps1')
+        }
+        $env:OPENCODE_BIN = $opencode
+    }
+
     $stdout = Join-Path $env:TEMP "axiom-ui-demo-$Port.out.log"
     $stderr = Join-Path $env:TEMP "axiom-ui-demo-$Port.err.log"
     $server = Start-Process -FilePath $exe -ArgumentList @('--bind', "127.0.0.1:$Port") -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr
@@ -89,6 +100,7 @@ try {
     }
 
     Write-Output "Axiom UI agent demo: $url"
+    Write-Output "Agent mode: $Agent"
     Write-Output "Server PID: $($server.Id)"
     if ($Detach) {
         Write-Output "Running in the background. Stop it with:"

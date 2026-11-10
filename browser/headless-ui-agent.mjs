@@ -17,7 +17,20 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const url = process.argv[2] || "http://127.0.0.1:8099/";
+const args = process.argv.slice(2);
+let url = "http://127.0.0.1:8099/";
+let request = null;
+const expected = [];
+for (let index = 0; index < args.length; index += 1) {
+  if (args[index] === "--request") {
+    request = args[++index];
+  } else if (args[index] === "--expect") {
+    expected.push(args[++index]);
+  } else if (!args[index].startsWith("--")) {
+    url = args[index];
+  }
+}
+const timeout = request ? 300000 : 20000;
 const candidates = [
   process.env.AXIOM_CHROME,
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
@@ -159,18 +172,44 @@ try {
   const sessionId = attached.sessionId;
   await cdp.send("Runtime.enable", {}, sessionId);
 
-  await waitFor(
+  const initial = await waitFor(
     cdp,
     sessionId,
     "document.querySelector('iframe')?.contentDocument?.body?.innerText ?? null",
-    (text) => typeof text === "string" && text.includes("Axiom TeamBoard")
+    (text) => typeof text === "string" && text.includes("Axiom")
   );
 
-  await evaluate(
+  if (request) {
+    await evaluate(
+      cdp,
+      sessionId,
+      `document.getElementById('request').value = ${JSON.stringify(request)}; document.getElementById('update').click(); true`
+    );
+  } else {
+    await evaluate(
+      cdp,
+      sessionId,
+      "document.getElementById('theme').value = 'dark'; document.getElementById('update').click(); true"
+    );
+  }
+
+  const controlStatus = await waitFor(
     cdp,
     sessionId,
-    "document.getElementById('theme').value = 'dark'; document.getElementById('update').click(); true"
+    "document.getElementById('status').innerText",
+    (text) =>
+      typeof text === "string" &&
+      (text.includes("Published") || text.includes("Failed") || text.includes("Refused")),
+    timeout
   );
+  if (!controlStatus.includes("Published")) {
+    const detail = await evaluate(
+      cdp,
+      sessionId,
+      "document.querySelector('iframe')?.contentDocument?.body?.innerText ?? ''"
+    );
+    throw new Error(`unexpected control status: ${controlStatus}\n${detail}`);
+  }
 
   const frameText = await waitFor(
     cdp,
@@ -178,18 +217,25 @@ try {
     "document.querySelector('iframe')?.contentDocument?.body?.innerText ?? null",
     (text) =>
       typeof text === "string" &&
-      text.includes("Axiom TeamBoard · Dark") &&
-      text.includes("Theme: dark")
+      (expected.length > 0
+        ? expected.every((value) => text.includes(value))
+        : request !== null
+          ? text.trim() !== initial.trim() && text.length > 0
+          : text.includes("Axiom TeamBoard") && text.includes("Theme: dark")),
+    timeout
   );
-  const controlStatus = await evaluate(cdp, sessionId, "document.getElementById('status').innerText");
-  if (!controlStatus.includes("Published")) {
-    throw new Error(`unexpected control status: ${controlStatus}`);
-  }
-  if (!frameText.includes("Completed tasks")) {
+  if (!request && !frameText.includes("Completed tasks")) {
     throw new Error(`missing metric in iframe: ${frameText}`);
   }
+  if (request && !controlStatus.includes("opencode")) {
+    throw new Error(`request mode did not report the OpenCode agent: ${controlStatus}`);
+  }
 
-  console.log("ok: backend agent published a new frontend and the browser UI changed on demand");
+  console.log(
+    request
+      ? "ok: a free OpenCode model generated and published a new browser UI on demand"
+      : "ok: backend agent published a new frontend and the browser UI changed on demand"
+  );
 } finally {
   if (cdp) cdp.close();
   await stopBrowser(child);

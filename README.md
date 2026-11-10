@@ -140,6 +140,13 @@ powershell -File scripts/run-ui-demo.ps1
 powershell -File scripts/run-ui-demo.ps1 -Record
 ```
 
+Use a real free OpenCode model instead of the deterministic templates:
+
+```powershell
+powershell -File scripts/install-opencode.ps1
+powershell -File scripts/run-ui-demo.ps1 -Agent opencode -Record
+```
+
 See [`docs/ui-agent-demo.md`](docs/ui-agent-demo.md).
 
 ## Editor support

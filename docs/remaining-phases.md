@@ -16,7 +16,7 @@ tooling, and release evidence.
 | 13 | Type checker completion: conservative expression inference, record/list/enum/`Option`/`Result` typing, user/imported function signatures, match exhaustiveness | done |
 | 14 | HTTP API server + typed browser stubs: enforce `ApiGuard` on every protected route and generate the caller-side contract | done (server core + reference route + typed stubs); production server binary, identity provider, TLS/CORS remain hardening |
 | 15 | Browser runtime: function-level WASM codegen or IR execution, trusted host shell, DOM renderer, event loop, real headless-browser test, Pages deployment | done (IR host, DOM/events, headless test, typed API stubs, reference frontend build); function-level codegen, worker isolation, and storage/navigation remain hardening |
-| 16 | Providers and persistence: a networked provider adapter, persistent state/release/cache stores, durable journal, trace export, timeout scheduling | not started |
+| 16 | Providers and persistence: a networked provider adapter, persistent state/release/cache stores, durable journal, trace export, timeout scheduling | in progress ? OpenCode free-model agent bridge demo works; in-tree adapter and persistence pending |
 | 17 | Tooling: LSP diagnostics/completion/hover/definition, `axiom test`, `dev`, `status`, `inspect`, `resume`, `cancel` | not started |
 | 18 | Hardening: coverage-guided fuzzing, concurrency stress, license files, clean-checkout release audit | not started |
 

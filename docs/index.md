@@ -116,7 +116,8 @@ release: release:7d10…  content_hash sha256:9e2b…</code></pre>
       The UI agent demo runs the whole loop: a backend accepts a change request,
       generates a new Axiom frontend, compiles it for <code>wasm_browser</code>,
       publishes the release, and the trusted browser host reloads and renders it.
-      The agent selects declared templates; arbitrary source is never injected.
+      Run it with deterministic templates or a real free OpenCode model behind a
+      tool-less agent; model output is validated and compiled before publication.
     </p>
   </div>
   <div class="hero-actions">
