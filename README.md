@@ -129,6 +129,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-axiom.ps1
 axiom version
 ```
 
+## Run the UI agent demo
+
+The end-to-end demo builds a new frontend, publishes it, and reloads the browser
+UI on demand. On Windows:
+
+```powershell
+powershell -File scripts/run-ui-demo.ps1
+# or a clean 1280x900 app window for screen recording
+powershell -File scripts/run-ui-demo.ps1 -Record
+```
+
+See [`docs/ui-agent-demo.md`](docs/ui-agent-demo.md).
+
 ## Editor support
 
 `editors/vscode/` is a syntax-highlighting extension for `.ax` files. Open that

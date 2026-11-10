@@ -22,6 +22,30 @@ cargo run -p axiom-server --example ui_agent_demo
 Open <http://127.0.0.1:8099/>. Choose `light`, `dark`, or `minimal`, then press
 **Ask agent to update UI**.
 
+### One-command launcher and recording
+
+On Windows, the launcher builds, signs, starts, and opens the demo:
+
+```powershell
+powershell -File scripts/run-ui-demo.ps1
+```
+
+For a clean app window that is easy to screen-record:
+
+```powershell
+powershell -File scripts/run-ui-demo.ps1 -Record
+```
+
+`-Record` opens Chrome/Edge with `--app=` at 1280?900, so there is no browser
+chrome in the capture. Use OBS, Xbox Game Bar, or any screen recorder. Other
+options:
+
+```powershell
+powershell -File scripts/run-ui-demo.ps1 -Detach
+powershell -File scripts/run-ui-demo.ps1 -Stop
+powershell -File scripts/run-ui-demo.ps1 -Port 8100 -Release
+```
+
 The browser test runs the whole loop:
 
 ```sh
