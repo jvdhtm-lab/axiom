@@ -53,6 +53,8 @@ cargo run -p axiom-cli -- db migrations plan --config examples/axiom.yaml --data
 cargo run -p axiom-cli -- build --target wasm_browser --out dist examples/src/ui_demo.ax
 node browser/host-smoke.mjs dist/app.wasm dist/app.manifest.json
 node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json
+cargo run -p axiom-cli -- build --target wasm_browser --out dist_ref examples/src/shared.ax examples/src/frontend.ax examples/src/server.ax
+node browser/headless-smoke.mjs dist_ref/app.wasm dist_ref/app.manifest.json --input-file browser/fixtures/reference_input.json --api-file browser/fixtures/reference_api.json --expect "TeamBoard" --expect "Completed tasks" --expect "7"
 ```
 
 `config check` and `sandbox plan` fail closed on `examples/axiom.yaml` until the
@@ -171,8 +173,8 @@ source of truth.
 | 11 | Full-stack reference app, tooling, docs, security hardening | partial |
 | 12 | Release-readiness audit | done (audit; release not ready) |
 | 13 | Expression inference and match exhaustiveness | done |
-| 14 | HTTP server core + ApiGuard boundary | partial (core + reference route tested) |
-| 15 | Browser host, UiTree renderer, event loop, headless test | partial (IR host + demo done) |
+| 14 | HTTP server core + ApiGuard boundary + typed stubs | done (tested reference slice) |
+| 15 | Browser host, UiTree renderer, event loop, headless test | done (IR host + stubs + reference test) |
 
 Every phase ends with a compiling repository and passing relevant tests. Nothing
 is marked done without evidence in the ledger.

@@ -25,6 +25,7 @@ description: A small, strongly typed language and runtime for full-stack applica
     <span class="badge">agent orchestration</span>
     <span class="badge">HTTP server core</span>
     <span class="badge">headless browser tested</span>
+    <span class="badge">typed api stubs</span>
     <span class="badge">SQLite reference driver</span>
   </div>
 </section>
@@ -174,7 +175,7 @@ release: release:7d10…  content_hash sha256:9e2b…</code></pre>
     </div>
     <div class="card">
       <h3>Trusted browser host</h3>
-      <p>The host verifies the artifact hash/ABI/IR, interprets the portable functions, renders typed <code>UiTree</code> with DOM APIs, and forwards events. A real headless-browser test verifies render and state change.</p>
+      <p>The host verifies the artifact hash/ABI/IR, interprets the portable functions, renders typed <code>UiTree</code> with DOM APIs, forwards events, and runs typed <code>api.call</code> stubs. Real headless-browser tests cover the demo and the reference frontend.</p>
     </div>
   </div>
 </section>
@@ -247,7 +248,7 @@ release: release:7d10…  content_hash sha256:9e2b…</code></pre>
 <section class="section">
   <div class="callout">
     <p><strong>Axiom 1.0 is not complete.</strong> The implementation ledger is the source of truth: a feature is not claimed unless a passing test is cited there.</p>
-    <p>Server execution, checks, SQLite, artifacts, workspaces, and agent iteration are implemented for the tested subsets. Phase 13 added conservative expression inference and match exhaustiveness. Phase 14 added an HTTP server core that enforces <code>ApiGuard</code>, and the reference <code>get_dashboard</code> handler is tested over HTTP with a mock DB. The trusted browser host now verifies an artifact, interprets the embedded IR, renders <code>UiTree</code>, forwards events, and passes a real headless-browser test. Function-level WASM codegen, typed API stubs, and production server/identity-provider wiring remain.</p>
+    <p>Server execution, checks, SQLite, artifacts, workspaces, and agent iteration are implemented for the tested subsets. Phase 13 added conservative expression inference and match exhaustiveness. Phase 14 added an HTTP server core that enforces <code>ApiGuard</code>, and the reference <code>get_dashboard</code> handler is tested over HTTP with a mock DB. The trusted browser host verifies an artifact, interprets the embedded IR, renders <code>UiTree</code>, forwards events, and passes real headless-browser tests. The reference frontend builds with typed <code>api.call</code> stubs, and a mock API test drives it end to end. Function-level WASM codegen, worker isolation, and a production server/identity provider remain.</p>
   </div>
 </section>
 

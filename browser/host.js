@@ -130,6 +130,57 @@ function displayValue(value) {
   return String(value);
 }
 
+function toHostJson(value) {
+  if (value === UNIT) return null;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  if (Array.isArray(value)) return value.map(toHostJson);
+  if (value && typeof value === "object") {
+    if (value.$variant) {
+      return {
+        $variant: value.$variant,
+        ...(value.$args && value.$args.length > 0
+          ? { $args: value.$args.map(toHostJson) }
+          : {})
+      };
+    }
+    if (value.$duration !== undefined) return { $duration_ms: value.$duration };
+    if (value.$timestamp !== undefined) return { $timestamp: value.$timestamp };
+    if (value.$bytes !== undefined) return { $bytes: String(value.$bytes) };
+    const record = {};
+    for (const [name, field] of Object.entries(value)) record[name] = toHostJson(field);
+    return record;
+  }
+  return null;
+}
+
+function fromHostJson(value) {
+  if (Array.isArray(value)) return value.map(fromHostJson);
+  if (value && typeof value === "object") {
+    if (typeof value.$variant === "string") {
+      return {
+        $variant: value.$variant,
+        $args: Array.isArray(value.$args) ? value.$args.map(fromHostJson) : []
+      };
+    }
+    if (typeof value.$duration_ms === "number") return { $duration: value.$duration_ms };
+    if (typeof value.$timestamp === "number") return { $timestamp: value.$timestamp };
+    if (typeof value.$bytes === "string") return { $bytes: Math.floor(value.$bytes.length / 2) };
+    const record = {};
+    for (const [name, field] of Object.entries(value)) record[name] = fromHostJson(field);
+    return record;
+  }
+  return value;
+}
+
+function initialInput() {
+  if (window.AXIOM_INPUT !== undefined) return window.AXIOM_INPUT;
+  const encoded = new URLSearchParams(location.search).get("input");
+  if (encoded) return JSON.parse(encoded);
+  return 0;
+}
+
 function deepEqual(a, b) {
   if (a === b) return true;
   if (typeof a !== typeof b) return false;
@@ -166,7 +217,7 @@ class Interpreter {
     }
   }
 
-  call(name, args) {
+  async call(name, args) {
     const fn = this.functions.get(name);
     if (!fn) fail(`IR has no function \`${name}\``);
     if (fn.params.length !== args.length) {
@@ -177,42 +228,42 @@ class Interpreter {
       frame[param.name] = args[index];
     });
     try {
-      return this.evalBlock(fn.body, [frame]).value;
+      return (await this.evalBlock(fn.body, [frame])).value;
     } catch (error) {
       if (error instanceof ReturnSignal) return error.value;
       throw error;
     }
   }
 
-  evalBlock(block, env) {
+  async evalBlock(block, env) {
     let value = UNIT;
     for (const wrapper of block.stmts) {
-      value = this.evalStmt(wrapper.stmt, env);
+      value = await this.evalStmt(wrapper.stmt, env);
     }
     return { value };
   }
 
-  evalStmt(stmt, env) {
+  async evalStmt(stmt, env) {
     switch (stmt.kind) {
       case "let": {
-        env[env.length - 1][stmt.name] = this.evalExpr(stmt.value, env);
+        env[env.length - 1][stmt.name] = await this.evalExpr(stmt.value, env);
         return UNIT;
       }
       case "return": {
-        const value = stmt.value == null ? UNIT : this.evalExpr(stmt.value, env);
+        const value = stmt.value == null ? UNIT : await this.evalExpr(stmt.value, env);
         throw new ReturnSignal(value);
       }
       case "expr":
-        return this.evalExpr(stmt.value, env);
+        return await this.evalExpr(stmt.value, env);
       case "for": {
-        const iterable = this.evalExpr(stmt.iter, env);
+        const iterable = await this.evalExpr(stmt.iter, env);
         if (!Array.isArray(iterable)) fail("`for` expects a list");
         for (const item of iterable) {
           const frame = {};
           frame[stmt.var] = item;
           env.push(frame);
           try {
-            this.evalBlock(stmt.body, env);
+            await this.evalBlock(stmt.body, env);
           } finally {
             env.pop();
           }
@@ -233,7 +284,7 @@ class Interpreter {
     fail(`unbound local \`${name}\``);
   }
 
-  evalExpr(wrapper, env) {
+  async evalExpr(wrapper, env) {
     const expr = wrapper.expr ?? wrapper;
     switch (expr.kind) {
       case "unit":
@@ -253,22 +304,25 @@ class Interpreter {
         return { $function: expr.name };
       case "namespace":
         return { $namespace: expr.name };
-      case "list":
-        return expr.items.map((item) => this.evalExpr(item, env));
+      case "list": {
+        const items = [];
+        for (const item of expr.items) items.push(await this.evalExpr(item, env));
+        return items;
+      }
       case "record": {
         const record = {};
         for (const field of expr.fields) {
-          record[field.name] = this.evalExpr(field.value, env);
+          record[field.name] = await this.evalExpr(field.value, env);
         }
         return record;
       }
-      case "variant":
-        return {
-          $variant: expr.name,
-          $args: expr.args.map((arg) => this.evalExpr(arg, env))
-        };
+      case "variant": {
+        const args = [];
+        for (const arg of expr.args) args.push(await this.evalExpr(arg, env));
+        return { $variant: expr.name, $args: args };
+      }
       case "field": {
-        const base = this.evalExpr(expr.base, env);
+        const base = await this.evalExpr(expr.base, env);
         if (base && typeof base === "object" && base.$namespace) {
           return { $namespace: base.$namespace, $method: expr.name };
         }
@@ -278,31 +332,36 @@ class Interpreter {
         return base[expr.name];
       }
       case "index": {
-        const base = this.evalExpr(expr.base, env);
-        const index = this.evalExpr(expr.index, env);
+        const base = await this.evalExpr(expr.base, env);
+        const index = await this.evalExpr(expr.index, env);
         if (Array.isArray(base) && Number.isInteger(index)) return base[index];
         if (base && typeof base === "object" && typeof index === "string") return base[index];
         fail(`cannot index ${displayValue(base)}`);
         break;
       }
       case "call": {
-        const args = expr.args.map((arg) => this.evalExpr(arg.value, env));
+        const args = [];
+        const names = [];
+        for (const arg of expr.args) {
+          names.push(arg.name ?? null);
+          args.push(await this.evalExpr(arg.value, env));
+        }
         const callee = expr.callee.expr ?? expr.callee;
         if (callee.kind === "function") {
-          return this.callNamed(callee.name, args);
+          return await this.callNamed(callee.name, args);
         }
         if (callee.kind === "field") {
           const baseExpr = callee.base.expr ?? callee.base;
           if (baseExpr.kind === "namespace") {
-            return this.callStdlib(baseExpr.name, callee.name, args);
+            return await this.callStdlib(baseExpr.name, callee.name, args, names);
           }
-          return this.callMethod(this.evalExpr(callee.base, env), callee.name, args);
+          return await this.callMethod(await this.evalExpr(callee.base, env), callee.name, args);
         }
         fail("call target is not callable");
         break;
       }
       case "unary": {
-        const operand = this.evalExpr(expr.operand, env);
+        const operand = await this.evalExpr(expr.operand, env);
         if (expr.op === "not" && typeof operand === "boolean") return !operand;
         if (expr.op === "neg" && typeof operand === "number") return -operand;
         fail(`cannot apply \`${expr.op}\``);
@@ -311,45 +370,78 @@ class Interpreter {
       case "binary":
         return this.binary(
           expr.op,
-          this.evalExpr(expr.lhs, env),
-          this.evalExpr(expr.rhs, env)
+          await this.evalExpr(expr.lhs, env),
+          await this.evalExpr(expr.rhs, env)
         );
       case "await":
-        return this.evalExpr(expr.value, env);
+        return await this.evalExpr(expr.value, env);
       case "if": {
-        const condition = this.evalExpr(expr.cond, env);
+        const condition = await this.evalExpr(expr.cond, env);
         if (typeof condition !== "boolean") fail("`if` condition must be bool");
-        if (condition) return this.evalBlock(expr.then, env).value;
-        return expr.else == null ? UNIT : this.evalExpr(expr.else, env);
+        if (condition) return (await this.evalBlock(expr.then, env)).value;
+        return expr.else == null ? UNIT : await this.evalExpr(expr.else, env);
       }
       case "match":
-        return this.evalMatch(expr, env);
+        return await this.evalMatch(expr, env);
       case "block":
-        return this.evalBlock(expr.value, env).value;
+        return (await this.evalBlock(expr.value, env)).value;
       default:
         fail(`unsupported expression kind \`${expr.kind}\``);
     }
   }
 
-  callNamed(name, args) {
+  async callNamed(name, args) {
     if (name === "Some" || name === "Ok" || name === "Err") {
       return { $variant: name, $args: args };
     }
     if (name === "capability") return args[0] ?? UNIT;
-    return this.call(name, args);
+    return await this.call(name, args);
   }
 
-  callStdlib(namespace, method, args) {
+  async callStdlib(namespace, method, args, names) {
     if (namespace === "ui") {
       return { $node: method, args };
     }
     if (namespace === "checks") {
       return { $variant: "Validator", $args: [`checks.${method}`] };
     }
+    if (namespace === "api" && method === "call") {
+      return await this.apiCall(args, names);
+    }
     fail(`\`${namespace}.${method}\` needs a host ABI that is not implemented`);
   }
 
-  callMethod(receiver, method, args) {
+  async apiCall(args, names) {
+    const apiIndex = names.findIndex((name) => name === "api");
+    if (apiIndex < 0) fail("api.call requires the `api` argument");
+    const api = args[apiIndex];
+    if (typeof api !== "string") fail("api.call `api` must be a string");
+    const inputIndex = names.findIndex((name) => name === "input");
+    let payload;
+    if (inputIndex >= 0) {
+      payload = args[inputIndex];
+    } else {
+      payload = {};
+      for (let index = 0; index < names.length; index += 1) {
+        if (names[index] && names[index] !== "api") {
+          payload[names[index]] = args[index];
+        }
+      }
+    }
+    const meta = document.querySelector('meta[name="axiom-api-base"]');
+    const base = (window.AXIOM_API_BASE || meta?.content || "/api").replace(/\/+$/, "");
+    const response = await fetch(`${base}/${encodeURIComponent(api)}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(toHostJson(payload))
+    });
+    if (!response.ok) {
+      fail(`API \`${api}\` returned HTTP ${response.status}`);
+    }
+    return fromHostJson(await response.json());
+  }
+
+  async callMethod(receiver, method, args) {
     switch (method) {
       case "to_string":
         return displayValue(receiver);
@@ -436,14 +528,14 @@ class Interpreter {
     }
   }
 
-  evalMatch(expr, env) {
-    const value = this.evalExpr(expr.scrutinee, env);
+  async evalMatch(expr, env) {
+    const value = await this.evalExpr(expr.scrutinee, env);
     for (const arm of expr.arms) {
       const frame = this.bindPattern(arm.pattern, value);
       if (!frame) continue;
       env.push(frame);
       try {
-        return this.evalBlock(arm.body, env).value;
+        return (await this.evalBlock(arm.body, env)).value;
       } finally {
         env.pop();
       }
@@ -558,27 +650,27 @@ async function main() {
     }
   }
 
-  let state = interpreter.call("init", [0]);
+  let state = await interpreter.call("init", [initialInput()]);
 
   const context = {
     nodes: 0,
-    handleEvent(eventValue) {
+    async handleEvent(eventValue) {
       try {
-        const result = interpreter.call("handle_event", [state, eventValue]);
+        const result = await interpreter.call("handle_event", [state, eventValue]);
         if (!isVariant(result, "Ok")) {
           fail(`handle_event returned ${displayValue(result)}; expected Ok(state)`);
         }
         state = result.$args[0];
-        render();
+        await render();
       } catch (error) {
         showError(error);
       }
     }
   };
 
-  function render() {
+  async function render() {
     context.nodes = 0;
-    const tree = interpreter.call("render", [state]);
+    const tree = await interpreter.call("render", [state]);
     appElement.replaceChildren(renderUiTree(tree, context));
     window.axiomHost.state = state;
   }
@@ -603,7 +695,7 @@ async function main() {
     }
   };
 
-  render();
+  await render();
   setStatus("ok", `Axiom host ready · abi v${manifest.abi_version} · ir v${manifest.ir_version}`);
 }
 

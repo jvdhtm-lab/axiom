@@ -11,7 +11,9 @@
 //! Portability is enforced here, fail-closed: any effect not allowed on the
 //! browser target aborts the build rather than being stubbed.
 
-use axiom_ir::{Program, Target};
+use axiom_ir::{
+    IrArg, IrBlock, IrExpr, IrExprKind, IrFunction, IrStmt, IrStmtKind, Program, Target,
+};
 
 /// Content hashing, re-exported so callers keep one entry point. The shared
 /// implementation lives in `axiom-hash`.
@@ -94,6 +96,15 @@ fn json_array(items: &[String]) -> String {
 
 /// Compile a program to a browser artifact.
 pub fn build(program: &Program) -> Result<Artifact, WasmError> {
+    let mut program = program.clone();
+    for module in &mut program.modules {
+        for function in &mut module.functions {
+            if function.api {
+                stub_api_function(function);
+            }
+        }
+    }
+
     for module in &program.modules {
         for f in &module.functions {
             for effect in &f.effects {
@@ -111,14 +122,14 @@ pub fn build(program: &Program) -> Result<Artifact, WasmError> {
         .modules
         .iter()
         .flat_map(|m| m.functions.iter())
-        .filter(|f| f.exported)
+        .filter(|f| f.exported && !f.api)
         .map(|f| f.name.clone())
         .collect();
     if entry_points.is_empty() {
         return Err(WasmError::NoEntryPoints);
     }
 
-    let ir_bytes = axiom_ir::program_to_json(program).into_bytes();
+    let ir_bytes = axiom_ir::program_to_json(&program).into_bytes();
     let module = encode_module(&ir_bytes);
     let content_hash = sha256::hex_digest(&module);
 
@@ -131,6 +142,56 @@ pub fn build(program: &Program) -> Result<Artifact, WasmError> {
         entry_points,
         module,
     })
+}
+
+/// Replace a server API body with a typed browser stub.
+///
+/// The stub calls the host ABI `api.call` with the API name and the declared
+/// parameters. The host bridge posts the input to the server and returns the
+/// checked `Result` value. The server body never enters the browser artifact.
+fn stub_api_function(function: &mut IrFunction) {
+    let span = function.span;
+    let mut args = vec![IrArg {
+        name: Some("api".to_string()),
+        value: IrExpr {
+            kind: IrExprKind::Str(function.name.clone()),
+            span,
+        },
+    }];
+    for (name, _) in &function.params {
+        args.push(IrArg {
+            name: Some(name.clone()),
+            value: IrExpr {
+                kind: IrExprKind::Local(name.clone()),
+                span,
+            },
+        });
+    }
+    let call = IrExpr {
+        kind: IrExprKind::Call {
+            callee: Box::new(IrExpr {
+                kind: IrExprKind::Field(
+                    Box::new(IrExpr {
+                        kind: IrExprKind::Namespace("api".to_string()),
+                        span,
+                    }),
+                    "call".to_string(),
+                ),
+                span,
+            }),
+            args,
+        },
+        span,
+    };
+    function.body = IrBlock {
+        stmts: vec![IrStmt {
+            kind: IrStmtKind::Return(Some(call)),
+            span,
+        }],
+        span,
+    };
+    function.effects = vec!["api.call".to_string()];
+    function.required_capabilities.clear();
 }
 
 /// Encode a minimal, valid WASM module that exposes the IR bytes in memory.

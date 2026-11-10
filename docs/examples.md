@@ -307,21 +307,27 @@ frontend_state:
 pure projection from state. `handle_event` returns a new state and may declare
 `api.call`.
 
-Important limitations:
+The reference frontend builds for `wasm_browser`; the server API body is replaced
+by a typed caller-side stub:
 
-- `axiom check` validates the source, but the browser host shell, DOM renderer,
-  and typed API stubs are not implemented. The reference frontend cannot build
-  for `wasm_browser` while it imports `get_dashboard`, because the server body
-  uses `db.read`.
-- A pure browser-safe frontend can build:
-  ```sh
-  axiom build --target wasm_browser --out dist hello/frontend/main.ax
-  ```
-- The pure demo `examples/src/ui_demo.ax` does render: `browser/host.js`
-  interprets its IR, draws the `UiTree`, and `browser/headless-smoke.mjs` clicks
-  the increment button in a real headless browser. See [Browser host](browser-host.md).
-- The reference frontend still needs typed API stubs. See
-  [GitHub Pages](github-pages.md) for the deployment contract.
+```sh
+axiom build --target wasm_browser --out dist_ref \
+  examples/src/shared.ax examples/src/frontend.ax examples/src/server.ax
+```
+
+The browser host interprets the IR, renders the `UiTree`, and posts
+`/api/get_dashboard` through the stub. The real backend is `axiom-server`; the
+browser test uses a mock response:
+
+```sh
+node browser/headless-smoke.mjs dist_ref/app.wasm dist_ref/app.manifest.json \
+  --input-file browser/fixtures/reference_input.json \
+  --api-file browser/fixtures/reference_api.json \
+  --expect "TeamBoard" --expect "Completed tasks" --expect "7"
+```
+
+The pure demo `examples/src/ui_demo.ax` also runs directly without an API. See
+[Browser host](browser-host.md) and [GitHub Pages](github-pages.md).
 
 ## 5. Agents, workspaces, and validation
 

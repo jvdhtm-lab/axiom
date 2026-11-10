@@ -32,7 +32,10 @@ renders the typed `UiTree` with DOM APIs.
    `button`) with `textContent`, never `innerHTML`.
 6. Forwards button events to `handle_event`, accepts only an `Ok(new_state)`
    result, re-renders, and fails closed on `Err` or unknown nodes.
-7. Caps UI nodes at 10,000 and reports structured host status in
+7. Implements caller-side `api.call`: imported API bodies are replaced by typed
+   stubs, and the host POSTs the typed input to `window.AXIOM_API_BASE` or the
+   `<meta name="axiom-api-base">` value (default `/api`).
+8. Caps UI nodes at 10,000 and reports structured host status in
    `document.body.dataset.axiomStatus` and the status region.
 
 Unknown UiTree nodes, unsupported host imports, ABI/IR mismatches, hash
@@ -58,6 +61,24 @@ the host and artifact over localhost, waits for the host status, clicks the
 button, and asserts the count changed from `0` to `1`. Set `AXIOM_CHROME` to
 override the browser path.
 
+The reference frontend also builds for `wasm_browser` now: its server API body is
+replaced by a typed stub, so no database code enters the artifact. The full
+browser path is exercised with a mock API response:
+
+```sh
+axiom build --target wasm_browser --out dist_ref \
+  examples/src/shared.ax examples/src/frontend.ax examples/src/server.ax
+
+node browser/headless-smoke.mjs dist_ref/app.wasm dist_ref/app.manifest.json \
+  --input-file browser/fixtures/reference_input.json \
+  --api-file browser/fixtures/reference_api.json \
+  --expect "TeamBoard" --expect "Completed tasks" --expect "7"
+```
+
+The host posts to `/api/get_dashboard`; the test server returns the mock
+`DashboardSummary`. The real backend is `axiom-server` (tested with the same
+handler and a mock DB).
+
 To preview manually, serve the repository and artifact with any static server
 and open `browser/index.html` with `app.wasm` and `app.manifest.json` beside the
 host files.
@@ -66,13 +87,14 @@ host files.
 
 - The artifact still embeds IR (`codegen: "ir-embedding"`). There is no
   function-level WASM code generation yet; the host interprets the IR.
-- Only the portable subset used by `ui_demo.ax` is implemented (no typed API
-  stubs, storage, navigation, or forms yet).
-- The reference `examples/src/frontend.ax` still cannot build for
-  `wasm_browser` because it imports `get_dashboard`, whose server body uses
-  `db.read`.
-- The host ABI imports are verified but not implemented; any imported call fails
-  closed.
+- Supported `UiTree` nodes are the small demo subset; forms, tables, and richer
+  inputs are not implemented.
+- The host runs on the main thread; dedicated-worker isolation is not
+  implemented. Storage and navigation host imports are not implemented.
+- The reference frontend builds and passes the mock-API browser test, but a
+  production backend (identity provider, TLS/CORS, live DB) is not wired yet.
+- Typed API stubs are caller-side only; the server enforces authentication and
+  authorization on every request.
 - There is no production release registry or atomic active-release switch in the
   browser yet.
 

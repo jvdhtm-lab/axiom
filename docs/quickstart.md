@@ -159,8 +159,16 @@ ok: headless browser rendered UiTree and forwarded a button event
 ```
 
 The host is `browser/index.html` + `browser/host.js`. It verifies the artifact,
-interprets the embedded IR, renders `UiTree`, and forwards button events. See
-[Browser host](browser-host.md) for the supported nodes and limits.
+interprets the embedded IR, renders `UiTree`, and forwards button events. Server
+`api` functions become typed caller-side stubs in the browser build:
+
+```sh
+axiom build --target wasm_browser --out dist_ref \
+  examples/src/shared.ax examples/src/frontend.ax examples/src/server.ax
+```
+
+See [Browser host](browser-host.md) for the supported nodes, `api.call` bridge,
+and limits.
 
 ## 7. Edit with syntax highlighting
 

@@ -63,3 +63,23 @@ fn non_browser_effects_are_rejected() {
         Err(WasmError::UnsupportedEffect { .. })
     ));
 }
+
+#[test]
+fn api_functions_are_stubbed_for_browser() {
+    let src = "module a;\n\
+               export type Row = { id: int; };\n\
+               export api async fn get_row(input: Row) -> Result<Row, string> effects [db.read] {\n\
+                 return Err(\"server only\");\n\
+               }\n\
+               export fn render() -> UiTree { return ui.text(\"ok\"); }\n";
+    let file = axiom_syntax::parse(src).file;
+    let inputs = [ModuleInput {
+        name: "a".to_string(),
+        display: "a.ax".to_string(),
+        file: &file,
+    }];
+    let program = lower(&inputs, Target::WasmBrowser);
+    let artifact = build(&program).expect("api body is replaced by a stub");
+    assert!(!artifact.entry_points.iter().any(|name| name == "get_row"));
+    assert!(artifact.entry_points.iter().any(|name| name == "render"));
+}

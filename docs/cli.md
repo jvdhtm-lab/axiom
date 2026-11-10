@@ -137,8 +137,10 @@ axiom build examples/src/deterministic.ax
 axiom build --target wasm_browser --out dist my_app/frontend/main.ax
 ```
 
-A `wasm_browser` artifact embeds the checked IR today. It does not yet contain
-per-function WASM code or a DOM renderer.
+A `wasm_browser` artifact embeds the checked IR. Exported `api` functions are
+replaced by typed caller-side `api.call` stubs, so the server handler body and its
+database effects do not enter the artifact. The trusted host interprets the IR
+and renders `UiTree`; there is no per-function WASM codegen yet.
 
 ## `explain`
 

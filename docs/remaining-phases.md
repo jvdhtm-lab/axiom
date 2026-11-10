@@ -9,8 +9,8 @@ Status: `done`, `in progress`, `not started`.
 | Phase | Work | Status |
 | --- | --- | --- |
 | 13 | Type checker completion: conservative expression inference, record/list/enum/`Option`/`Result` typing, user/imported function signatures, match exhaustiveness | done |
-| 14 | HTTP API server + typed browser stubs: enforce `ApiGuard` on every protected route and generate the caller-side contract | in progress ? server core and reference route test done; production server binary, identity provider, and typed browser stubs pending |
-| 15 | Browser runtime: function-level WASM codegen or IR execution, trusted host shell, DOM renderer, event loop, real headless-browser test, Pages deployment | in progress ? IR-interpreting host, DOM renderer, event loop, headless browser test, and pure-demo Pages path done; function-level codegen, typed API stubs, and reference-frontend deployment pending |
+| 14 | HTTP API server + typed browser stubs: enforce `ApiGuard` on every protected route and generate the caller-side contract | done (server core + reference route + typed stubs); production server binary, identity provider, TLS/CORS remain hardening |
+| 15 | Browser runtime: function-level WASM codegen or IR execution, trusted host shell, DOM renderer, event loop, real headless-browser test, Pages deployment | done (IR host, DOM/events, headless test, typed API stubs, reference frontend build); function-level codegen, worker isolation, and storage/navigation remain hardening |
 | 16 | Providers and persistence: a networked provider adapter, persistent state/release/cache stores, durable journal, trace export, timeout scheduling | not started |
 | 17 | Tooling: LSP diagnostics/completion/hover/definition, `axiom test`, `dev`, `status`, `inspect`, `resume`, `cancel` | not started |
 | 18 | Hardening: coverage-guided fuzzing, concurrency stress, license files, clean-checkout release audit | not started |
@@ -45,16 +45,18 @@ Evidence: `crates/axiom-types/tests/semantics.rs` (25 tests), full
 
 ## Phase 14 — HTTP API server + typed browser stubs
 
-The server core and a reference `get_dashboard` route are done. Still pending: a
-production server binary, an identity-provider adapter, CORS/TLS integration, and
-typed browser stubs with caller-side `api.call`.
+The server core, a reference `get_dashboard` route, and typed browser stubs are
+done. The tests cover `ApiGuard` refusals, the real handler over HTTP with a mock
+database, and the browser stub calling a mock API. Production server binary,
+identity-provider adapter, and CORS/TLS wiring move to hardening.
 
 ## Phase 15 — Browser runtime
 
-The IR-interpreting host, UiTree renderer, event loop, and real headless test are
-done, and a pure-demo Pages path works. Still pending: function-level WASM
-codegen, typed API stubs, storage/navigation imports, worker isolation, and the
-reference frontend build.
+The IR-interpreting host, UiTree renderer, event loop, real headless test, typed
+API stubs, and the reference frontend build are done. The pure demo and the
+reference frontend both run in a real browser; the reference test uses a mock API
+response. Function-level WASM codegen, worker isolation, and storage/navigation
+imports move to hardening.
 
 ## Phase 16 — Providers and persistence
 

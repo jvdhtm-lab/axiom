@@ -8,12 +8,13 @@ this project:
 2. **An Axiom `wasm_browser` frontend** (a compiled `.wasm` artifact plus a
    trusted host shell), published as static files.
 
-Part 1 works today. Part 2 also works for **pure frontend modules**: the trusted
-browser host, IR interpreter, `UiTree` renderer, event loop, and real
-headless-browser test are implemented. Typed browser API stubs and the reference
-`examples/src/frontend.ax` deployment are still missing, so an app that calls a
-server API is not deployable yet. The demo module `examples/src/ui_demo.ax` is
-deployable now.
+Part 1 works today. Part 2 also works for pure frontend modules and for the
+reference frontend: the trusted browser host, IR interpreter, `UiTree` renderer,
+event loop, typed API stubs, and real headless-browser test are implemented. A
+Pages deployment can serve the frontend, but a server-backed app still needs a
+real backend hosted elsewhere (Pages cannot run the Axiom server). The demo module
+`examples/src/ui_demo.ax` and the reference frontend both build for
+`wasm_browser` now.
 
 ---
 
@@ -200,9 +201,9 @@ installed with the plugins listed in `docs/_config.yml`.
 | Trusted browser host shell (`browser/index.html`, `browser/host.js`) | **implemented** |
 | DOM renderer, `UiTree` rendering, event forwarding | **implemented** for `column`, `row`, `heading`, `text`, `metric`, `button` |
 | Real headless-browser test | **implemented** (`browser/headless-smoke.mjs`, Chrome/Edge via DevTools protocol) |
-| Typed browser API stubs for `api` functions | **not implemented** |
-| Reference frontend (`examples/src/frontend.ax`) build for `wasm_browser` | **refused**: it imports `get_dashboard`, whose server body uses `db.read` |
-| Interactive Axiom app on GitHub Pages | **possible for pure frontend modules** (for example `ui_demo.ax`); API-calling apps are blocked |
+| Typed browser API stubs for `api` functions | **implemented**; server bodies are replaced by `api.call` stubs |
+| Reference frontend (`examples/src/frontend.ax`) build for `wasm_browser` | **works**; the browser test uses a mock `/api/get_dashboard` response |
+| Interactive Axiom app on GitHub Pages | **possible with an external backend**; Pages cannot run `axiom-server` |
 
 The demo host is deployable today:
 
@@ -212,8 +213,10 @@ node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json
 ```
 
 Copy `browser/index.html` and `browser/host.js` into `dist/`, add `.nojekyll`,
-and publish `dist/`. The rest of this section defines the deployment contract and
-the constraints the host satisfies.
+and publish `dist/`. For API calls, set the `<meta name="axiom-api-base">` value
+(or `window.AXIOM_API_BASE`) to the backend origin; the backend must be hosted
+outside Pages. The rest of this section defines the deployment contract and the
+constraints the host satisfies.
 
 ### What GitHub Pages can and cannot do
 

@@ -5,6 +5,7 @@
 .DS_Store
 .axiom-cache/
 dist/
+dist_ref/
 examples/var/
 *.sqlite
 *.sqlite-journal

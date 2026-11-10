@@ -29,3 +29,7 @@ jobs:
         run: ./target/release/axiom build --target wasm_browser --out dist examples/src/ui_demo.ax
       - name: Browser host smoke test
         run: node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json
+      - name: Build the reference browser frontend
+        run: ./target/release/axiom build --target wasm_browser --out dist_ref examples/src/shared.ax examples/src/frontend.ax examples/src/server.ax
+      - name: Reference browser host test
+        run: node browser/headless-smoke.mjs dist_ref/app.wasm dist_ref/app.manifest.json --input-file browser/fixtures/reference_input.json --api-file browser/fixtures/reference_api.json --expect "TeamBoard" --expect "Completed tasks" --expect "7"

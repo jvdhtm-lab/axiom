@@ -39,8 +39,8 @@ the current [`agents.md`](agents.md) specification. The phase numbers below foll
 | 11 | Full-stack reference app, tooling, docs, security hardening | partial |
 | 12 | Release-readiness audit | done (audit; release not ready) |
 | 13 | Expression inference and match exhaustiveness | done |
-| 14 | HTTP server core + ApiGuard | partial (core + reference route tested) |
-| 15 | Browser host, UiTree renderer, event loop, headless test | partial (IR host + demo done) |
+| 14 | HTTP server core + ApiGuard + typed stubs | done (tested reference slice) |
+| 15 | Browser host, UiTree renderer, event loop, headless test | done (IR host + stubs + reference test) |
 
 [`docs/implementation-ledger.md`](docs/implementation-ledger.md) is the source of
 truth for what works and what has test evidence. Do not assume a feature works
@@ -112,6 +112,8 @@ cargo run -p axiom-cli -- build --target wasm_browser --out out examples/src/det
 node browser/host-smoke.mjs out/app.wasm out/app.manifest.json
 cargo run -p axiom-cli -- build --target wasm_browser --out dist examples/src/ui_demo.ax
 node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json
+cargo run -p axiom-cli -- build --target wasm_browser --out dist_ref examples/src/shared.ax examples/src/frontend.ax examples/src/server.ax
+node browser/headless-smoke.mjs dist_ref/app.wasm dist_ref/app.manifest.json --input-file browser/fixtures/reference_input.json --api-file browser/fixtures/reference_api.json --expect "TeamBoard" --expect "Completed tasks" --expect "7"
 ```
 
 `config check` and `sandbox plan` fail closed on `examples/axiom.yaml` until the

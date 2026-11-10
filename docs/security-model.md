@@ -90,8 +90,9 @@ We threat-model at least:
   target, and imports before executing. It renders only known `UiTree` nodes
   with `textContent`, caps node count at 10,000, and accepts an event only when
   `handle_event` returns `Ok(new_state)`. Unknown imports, unknown nodes, and
-  non-`Ok` results fail closed. The host has no ambient filesystem, database,
-  secret, or unrestricted network access.
+  non-`Ok` results fail closed. Typed `api.call` stubs are caller-side only; the
+  server authenticates and authorizes every request. The host has no ambient
+  filesystem, database, secret, or unrestricted network access.
 - Artifacts and approvals bind to content hashes and versions and are revalidated
   at activation time.
 - Frontend state is validated before commit: it must be a record, respect its

@@ -185,7 +185,9 @@ stubbed or silently skipped.
 `export api fn` is the only source-level way to publish a server operation.
 On `wasm_browser`, importing an API exposes only its checked signature and a
 generated client stub with caller-side effect `api.call`; the server handler body
-must never be pulled into the browser module.
+must never be pulled into the browser module. The compiler replaces `api` bodies
+with stubs, and `axiom-wasm/tests/reference_browser.rs` checks that server SQL and
+effects are absent from the artifact.
 
 ## 9. Frontend convention
 

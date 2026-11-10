@@ -18,10 +18,38 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const browserDir = dirname(fileURLToPath(import.meta.url));
-const [wasmArg, manifestArg] = process.argv.slice(2);
+const rawArguments = process.argv.slice(2);
+const positional = [];
+const options = { inputFile: null, apiFile: null, before: [], expect: [] };
+for (let index = 0; index < rawArguments.length; index += 1) {
+  const argument = rawArguments[index];
+  if (argument === "--input-file") {
+    options.inputFile = rawArguments[++index];
+  } else if (argument === "--api-file") {
+    options.apiFile = rawArguments[++index];
+  } else if (argument === "--expect") {
+    options.expect.push(rawArguments[++index]);
+  } else if (argument === "--expect-before") {
+    options.before.push(rawArguments[++index]);
+  } else if (argument.startsWith("--")) {
+    console.error(`unknown option ${argument}`);
+    process.exit(2);
+  } else {
+    positional.push(argument);
+  }
+}
+const [wasmArg, manifestArg] = positional;
 if (!wasmArg || !manifestArg) {
-  console.error("usage: headless-smoke.mjs <app.wasm> <app.manifest.json>");
+  console.error(
+    "usage: headless-smoke.mjs <app.wasm> <app.manifest.json> [--input-file F] [--api-file F] [--expect TEXT] [--expect-before TEXT]"
+  );
   process.exit(2);
+}
+const inputJson = options.inputFile ? await readFile(resolve(options.inputFile), "utf8") : null;
+const apiJson = options.apiFile ? await readFile(resolve(options.apiFile), "utf8") : null;
+if (options.expect.length === 0 && options.before.length === 0) {
+  options.before.push("Count: 0");
+  options.expect.push("Axiom browser smoke", "Count: 1", "Increment");
 }
 
 const wasmPath = resolve(wasmArg);
@@ -162,7 +190,11 @@ const server = createServer((request, response) => {
       response.end();
       break;
     default:
-      send(404, "text/plain; charset=utf-8", "not found");
+      if (apiJson && path.startsWith("/api/")) {
+        send(200, "application/json", apiJson);
+      } else {
+        send(404, "text/plain; charset=utf-8", "not found");
+      }
   }
 });
 
@@ -185,7 +217,7 @@ try {
       "--no-default-browser-check",
       "--remote-debugging-port=0",
       `--user-data-dir=${userDataDir}`,
-      `http://127.0.0.1:${port}/`
+      `http://127.0.0.1:${port}/${inputJson ? `?input=${encodeURIComponent(inputJson.trim())}` : ""}`
     ],
     { stdio: ["ignore", "ignore", "pipe"] }
   );
@@ -232,35 +264,34 @@ try {
     throw new Error(`host reported an error: ${detail}`);
   }
 
-  const initial = await waitFor(
-    cdp,
-    sessionId,
-    "window.axiomHost?.getState?.().count ?? null",
-    (value) => value === 0
-  );
-  if (initial !== 0) throw new Error(`unexpected initial count ${initial}`);
+  if (options.before.length > 0) {
+    await waitFor(
+      cdp,
+      sessionId,
+      "document.body.innerText",
+      (text) => options.before.every((expected) => text.includes(expected))
+    );
+  }
 
   await evaluate(cdp, sessionId, "document.querySelector('button')?.click(); true");
-  await waitFor(
-    cdp,
-    sessionId,
-    "window.axiomHost?.getState?.().count ?? null",
-    (value) => value === 1
-  );
+  if (options.expect.length > 0) {
+    await waitFor(
+      cdp,
+      sessionId,
+      "document.body.innerText",
+      (text) => options.expect.every((expected) => text.includes(expected))
+    );
+  }
 
   const dom = await evaluate(cdp, sessionId, "document.documentElement.outerHTML");
   const text = await evaluate(cdp, sessionId, "document.body.innerText");
-  for (const [label, expected] of [
-    ["rendered heading", "Axiom browser smoke"],
-    ["rendered count", "Count: 1"],
-    ["event button", "Increment"]
-  ]) {
-    if (!text.includes(expected)) {
-      throw new Error(`missing ${label}: ${expected}\n${text}`);
-    }
-  }
   if (!dom.includes('data-axiom-status="ok"')) {
     throw new Error("host did not report a successful status");
+  }
+  for (const expected of options.expect) {
+    if (!text.includes(expected)) {
+      throw new Error(`missing expected text: ${expected}\n${text}`);
+    }
   }
 
   console.log("ok: headless browser rendered UiTree and forwarded a button event");

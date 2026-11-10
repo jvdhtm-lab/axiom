@@ -1,0 +1,9 @@
+{
+  "$variant": "Ok",
+  "$args": [
+    {
+      "team_id": "team-1",
+      "completed": 7
+    }
+  ]
+}
