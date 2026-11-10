@@ -80,14 +80,19 @@ impl Response {
         Response::text(status, "application/json; charset=utf-8", text)
     }
 
-    fn text(status: u16, content_type: &str, text: String) -> Self {
+    /// A raw response for static files or non-JSON routes.
+    pub fn raw(status: u16, content_type: &str, body: Vec<u8>) -> Self {
         let mut headers = BTreeMap::new();
         headers.insert("content-type".to_string(), content_type.to_string());
         Response {
             status,
             headers,
-            body: text.into_bytes(),
+            body,
         }
+    }
+
+    fn text(status: u16, content_type: &str, text: String) -> Self {
+        Response::raw(status, content_type, text.into_bytes())
     }
 
     fn write_to(&self, stream: &mut TcpStream) -> io::Result<()> {
@@ -152,7 +157,7 @@ impl ServerError {
 pub type Handler =
     Arc<dyn Fn(&Request, Option<&Principal>, Value) -> Result<Value, ServerError> + Send + Sync>;
 
-/// A registered route.
+/// A registered API route.
 #[derive(Clone)]
 pub struct Route {
     pub method: &'static str,
@@ -160,6 +165,18 @@ pub struct Route {
     /// The exported API name used for policy lookup. This is not the URL path.
     pub api: String,
     handler: Handler,
+}
+
+/// A raw route handler. These routes are public by design (static files, host
+/// assets, control pages) and do not pass through `ApiGuard`.
+pub type RawHandler = Arc<dyn Fn(&Request) -> Response + Send + Sync>;
+
+/// A registered raw route.
+#[derive(Clone)]
+pub struct RawRoute {
+    pub method: &'static str,
+    pub path: &'static str,
+    handler: RawHandler,
 }
 
 /// The authentication boundary. An identity provider is injected; the server
@@ -170,6 +187,7 @@ pub type Authenticator = Arc<dyn Fn(&Request) -> Option<Principal> + Send + Sync
 pub struct Server {
     guard: ApiGuard,
     routes: Vec<Route>,
+    raw_routes: Vec<RawRoute>,
     authenticate: Authenticator,
 }
 
@@ -178,6 +196,7 @@ impl Server {
         Server {
             guard,
             routes: Vec::new(),
+            raw_routes: Vec::new(),
             authenticate,
         }
     }
@@ -201,30 +220,50 @@ impl Server {
         self
     }
 
+    /// Register a public raw route (static files, host assets, control pages).
+    pub fn route_raw(
+        mut self,
+        method: &'static str,
+        path: &'static str,
+        handler: impl Fn(&Request) -> Response + Send + Sync + 'static,
+    ) -> Self {
+        self.raw_routes.push(RawRoute {
+            method,
+            path,
+            handler: Arc::new(handler),
+        });
+        self
+    }
+
     /// Handle one parsed request without a socket.
     pub fn handle(&self, request: &Request) -> Response {
         let path = request.path.split('?').next().unwrap_or(&request.path);
-        let Some(route) = self.routes.iter().find(|route| route.path == path) else {
-            return Response::error(404, "not_found", "route not found");
-        };
-        if route.method != request.method {
-            return Response::error(405, "method_not_allowed", "method not allowed");
+        if let Some(route) = self.routes.iter().find(|route| route.path == path) {
+            if route.method != request.method {
+                return Response::error(405, "method_not_allowed", "method not allowed");
+            }
+            let principal = (self.authenticate)(request);
+            if let Err(error) = self.guard.authorize(&route.api, principal.as_ref()) {
+                return access_response(error);
+            }
+            let body = match request.json() {
+                Ok(value) => value,
+                Err(error) => return Response::error(400, "invalid_json", error.message),
+            };
+            return match (route.handler)(request, principal.as_ref(), body) {
+                Ok(value) => Response::json(200, &value),
+                Err(error) => Response::error(error.status, error.code, error.message),
+            };
         }
 
-        let principal = (self.authenticate)(request);
-        if let Err(error) = self.guard.authorize(&route.api, principal.as_ref()) {
-            return access_response(error);
+        if let Some(route) = self.raw_routes.iter().find(|route| route.path == path) {
+            if route.method != request.method {
+                return Response::error(405, "method_not_allowed", "method not allowed");
+            }
+            return (route.handler)(request);
         }
 
-        let body = match request.json() {
-            Ok(value) => value,
-            Err(error) => return Response::error(400, "invalid_json", error.message),
-        };
-
-        match (route.handler)(request, principal.as_ref(), body) {
-            Ok(value) => Response::json(200, &value),
-            Err(error) => Response::error(error.status, error.code, error.message),
-        }
+        Response::error(404, "not_found", "route not found")
     }
 
     /// Accept requests forever. Connection errors do not stop the server.

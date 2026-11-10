@@ -60,11 +60,12 @@ Run from the repository root unless noted.
 | `axiom build --target wasm_browser --out ... examples/src/deterministic.ax` | artifact written |
 | `node browser/host-smoke.mjs ...` | `ok` (hash, ABI v1, IR v1) |
 | `node editors/vscode/test/validate.mjs` | `ok: 41 regexes, 44 scopes, .ax registered` |
-| `node scripts/check-docs-links.mjs` | `ok: 57 links in 9 pages` |
+| `node scripts/check-docs-links.mjs` | `ok: 61 links in 10 pages` |
 | `node scripts/check-axiom-highlight.mjs` | `ok: axiom grammar (12 token rules, 4325 bytes)` |
 | `node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json` | `ok: headless browser rendered UiTree and forwarded a button event` |
 | reference frontend: `axiom build --target wasm_browser --out dist_ref examples/src/shared.ax examples/src/frontend.ax examples/src/server.ax` + `headless-smoke.mjs --input-file ... --api-file ...` | pass; renders TeamBoard, clicks Refresh, observes completed `7` |
 | `cargo test -p axiom-server` | pass: JSON round-trip, 4 HTTP/ApiGuard/TCP tests, and 3 reference-route tests |
+| `cargo run -p axiom-server --example ui_agent_demo` + `node browser/headless-ui-agent.mjs` | `ok: backend agent published a new frontend and the browser UI changed on demand` |
 | `python -c "import yaml; yaml.safe_load(open('docs/_config.yml'))"` | pass (GitHub Pages Jekyll config parses) |
 | `axiom build --target wasm_browser examples/src/{shared,frontend,server}.ax` | **fails**: `get_dashboard` uses `db.read`, which is not available on `wasm_browser` |
 | Clean checkout: `cargo build --workspace --all-targets --all-features` | pass at `7f63c1e` (see below) |
@@ -112,6 +113,7 @@ for the required aliases only.
 | VS Code extension | `.ax` TextMate highlighting + language configuration (`editors/vscode`); no LSP |
 | GitHub Pages docs site | Custom layout/CSS, Prism Axiom highlighting, quickstart, language tour, examples, CLI reference, and deployment guide (`docs/github-pages.md`) |
 | GitHub Pages Axiom app | demo and reference frontend are deployable via the shipped host; server-backed apps need an external Axiom backend |
+| UI agent demo | backend compiles generated frontend templates, publishes in memory, and the browser reloads the new UI; headless test passes |
 | LSP | not started |
 
 ## Definition of Done
@@ -130,7 +132,7 @@ with a named gap; **not met** = no credible implementation.
 | 7 | Workspace/path/command/patch/artifact security passes | met | `workspace.rs` (8), `worktree.rs` (2), `sandbox.rs` (5), `process.rs` (6), `integration.rs` (5), `artifacts/store.rs` (5) | Process isolation only; network profiles refused, not isolated |
 | 8 | Frontend state typed, versioned, validated, hot-swapped, migrated/rejected | partial | `state.rs` (12): partitions, migrations, snapshots, quarantine, forbidden fields | Not bound to a browser loader; no persistent backend |
 | 9 | Registry, WASM cache, and server-data cache are separate, integrity-checked, version-aware, non-authoritative | partial | `registry.rs` (11), `cache.rs` (9) | In-memory/process-local; no HTTP auth integration; no CLI publish/activate |
-| 10 | Agent-generated frontend compiles to WASM, passes real browser tests, publishes/rolls back atomically | partial | Registry rollback is tested; `browser/headless-smoke.mjs` renders/clicks the demo and runs the reference frontend with a mock API; `reference_browser.rs` verifies typed stubs | No agent-generated frontend or atomic browser release switch; production API/identity provider missing |
+| 10 | Agent-generated frontend compiles to WASM, passes real browser tests, publishes/rolls back atomically | partial | `ui_agent_demo.rs` generates a frontend, compiles it, publishes a release, and `headless-ui-agent.mjs` observes the reloaded UI; registry rollback is tested | Deterministic template agent and in-memory release; no real provider, persistent registry, or atomic cross-process switch |
 | 11 | Parameterized/typed DB access, least-privilege roles, approval/audit/migration tests, redacted secrets | met (bundled SQLite driver) | `sql.rs` (11), `sqlite.rs` (6), `write.rs` (6), `migrations.rs` (8); `axiom-cli/tests/database.rs`: driver-independent spec building, unsafe paths, unregistered drivers, redaction | Only the bundled SQLite driver is proven; remote drivers are optional adapters |
 | 12 | Durable runs: trace, budgets, cancellation, tested resume; no exactly-once claim | partial | `durable.rs` (10): replay, approvals, idempotency keys, child cancellation, redacted traces | In-memory journal, no trace exporter, no timeout scheduler, no `runtime.retry`; at-least-once only |
 | 13 | Security, fuzz, property, concurrency, integration tests pass; clean-checkout CI succeeds | partial | Security/integration suites above; formatter property test; parser "token soup" test; clean-checkout build recorded below | No fuzz harness (`cargo-fuzz`), no true concurrency stress; CI covers Ubuntu only |

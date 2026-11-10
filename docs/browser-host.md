@@ -98,4 +98,6 @@ host files.
 - There is no production release registry or atomic active-release switch in the
   browser yet.
 
-See [Publishing to GitHub Pages](github-pages.md) for deploying the demo host.
+See [Publishing to GitHub Pages](github-pages.md) for deploying the demo host,
+and [UI agent demo](ui-agent-demo.md) for the backend-plus-agent flow that changes
+the UI on demand.

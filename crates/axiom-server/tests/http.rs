@@ -124,3 +124,25 @@ fn a_real_tcp_request_is_served() {
     assert!(response.contains("\"team_id\":\"t1\""), "{response}");
     handle.join().expect("join").expect("serve");
 }
+
+#[test]
+fn raw_routes_serve_public_assets() {
+    let server = server()
+        .route_raw("GET", "/app/", |_request| {
+            axiom_server::Response::raw(200, "text/html", b"<html>".to_vec())
+        })
+        .route_raw("GET", "/app/host.js", |_request| {
+            axiom_server::Response::raw(200, "text/javascript", b"host".to_vec())
+        });
+    let mut request = Request {
+        method: "GET".to_string(),
+        path: "/app/host.js".to_string(),
+        headers: BTreeMap::new(),
+        body: Vec::new(),
+    };
+    let response = server.handle(&request);
+    assert_eq!(response.status, 200);
+    assert_eq!(response.body, b"host");
+    request.path = "/app/".to_string();
+    assert_eq!(server.handle(&request).body, b"<html>");
+}

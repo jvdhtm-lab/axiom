@@ -110,6 +110,23 @@ release: release:7d10…  content_hash sha256:9e2b…</code></pre>
 
 <section class="section">
   <div class="section-head">
+    <p class="eyebrow">Agent-generated UI</p>
+    <h2>Backend Axiom, frontend changed on demand</h2>
+    <p>
+      The UI agent demo runs the whole loop: a backend accepts a change request,
+      generates a new Axiom frontend, compiles it for <code>wasm_browser</code>,
+      publishes the release, and the trusted browser host reloads and renders it.
+      The agent selects declared templates; arbitrary source is never injected.
+    </p>
+  </div>
+  <div class="hero-actions">
+    <a class="button button-primary" href="{{ '/ui-agent-demo.html' | relative_url }}">Run the UI agent demo</a>
+    <a class="button button-ghost" href="{{ '/browser-host.html' | relative_url }}">Browser host details</a>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
     <p class="eyebrow">Get started</p>
     <h2>From zero to a running project</h2>
     <p>Install the CLI, scaffold a two-target app, and check it in a few commands.</p>
@@ -237,6 +254,10 @@ release: release:7d10…  content_hash sha256:9e2b…</code></pre>
     <a class="link-card" href="{{ '/browser-host.html' | relative_url }}">
       <strong>Browser host</strong>
       <span>Artifact verification, IR interpretation, UiTree rendering, and the headless test.</span>
+    </a>
+    <a class="link-card" href="{{ '/ui-agent-demo.html' | relative_url }}">
+      <strong>UI agent demo</strong>
+      <span>Backend + agent-generated frontend, compiled, published, and reloaded on demand.</span>
     </a>
     <a class="link-card" href="{{ '/remaining-phases.html' | relative_url }}">
       <strong>Remaining phases</strong>

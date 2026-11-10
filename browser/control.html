@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Axiom UI agent demo</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f7fb;
+        --surface: #ffffff;
+        --text: #111827;
+        --muted: #5b6478;
+        --border: #d9dfeb;
+        --accent: #4f46e5;
+        --danger: #b91c1c;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1020;
+          --surface: #11182b;
+          --text: #e7ecf6;
+          --muted: #9aa6c0;
+          --border: #24304d;
+          --accent: #818cf8;
+          --danger: #fca5a5;
+        }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.55; }
+      .shell { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
+      .eyebrow { margin: 0 0 8px; color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+      h1 { margin: 0; font-size: 1.7rem; letter-spacing: -0.02em; }
+      .lede { margin: 8px 0 24px; color: var(--muted); }
+      .bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        padding: 14px;
+        margin-bottom: 18px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--surface);
+      }
+      label { color: var(--muted); font-size: 14px; font-weight: 600; }
+      select {
+        padding: 9px 12px;
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+      }
+      button {
+        padding: 9px 15px;
+        border: 0;
+        border-radius: 9px;
+        background: var(--accent);
+        color: #fff;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button:disabled { opacity: 0.6; cursor: progress; }
+      #status { margin: 0; color: var(--muted); font-size: 13px; }
+      #status.error { color: var(--danger); }
+      .preview {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+        box-shadow: 0 18px 50px rgba(17, 24, 39, 0.08);
+      }
+      iframe { display: block; width: 100%; min-height: 440px; border: 0; background: var(--surface); }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <p class="eyebrow">Axiom UI agent demo</p>
+      <h1>Change the frontend on demand</h1>
+      <p class="lede">
+        The backend runs an agent-style update: it generates a new Axiom frontend,
+        compiles it to a browser artifact, publishes the release, and reloads the
+        trusted host. The agent only chooses between declared templates; it never
+        injects arbitrary source.
+      </p>
+      <div class="bar">
+        <label for="theme">Requested UI</label>
+        <select id="theme">
+          <option value="light">light dashboard</option>
+          <option value="dark">dark dashboard</option>
+          <option value="minimal">minimal dashboard</option>
+        </select>
+        <button id="update" type="button">Ask agent to update UI</button>
+        <p id="status" role="status">Ready.</p>
+      </div>
+      <div class="preview">
+        <iframe
+          id="preview"
+          title="Axiom frontend preview"
+          src="/app/?manifest=/api/frontend/manifest&wasm=/api/frontend/wasm"
+        ></iframe>
+      </div>
+    </div>
+    <script>
+      const status = document.getElementById("status");
+      const theme = document.getElementById("theme");
+      const update = document.getElementById("update");
+      const preview = document.getElementById("preview");
+
+      function setStatus(text, error = false) {
+        status.textContent = text;
+        status.className = error ? "error" : "";
+      }
+
+      update.addEventListener("click", async () => {
+        update.disabled = true;
+        setStatus("Agent is generating and compiling a frontend…");
+        try {
+          const response = await fetch("/api/update_frontend", {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              "x-axiom-principal": "demo-admin"
+            },
+            body: JSON.stringify({ request: theme.value })
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            setStatus(`Refused: ${result.message ?? response.status}`, true);
+            return;
+          }
+          setStatus(`Published ${result.release_id} · theme ${result.theme} · ${result.content_hash.slice(0, 12)}…`);
+          preview.src = `/app/?manifest=/api/frontend/manifest&wasm=/api/frontend/wasm&v=${encodeURIComponent(result.content_hash)}`;
+        } catch (error) {
+          setStatus(`Update failed: ${error.message}`, true);
+        } finally {
+          update.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

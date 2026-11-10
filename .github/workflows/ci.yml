@@ -33,3 +33,15 @@ jobs:
         run: ./target/release/axiom build --target wasm_browser --out dist_ref examples/src/shared.ax examples/src/frontend.ax examples/src/server.ax
       - name: Reference browser host test
         run: node browser/headless-smoke.mjs dist_ref/app.wasm dist_ref/app.manifest.json --input-file browser/fixtures/reference_input.json --api-file browser/fixtures/reference_api.json --expect "TeamBoard" --expect "Completed tasks" --expect "7"
+      - name: Build the UI agent demo
+        run: cargo build -p axiom-server --example ui_agent_demo
+      - name: Start the UI agent demo
+        run: |
+          ./target/debug/examples/ui_agent_demo --bind 127.0.0.1:8099 &
+          echo $! > /tmp/axiom-ui-agent.pid
+          sleep 2
+      - name: UI agent browser test
+        run: node browser/headless-ui-agent.mjs
+      - name: Stop the UI agent demo
+        if: always()
+        run: kill "$(cat /tmp/axiom-ui-agent.pid)" || true

@@ -14,3 +14,4 @@ axiom-runtime = { workspace = true }
 [dev-dependencies]
 axiom-ir = { workspace = true }
 axiom-syntax = { workspace = true }
+axiom-wasm = { workspace = true }

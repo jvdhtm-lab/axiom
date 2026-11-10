@@ -6,6 +6,11 @@ when the implementation ledger cites passing evidence.
 
 Status: `done`, `in progress`, `not started`.
 
+The target model ? backend Axiom orchestrating an agent-generated frontend that
+changes the UI on demand ? is demonstrated by `docs/ui-agent-demo.md`. The
+remaining phases harden that model for production: real providers, persistence,
+tooling, and release evidence.
+
 | Phase | Work | Status |
 | --- | --- | --- |
 | 13 | Type checker completion: conservative expression inference, record/list/enum/`Option`/`Result` typing, user/imported function signatures, match exhaustiveness | done |

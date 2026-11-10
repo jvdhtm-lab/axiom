@@ -13,6 +13,7 @@ const files = [
   "cli.md",
   "server.md",
   "browser-host.md",
+  "ui-agent-demo.md",
   "remaining-phases.md",
   "github-pages.md",
 ];

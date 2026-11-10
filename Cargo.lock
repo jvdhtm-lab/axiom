@@ -105,6 +105,7 @@ dependencies = [
  "axiom-ir",
  "axiom-runtime",
  "axiom-syntax",
+ "axiom-wasm",
 ]
 
 [[package]]

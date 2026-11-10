@@ -112,6 +112,7 @@ cargo run -p axiom-cli -- build --target wasm_browser --out out examples/src/det
 node browser/host-smoke.mjs out/app.wasm out/app.manifest.json
 cargo run -p axiom-cli -- build --target wasm_browser --out dist examples/src/ui_demo.ax
 node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json
+cargo run -p axiom-server --example ui_agent_demo
 cargo run -p axiom-cli -- build --target wasm_browser --out dist_ref examples/src/shared.ax examples/src/frontend.ax examples/src/server.ax
 node browser/headless-smoke.mjs dist_ref/app.wasm dist_ref/app.manifest.json --input-file browser/fixtures/reference_input.json --api-file browser/fixtures/reference_api.json --expect "TeamBoard" --expect "Completed tasks" --expect "7"
 ```

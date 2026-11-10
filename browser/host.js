@@ -46,15 +46,18 @@ async function sha256Hex(buffer) {
 }
 
 async function loadArtifact() {
-  const manifestResponse = await fetch("./app.manifest.json", { cache: "no-store" });
+  const params = new URLSearchParams(location.search);
+  const manifestUrl = params.get("manifest") || "./app.manifest.json";
+  const wasmUrl = params.get("wasm") || "./app.wasm";
+  const manifestResponse = await fetch(manifestUrl, { cache: "no-store" });
   if (!manifestResponse.ok) {
-    fail(`cannot load app.manifest.json (${manifestResponse.status})`);
+    fail(`cannot load manifest (${manifestResponse.status})`);
   }
   const manifest = await manifestResponse.json();
 
-  const wasmResponse = await fetch("./app.wasm", { cache: "no-store" });
+  const wasmResponse = await fetch(wasmUrl, { cache: "no-store" });
   if (!wasmResponse.ok) {
-    fail(`cannot load app.wasm (${wasmResponse.status})`);
+    fail(`cannot load wasm (${wasmResponse.status})`);
   }
   const bytes = await wasmResponse.arrayBuffer();
 
