@@ -459,6 +459,54 @@ kbd {
   margin-top: 8px;
 }
 
+/* Screenshots */
+
+.screenshot-lead {
+  margin: 0 0 18px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.screenshot-lead img,
+.screenshot-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.screenshot-lead figcaption,
+.screenshot-card figcaption {
+  padding: 10px 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.screenshot-lead figcaption {
+  padding: 12px 16px;
+}
+
+.screenshot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.screenshot-card {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.screenshot-card strong,
+.screenshot-lead strong {
+  color: var(--text);
+}
+
 /* Documentation pages */
 
 .doc {

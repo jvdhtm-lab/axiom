@@ -60,7 +60,7 @@ Run from the repository root unless noted.
 | `axiom build --target wasm_browser --out ... examples/src/deterministic.ax` | artifact written |
 | `node browser/host-smoke.mjs ...` | `ok` (hash, ABI v1, IR v1) |
 | `node editors/vscode/test/validate.mjs` | `ok: 41 regexes, 44 scopes, .ax registered` |
-| `node scripts/check-docs-links.mjs` | `ok: 61 links in 10 pages` |
+| `node scripts/check-docs-links.mjs` | `ok: 71 links in 10 pages` |
 | `node scripts/check-axiom-highlight.mjs` | `ok: axiom grammar (12 token rules, 4325 bytes)` |
 | `node browser/headless-smoke.mjs dist/app.wasm dist/app.manifest.json` | `ok: headless browser rendered UiTree and forwarded a button event` |
 | reference frontend: `axiom build --target wasm_browser --out dist_ref examples/src/shared.ax examples/src/frontend.ax examples/src/server.ax` + `headless-smoke.mjs --input-file ... --api-file ...` | pass; renders TeamBoard, clicks Refresh, observes completed `7` |

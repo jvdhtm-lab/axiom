@@ -20,6 +20,36 @@ Two agent modes are available:
   agent. The generated source is untrusted: it is parsed, type-checked, repaired
   once with structured findings, and compiled before publication.
 
+## Screens
+
+<figure class="screenshot-lead">
+  <img
+    src="{{ '/assets/screenshots/ui-light.png' | relative_url }}"
+    alt="Axiom UI agent demo control page with a light dashboard preview"
+    loading="lazy"
+  >
+  <figcaption><strong>Control page</strong> ? request, publish, reload.</figcaption>
+</figure>
+
+<div class="screenshot-grid">
+  <figure class="screenshot-card">
+    <img src="{{ '/assets/screenshots/ui-light-app.png' | relative_url }}" alt="Light dashboard" loading="lazy">
+    <figcaption><strong>Light</strong> ? template state</figcaption>
+  </figure>
+  <figure class="screenshot-card">
+    <img src="{{ '/assets/screenshots/ui-dark-app.png' | relative_url }}" alt="Dark dashboard" loading="lazy">
+    <figcaption><strong>Dark</strong> ? template state</figcaption>
+  </figure>
+  <figure class="screenshot-card">
+    <img src="{{ '/assets/screenshots/ui-minimal-app.png' | relative_url }}" alt="Minimal dashboard" loading="lazy">
+    <figcaption><strong>Minimal</strong> ? template state</figcaption>
+  </figure>
+  <figure class="screenshot-card">
+    <img src="{{ '/assets/screenshots/agent-app.png' | relative_url }}" alt="OpenCode-agent dashboard" loading="lazy">
+    <figcaption><strong>OpenCode agent</strong> ? free model state</figcaption>
+  </figure>
+</div>
+
 ## Run it
 
 ```sh
